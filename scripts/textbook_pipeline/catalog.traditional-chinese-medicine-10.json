@@ -1,0 +1,568 @@
+{
+  "book": "中医学（第10版）",
+  "parts": [
+    {
+      "systemKey": "上篇",
+      "subject": "中医学 - 上篇",
+      "title": "上篇",
+      "chapters": [
+        {
+          "name": "导论",
+          "label": "第一章 导论",
+          "pageNum": 23,
+          "children": [
+            {
+              "name": "中医学的历史沿革",
+              "label": "第一节　中医学的历史沿革",
+              "pageNum": 23
+            },
+            {
+              "name": "中医学的哲学基础",
+              "label": "第二节　中医学的哲学基础",
+              "pageNum": 30
+            },
+            {
+              "name": "中医学理论体系的基本特点",
+              "label": "第三节　中医学理论体系的基本特点",
+              "pageNum": 46
+            },
+            {
+              "name": "中医学与其他医学的交流",
+              "label": "第四节　中医学与其他医学的交流",
+              "pageNum": 50
+            },
+            {
+              "name": "中医学发展现状与展望",
+              "label": "第五节　中医学发展现状与展望",
+              "pageNum": 51
+            }
+          ]
+        },
+        {
+          "name": "藏象学说",
+          "label": "第二章 藏象学说",
+          "pageNum": 59,
+          "children": [
+            {
+              "name": "概述",
+              "label": "第一节　概述",
+              "pageNum": 59
+            },
+            {
+              "name": "脏腑",
+              "label": "第二节　脏腑",
+              "pageNum": 60
+            },
+            {
+              "name": "精、气、血、津液、神",
+              "label": "第三节　精、气、血、津液、神",
+              "pageNum": 77
+            },
+            {
+              "name": "体质",
+              "label": "第四节　体质",
+              "pageNum": 86
+            }
+          ]
+        },
+        {
+          "name": "病因病机",
+          "label": "第三章 病因病机",
+          "pageNum": 92,
+          "children": [
+            {
+              "name": "病因",
+              "label": "第一节　病因",
+              "pageNum": 92
+            },
+            {
+              "name": "病机",
+              "label": "第二节　病机",
+              "pageNum": 100
+            }
+          ]
+        },
+        {
+          "name": "四诊",
+          "label": "第四章 四诊",
+          "pageNum": 108,
+          "children": [
+            {
+              "name": "望诊",
+              "label": "第一节　望诊",
+              "pageNum": 108
+            },
+            {
+              "name": "闻诊",
+              "label": "第二节　闻诊",
+              "pageNum": 116
+            },
+            {
+              "name": "问诊",
+              "label": "第三节　问诊",
+              "pageNum": 117
+            },
+            {
+              "name": "切诊",
+              "label": "第四节　切诊",
+              "pageNum": 120
+            }
+          ]
+        },
+        {
+          "name": "辨证",
+          "label": "第五章 辨证",
+          "pageNum": 126,
+          "children": [
+            {
+              "name": "八纲辨证",
+              "label": "第一节　八纲辨证",
+              "pageNum": 126
+            },
+            {
+              "name": "脏腑辨证",
+              "label": "第二节　脏腑辨证",
+              "pageNum": 130
+            },
+            {
+              "name": "六经辨证",
+              "label": "第三节　六经辨证",
+              "pageNum": 142
+            },
+            {
+              "name": "卫气营血辨证",
+              "label": "第四节　卫气营血辨证",
+              "pageNum": 145
+            },
+            {
+              "name": "三焦辨证",
+              "label": "第五节　三焦辨证",
+              "pageNum": 147
+            }
+          ]
+        },
+        {
+          "name": "防治原则与治法",
+          "label": "第六章 防治原则与治法",
+          "pageNum": 150,
+          "children": [
+            {
+              "name": "防治原则",
+              "label": "第一节　防治原则",
+              "pageNum": 150
+            },
+            {
+              "name": "治法",
+              "label": "第二节　治法",
+              "pageNum": 155
+            },
+            {
+              "name": "中医常用的外治法",
+              "label": "第三节　中医常用的外治法",
+              "pageNum": 159
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "systemKey": "中篇",
+      "subject": "中医学 - 中篇",
+      "title": "中篇",
+      "chapters": [
+        {
+          "name": "中药",
+          "label": "第七章 中药",
+          "pageNum": 163,
+          "children": [
+            {
+              "name": "中药概述",
+              "label": "第一节　中药概述",
+              "pageNum": 163
+            },
+            {
+              "name": "中药的分类及常用中药",
+              "label": "第二节　中药的分类及常用中药",
+              "pageNum": 169
+            }
+          ]
+        },
+        {
+          "name": "方剂",
+          "label": "第八章 方剂",
+          "pageNum": 202,
+          "children": [
+            {
+              "name": "方剂的基础知识",
+              "label": "第一节　方剂的基础知识",
+              "pageNum": 202
+            },
+            {
+              "name": "方剂的分类及常用方剂",
+              "label": "第二节　方剂的分类及常用方剂",
+              "pageNum": 205
+            }
+          ]
+        },
+        {
+          "name": "针灸学基础",
+          "label": "第九章 针灸学基础",
+          "pageNum": 224,
+          "children": [
+            {
+              "name": "经络",
+              "label": "第一节　经络",
+              "pageNum": 224
+            },
+            {
+              "name": "腧穴",
+              "label": "第二节　腧穴",
+              "pageNum": 237
+            },
+            {
+              "name": "针灸法",
+              "label": "第三节　针灸法",
+              "pageNum": 255
+            },
+            {
+              "name": "针灸治疗",
+              "label": "第四节　针灸治疗",
+              "pageNum": 262
+            },
+            {
+              "name": "其他疗法",
+              "label": "第五节　其他疗法",
+              "pageNum": 265
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "systemKey": "下篇",
+      "subject": "中医学 - 下篇",
+      "title": "下篇",
+      "chapters": [
+        {
+          "name": "内科常见病证",
+          "label": "第十章 内科常见病证",
+          "pageNum": 285,
+          "children": [
+            {
+              "name": "感冒",
+              "label": "第一节　感冒",
+              "pageNum": 285
+            },
+            {
+              "name": "咳嗽",
+              "label": "第二节　咳嗽",
+              "pageNum": 286
+            },
+            {
+              "name": "喘证",
+              "label": "第三节　喘证",
+              "pageNum": 289
+            },
+            {
+              "name": "心悸",
+              "label": "第四节　心悸",
+              "pageNum": 291
+            },
+            {
+              "name": "胸痹",
+              "label": "第五节　胸痹",
+              "pageNum": 293
+            },
+            {
+              "name": "不寐",
+              "label": "第六节　不寐",
+              "pageNum": 295
+            },
+            {
+              "name": "痴呆",
+              "label": "第七节　痴呆",
+              "pageNum": 296
+            },
+            {
+              "name": "胃痛",
+              "label": "第八节　胃痛",
+              "pageNum": 298
+            },
+            {
+              "name": "泄泻",
+              "label": "第九节　泄泻",
+              "pageNum": 299
+            },
+            {
+              "name": "便秘",
+              "label": "第十节　便秘",
+              "pageNum": 301
+            },
+            {
+              "name": "胁痛",
+              "label": "第十一节　胁痛",
+              "pageNum": 303
+            },
+            {
+              "name": "黄疸",
+              "label": "第十二节　黄疸",
+              "pageNum": 304
+            },
+            {
+              "name": "中风",
+              "label": "第十三节　中风",
+              "pageNum": 306
+            },
+            {
+              "name": "眩晕",
+              "label": "第十四节　眩晕",
+              "pageNum": 308
+            },
+            {
+              "name": "头痛",
+              "label": "第十五节　头痛",
+              "pageNum": 309
+            },
+            {
+              "name": "水肿",
+              "label": "第十六节　水肿",
+              "pageNum": 311
+            },
+            {
+              "name": "淋证",
+              "label": "第十七节　淋证",
+              "pageNum": 314
+            },
+            {
+              "name": "遗精",
+              "label": "第十八节　遗精",
+              "pageNum": 316
+            },
+            {
+              "name": "郁证",
+              "label": "第十九节　郁证",
+              "pageNum": 317
+            },
+            {
+              "name": "血证",
+              "label": "第二十节　血证",
+              "pageNum": 319
+            },
+            {
+              "name": "消渴",
+              "label": "第二十一节　消渴",
+              "pageNum": 323
+            },
+            {
+              "name": "汗证",
+              "label": "第二十二节　汗证",
+              "pageNum": 324
+            },
+            {
+              "name": "肥胖",
+              "label": "第二十三节　肥胖",
+              "pageNum": 326
+            },
+            {
+              "name": "内伤发热",
+              "label": "第二十四节　内伤发热",
+              "pageNum": 327
+            },
+            {
+              "name": "痹证",
+              "label": "第二十五节　痹证",
+              "pageNum": 329
+            },
+            {
+              "name": "腰痛",
+              "label": "第二十六节　腰痛",
+              "pageNum": 331
+            },
+            {
+              "name": "痿证",
+              "label": "第二十七节　痿证",
+              "pageNum": 332
+            }
+          ]
+        },
+        {
+          "name": "外科常见病证",
+          "label": "第十一章 外科常见病证",
+          "pageNum": 335,
+          "children": [
+            {
+              "name": "瘾疹",
+              "label": "第一节　瘾疹",
+              "pageNum": 335
+            },
+            {
+              "name": "痈",
+              "label": "第二节　痈",
+              "pageNum": 336
+            },
+            {
+              "name": "湿疮",
+              "label": "第三节　湿疮",
+              "pageNum": 337
+            },
+            {
+              "name": "痔病",
+              "label": "第四节　痔病",
+              "pageNum": 339
+            },
+            {
+              "name": "肛漏",
+              "label": "第五节　肛漏",
+              "pageNum": 340
+            },
+            {
+              "name": "肛痈",
+              "label": "第六节　肛痈",
+              "pageNum": 342
+            }
+          ]
+        },
+        {
+          "name": "妇科常见病证",
+          "label": "第十二章 妇科常见病证",
+          "pageNum": 344,
+          "children": [
+            {
+              "name": "月经不调",
+              "label": "第一节　月经不调",
+              "pageNum": 344
+            },
+            {
+              "name": "闭经",
+              "label": "第二节　闭经",
+              "pageNum": 347
+            },
+            {
+              "name": "痛经",
+              "label": "第三节　痛经",
+              "pageNum": 349
+            },
+            {
+              "name": "崩漏",
+              "label": "第四节　崩漏",
+              "pageNum": 351
+            },
+            {
+              "name": "经断前后诸证",
+              "label": "第五节　经断前后诸证",
+              "pageNum": 353
+            },
+            {
+              "name": "带下病",
+              "label": "第六节　带下病",
+              "pageNum": 354
+            },
+            {
+              "name": "不孕症",
+              "label": "第七节　不孕症",
+              "pageNum": 356
+            },
+            {
+              "name": "缺乳",
+              "label": "第八节　缺乳",
+              "pageNum": 358
+            }
+          ]
+        },
+        {
+          "name": "儿科常见病证",
+          "label": "第十三章 儿科常见病证",
+          "pageNum": 360,
+          "children": [
+            {
+              "name": "小儿性早熟",
+              "label": "第一节　小儿性早熟",
+              "pageNum": 360
+            },
+            {
+              "name": "小儿遗尿",
+              "label": "第二节　小儿遗尿",
+              "pageNum": 361
+            },
+            {
+              "name": "小儿抽动症",
+              "label": "第三节　小儿抽动症",
+              "pageNum": 363
+            }
+          ]
+        },
+        {
+          "name": "骨伤科常见病证",
+          "label": "第十四章 骨伤科常见病证",
+          "pageNum": 366,
+          "children": [
+            {
+              "name": "骨质疏松症",
+              "label": "第一节　骨质疏松症",
+              "pageNum": 366
+            },
+            {
+              "name": "颈椎病",
+              "label": "第二节　颈椎病",
+              "pageNum": 368
+            },
+            {
+              "name": "膝骨关节炎",
+              "label": "第三节　膝骨关节炎",
+              "pageNum": 370
+            }
+          ]
+        },
+        {
+          "name": "五官科常见病证",
+          "label": "第十五章 五官科常见病证",
+          "pageNum": 373,
+          "children": [
+            {
+              "name": "鼻鼽",
+              "label": "第一节　鼻鼽",
+              "pageNum": 373
+            },
+            {
+              "name": "白涩症",
+              "label": "第二节　白涩症",
+              "pageNum": 374
+            },
+            {
+              "name": "聚星障",
+              "label": "第三节　聚星障",
+              "pageNum": 376
+            }
+          ]
+        },
+        {
+          "name": "肿瘤",
+          "label": "第十六章 肿瘤",
+          "pageNum": 378,
+          "children": [
+            {
+              "name": "中医肿瘤学发展历程",
+              "label": "第一节　中医肿瘤学发展历程",
+              "pageNum": 378
+            },
+            {
+              "name": "肿瘤的病因病机",
+              "label": "第二节　肿瘤的病因病机",
+              "pageNum": 380
+            },
+            {
+              "name": "肿瘤的辨证论治及治则治法",
+              "label": "第三节　肿瘤的辨证论治及治则治法",
+              "pageNum": 381
+            },
+            {
+              "name": "治疗肿瘤的常用中草药、调护及治法的研究",
+              "label": "第四节　治疗肿瘤的常用中草药、调护及治法的研究",
+              "pageNum": 383
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

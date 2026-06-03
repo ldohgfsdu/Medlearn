@@ -1,0 +1,11 @@
+{
+  "name": "analytics",
+  "version": "1.0.0",
+  "description": "数据分析云函数：计算学习统计和薄弱知识点",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  },
+  "author": "MedLearn Team",
+  "license": "MIT"
+}

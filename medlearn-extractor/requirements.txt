@@ -1,0 +1,6 @@
+anthropic>=0.39.0
+openai>=1.30.0
+pymupdf>=1.24.0
+pymupdf4llm>=0.0.17
+rich>=13.0.0
+tqdm>=4.66.0

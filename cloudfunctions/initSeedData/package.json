@@ -1,0 +1,11 @@
+{
+  "name": "initSeedData",
+  "version": "1.0.0",
+  "description": "种子数据初始化云函数：首次登录时写入种子数据",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  },
+  "author": "MedLearn Team",
+  "license": "MIT"
+}

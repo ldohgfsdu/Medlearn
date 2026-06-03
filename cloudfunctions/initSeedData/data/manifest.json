@@ -1,0 +1,15 @@
+{
+  "total_nodes": 384,
+  "total_chunks": 8,
+  "chunk_size": 50,
+  "chunks": [
+    "knowledge_nodes_part_00.json",
+    "knowledge_nodes_part_01.json",
+    "knowledge_nodes_part_02.json",
+    "knowledge_nodes_part_03.json",
+    "knowledge_nodes_part_04.json",
+    "knowledge_nodes_part_05.json",
+    "knowledge_nodes_part_06.json",
+    "knowledge_nodes_part_07.json"
+  ]
+}

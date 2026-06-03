@@ -1,0 +1,2573 @@
+{
+  "systems": [
+    {
+      "name": "绪论",
+      "chapters": []
+    },
+    {
+      "name": "呼吸系统疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": []
+        },
+        {
+          "name": "急性上呼吸道感染和急性气管支气管炎",
+          "sections": [
+            {
+              "name": "急性上呼吸道感染",
+              "type": "disease",
+              "start_page": 18
+            },
+            {
+              "name": "流行性感冒",
+              "type": "disease",
+              "start_page": 20
+            },
+            {
+              "name": "急性气管支气管炎",
+              "type": "disease",
+              "start_page": 21
+            }
+          ]
+        },
+        {
+          "name": "慢性阻塞性肺疾病",
+          "sections": [
+            {
+              "name": "慢性支气管炎",
+              "type": "disease",
+              "start_page": 23
+            },
+            {
+              "name": "慢性阻塞性肺疾病",
+              "type": "disease",
+              "start_page": 25
+            }
+          ]
+        },
+        {
+          "name": "支气管哮喘",
+          "sections": [
+            {
+              "name": "支气管哮喘",
+              "type": "disease",
+              "start_page": 31
+            }
+          ]
+        },
+        {
+          "name": "支气管扩张症",
+          "sections": [
+            {
+              "name": "支气管扩张症",
+              "type": "disease",
+              "start_page": 40
+            }
+          ]
+        },
+        {
+          "name": "肺部感染性疾病",
+          "sections": [
+            {
+              "name": "肺炎概述",
+              "type": "basic",
+              "start_page": 46
+            },
+            {
+              "name": "细菌性肺炎",
+              "type": "disease",
+              "start_page": 50
+            },
+            {
+              "name": "肺炎链球菌肺炎",
+              "type": "disease",
+              "start_page": 50
+            },
+            {
+              "name": "葡萄球菌肺炎",
+              "type": "disease",
+              "start_page": 52
+            },
+            {
+              "name": "病毒性肺炎",
+              "type": "disease",
+              "start_page": 53
+            },
+            {
+              "name": "严重急性呼吸综合征",
+              "type": "syndrome",
+              "start_page": 54
+            },
+            {
+              "name": "高致病性人禽流感病毒性肺炎",
+              "type": "disease",
+              "start_page": 55
+            },
+            {
+              "name": "2019 冠状病毒病",
+              "type": "disease",
+              "start_page": 56
+            },
+            {
+              "name": "肺炎支原体肺炎、衣原体肺炎与肺军团病",
+              "type": "disease",
+              "start_page": 60
+            },
+            {
+              "name": "肺炎支原体肺炎",
+              "type": "disease",
+              "start_page": 60
+            },
+            {
+              "name": "肺炎衣原体肺炎",
+              "type": "disease",
+              "start_page": 61
+            },
+            {
+              "name": "肺军团病",
+              "type": "disease",
+              "start_page": 62
+            },
+            {
+              "name": "肺真菌病",
+              "type": "disease",
+              "start_page": 63
+            },
+            {
+              "name": "肺念珠菌病",
+              "type": "disease",
+              "start_page": 63
+            },
+            {
+              "name": "肺曲霉病",
+              "type": "disease",
+              "start_page": 64
+            },
+            {
+              "name": "肺隐球菌病",
+              "type": "disease",
+              "start_page": 66
+            },
+            {
+              "name": "肺孢子菌肺炎",
+              "type": "disease",
+              "start_page": 66
+            }
+          ]
+        },
+        {
+          "name": "肺脓肿",
+          "sections": [
+            {
+              "name": "肺脓肿",
+              "type": "disease",
+              "start_page": 68
+            }
+          ]
+        },
+        {
+          "name": "肺结核",
+          "sections": [
+            {
+              "name": "非结核分枝杆菌病",
+              "type": "disease",
+              "start_page": 84
+            }
+          ]
+        },
+        {
+          "name": "肺癌",
+          "sections": [
+            {
+              "name": "肺癌",
+              "type": "disease",
+              "start_page": 86
+            }
+          ]
+        },
+        {
+          "name": "间质性肺疾病",
+          "sections": [
+            {
+              "name": "间质性肺疾病的分类",
+              "type": "basic",
+              "start_page": 99
+            },
+            {
+              "name": "特发性肺纤维化",
+              "type": "disease",
+              "start_page": 102
+            },
+            {
+              "name": "结节病",
+              "type": "disease",
+              "start_page": 105
+            },
+            {
+              "name": "其他间质性肺疾病",
+              "type": "disease",
+              "start_page": 108
+            },
+            {
+              "name": "过敏性肺炎",
+              "type": "disease",
+              "start_page": 108
+            },
+            {
+              "name": "嗜酸性粒细胞性肺炎",
+              "type": "disease",
+              "start_page": 108
+            },
+            {
+              "name": "肺朗格汉斯细胞组织细胞增生症",
+              "type": "disease",
+              "start_page": 108
+            },
+            {
+              "name": "肺淋巴管平滑肌瘤病",
+              "type": "disease",
+              "start_page": 109
+            },
+            {
+              "name": "肺泡蛋白沉着症",
+              "type": "disease",
+              "start_page": 109
+            },
+            {
+              "name": "特发性肺含铁血黄素沉着症",
+              "type": "disease",
+              "start_page": 109
+            }
+          ]
+        },
+        {
+          "name": "肺血栓栓塞症",
+          "sections": [
+            {
+              "name": "肺血栓栓塞症",
+              "type": "disease",
+              "start_page": 110
+            }
+          ]
+        },
+        {
+          "name": "肺动脉高压",
+          "sections": [
+            {
+              "name": "肺动脉高压的分类",
+              "type": "basic",
+              "start_page": 118
+            },
+            {
+              "name": "特发性肺动脉高压",
+              "type": "disease",
+              "start_page": 119
+            },
+            {
+              "name": "慢性肺源性心脏病",
+              "type": "disease",
+              "start_page": 122
+            }
+          ]
+        },
+        {
+          "name": "胸膜疾病",
+          "sections": [
+            {
+              "name": "胸腔积液",
+              "type": "disease",
+              "start_page": 126
+            },
+            {
+              "name": "气胸",
+              "type": "disease",
+              "start_page": 132
+            }
+          ]
+        },
+        {
+          "name": "睡眠呼吸障碍",
+          "sections": [
+            {
+              "name": "概述",
+              "type": "basic",
+              "start_page": 138
+            },
+            {
+              "name": "阻塞性睡眠呼吸暂停",
+              "type": "disease",
+              "start_page": 139
+            }
+          ]
+        },
+        {
+          "name": "呼吸衰竭与呼吸支持技术",
+          "sections": [
+            {
+              "name": "概述",
+              "type": "basic",
+              "start_page": 148
+            },
+            {
+              "name": "急性呼吸衰竭",
+              "type": "disease",
+              "start_page": 150
+            },
+            {
+              "name": "慢性呼吸衰竭",
+              "type": "disease",
+              "start_page": 152
+            },
+            {
+              "name": "呼吸支持技术",
+              "type": "disease",
+              "start_page": 153
+            },
+            {
+              "name": "氧疗",
+              "type": "disease",
+              "start_page": 153
+            },
+            {
+              "name": "人工气道的建立与管理",
+              "type": "disease",
+              "start_page": 154
+            },
+            {
+              "name": "正压机械通气",
+              "type": "disease",
+              "start_page": 155
+            },
+            {
+              "name": "体外膜肺氧合",
+              "type": "disease",
+              "start_page": 156
+            },
+            {
+              "name": "危重症医学概要",
+              "type": "disease",
+              "start_page": 156
+            },
+            {
+              "name": "呼吸康复概要",
+              "type": "disease",
+              "start_page": 161
+            }
+          ]
+        },
+        {
+          "name": "烟草病学概要",
+          "sections": [
+            {
+              "name": "烟草病学概要",
+              "type": "disease",
+              "start_page": 164
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "循环系统疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": [
+            {
+              "name": "心脏的解剖和生理",
+              "type": "disease",
+              "start_page": 170
+            },
+            {
+              "name": "心血管疾病的诊断",
+              "type": "basic",
+              "start_page": 171
+            },
+            {
+              "name": "心血管疾病的治疗",
+              "type": "basic",
+              "start_page": 174
+            }
+          ]
+        },
+        {
+          "name": "心力衰竭",
+          "sections": [
+            {
+              "name": "心力衰竭总论",
+              "type": "basic",
+              "start_page": 176
+            },
+            {
+              "name": "慢性心力衰竭",
+              "type": "disease",
+              "start_page": 179
+            },
+            {
+              "name": "急性心力衰竭",
+              "type": "disease",
+              "start_page": 186
+            }
+          ]
+        },
+        {
+          "name": "心律失常",
+          "sections": [
+            {
+              "name": "概述",
+              "type": "basic",
+              "start_page": 190
+            },
+            {
+              "name": "窦性心律失常",
+              "type": "disease",
+              "start_page": 195
+            },
+            {
+              "name": "窦性心动过速",
+              "type": "disease",
+              "start_page": 196
+            },
+            {
+              "name": "窦性心动过缓",
+              "type": "disease",
+              "start_page": 196
+            },
+            {
+              "name": "窦性停搏",
+              "type": "disease",
+              "start_page": 196
+            },
+            {
+              "name": "窦房传导阻滞",
+              "type": "disease",
+              "start_page": 197
+            },
+            {
+              "name": "病态窦房结综合征",
+              "type": "syndrome",
+              "start_page": 197
+            },
+            {
+              "name": "房性心律失常",
+              "type": "disease",
+              "start_page": 198
+            },
+            {
+              "name": "房性期前收缩",
+              "type": "disease",
+              "start_page": 198
+            },
+            {
+              "name": "房性心动过速",
+              "type": "disease",
+              "start_page": 198
+            },
+            {
+              "name": "心房扑动",
+              "type": "disease",
+              "start_page": 200
+            },
+            {
+              "name": "心房颤动",
+              "type": "disease",
+              "start_page": 200
+            },
+            {
+              "name": "房室交界性心律失常",
+              "type": "disease",
+              "start_page": 203
+            },
+            {
+              "name": "房室交界性期前收缩",
+              "type": "disease",
+              "start_page": 203
+            },
+            {
+              "name": "房室交界性逸搏与心律",
+              "type": "disease",
+              "start_page": 204
+            },
+            {
+              "name": "非阵发性房室交界性心动过速",
+              "type": "disease",
+              "start_page": 204
+            },
+            {
+              "name": "房室交界区相关的折返性心动过速",
+              "type": "disease",
+              "start_page": 204
+            },
+            {
+              "name": "室性心律失常",
+              "type": "disease",
+              "start_page": 208
+            },
+            {
+              "name": "室性期前收缩",
+              "type": "disease",
+              "start_page": 208
+            },
+            {
+              "name": "室性心动过速",
+              "type": "disease",
+              "start_page": 209
+            },
+            {
+              "name": "心室扑动与心室颤动",
+              "type": "disease",
+              "start_page": 212
+            },
+            {
+              "name": "遗传性心律失常综合征",
+              "type": "syndrome",
+              "start_page": 212
+            },
+            {
+              "name": "心脏传导阻滞",
+              "type": "disease",
+              "start_page": 213
+            },
+            {
+              "name": "房室传导阻滞",
+              "type": "disease",
+              "start_page": 214
+            },
+            {
+              "name": "室内传导阻滞",
+              "type": "disease",
+              "start_page": 216
+            },
+            {
+              "name": "抗心律失常药物的合理应用",
+              "type": "disease",
+              "start_page": 217
+            },
+            {
+              "name": "心律失常的介入治疗和手术治疗",
+              "type": "basic",
+              "start_page": 221
+            },
+            {
+              "name": "心脏电复律与电除颤",
+              "type": "disease",
+              "start_page": 221
+            },
+            {
+              "name": "心血管植入型电子器械",
+              "type": "disease",
+              "start_page": 223
+            },
+            {
+              "name": "导管消融",
+              "type": "disease",
+              "start_page": 226
+            }
+          ]
+        },
+        {
+          "name": "动脉粥样硬化和冠状动脉粥样硬化性心脏病",
+          "sections": [
+            {
+              "name": "动脉粥样硬化",
+              "type": "disease",
+              "start_page": 227
+            },
+            {
+              "name": "冠状动脉粥样硬化性心脏病概述",
+              "type": "basic",
+              "start_page": 232
+            },
+            {
+              "name": "慢性冠状动脉综合征",
+              "type": "syndrome",
+              "start_page": 233
+            },
+            {
+              "name": "稳定型心绞痛",
+              "type": "disease",
+              "start_page": 233
+            },
+            {
+              "name": "缺血性心肌病",
+              "type": "disease",
+              "start_page": 241
+            },
+            {
+              "name": "隐匿型冠心病",
+              "type": "disease",
+              "start_page": 242
+            },
+            {
+              "name": "急性冠脉综合征",
+              "type": "syndrome",
+              "start_page": 242
+            },
+            {
+              "name": "不稳定型心绞痛和非ST 段抬高型心肌梗死",
+              "type": "disease",
+              "start_page": 243
+            },
+            {
+              "name": "急性ST 段抬高型心肌梗死",
+              "type": "disease",
+              "start_page": 247
+            },
+            {
+              "name": "冠状动脉疾病的其他表现形式",
+              "type": "symptom",
+              "start_page": 258
+            },
+            {
+              "name": "冠状动脉痉挛",
+              "type": "disease",
+              "start_page": 258
+            },
+            {
+              "name": "心肌桥",
+              "type": "disease",
+              "start_page": 258
+            },
+            {
+              "name": "微血管疾病",
+              "type": "disease",
+              "start_page": 258
+            }
+          ]
+        },
+        {
+          "name": "高血压",
+          "sections": [
+            {
+              "name": "原发性高血压",
+              "type": "disease",
+              "start_page": 260
+            },
+            {
+              "name": "继发性高血压",
+              "type": "disease",
+              "start_page": 272
+            },
+            {
+              "name": "肾实质性高血压",
+              "type": "disease",
+              "start_page": 272
+            },
+            {
+              "name": "肾血管性高血压",
+              "type": "disease",
+              "start_page": 273
+            },
+            {
+              "name": "原发性醛固酮增多症",
+              "type": "disease",
+              "start_page": 273
+            },
+            {
+              "name": "嗜铬细胞瘤和副神经节瘤",
+              "type": "disease",
+              "start_page": 273
+            },
+            {
+              "name": "皮质醇增多症",
+              "type": "disease",
+              "start_page": 274
+            },
+            {
+              "name": "主动脉缩窄",
+              "type": "disease",
+              "start_page": 274
+            }
+          ]
+        },
+        {
+          "name": "心肌疾病",
+          "sections": [
+            {
+              "name": "肥厚型心肌病",
+              "type": "disease",
+              "start_page": 275
+            },
+            {
+              "name": "扩张型心肌病",
+              "type": "disease",
+              "start_page": 278
+            },
+            {
+              "name": "非扩张型左心室心肌病",
+              "type": "disease",
+              "start_page": 281
+            },
+            {
+              "name": "致心律失常性右心室心肌病",
+              "type": "disease",
+              "start_page": 282
+            },
+            {
+              "name": "限制型心肌病",
+              "type": "disease",
+              "start_page": 284
+            },
+            {
+              "name": "心肌炎",
+              "type": "disease",
+              "start_page": 285
+            }
+          ]
+        },
+        {
+          "name": "先天性心血管病",
+          "sections": [
+            {
+              "name": "成人常见先天性心血管病",
+              "type": "disease",
+              "start_page": 288
+            },
+            {
+              "name": "房间隔缺损",
+              "type": "disease",
+              "start_page": 288
+            },
+            {
+              "name": "室间隔缺损",
+              "type": "disease",
+              "start_page": 289
+            },
+            {
+              "name": "动脉导管未闭",
+              "type": "disease",
+              "start_page": 289
+            },
+            {
+              "name": "卵圆孔未闭",
+              "type": "disease",
+              "start_page": 290
+            },
+            {
+              "name": "肺动脉瓣狭窄",
+              "type": "disease",
+              "start_page": 290
+            },
+            {
+              "name": "二叶主动脉瓣",
+              "type": "disease",
+              "start_page": 291
+            },
+            {
+              "name": "三尖瓣下移畸形",
+              "type": "disease",
+              "start_page": 291
+            },
+            {
+              "name": "先天性主动脉缩窄",
+              "type": "disease",
+              "start_page": 292
+            },
+            {
+              "name": "主动脉窦瘤",
+              "type": "disease",
+              "start_page": 293
+            },
+            {
+              "name": "冠状动脉瘘",
+              "type": "disease",
+              "start_page": 293
+            },
+            {
+              "name": "法洛四联症",
+              "type": "disease",
+              "start_page": 294
+            },
+            {
+              "name": "艾森门格综合征",
+              "type": "syndrome",
+              "start_page": 295
+            },
+            {
+              "name": "成人先天性心脏病的介入治疗",
+              "type": "basic",
+              "start_page": 295
+            },
+            {
+              "name": "经皮球囊肺动脉瓣成形术",
+              "type": "disease",
+              "start_page": 295
+            },
+            {
+              "name": "经导管封堵术",
+              "type": "disease",
+              "start_page": 296
+            },
+            {
+              "name": "先天性心脏病的其他介入治疗术",
+              "type": "basic",
+              "start_page": 298
+            }
+          ]
+        },
+        {
+          "name": "心脏瓣膜病",
+          "sections": [
+            {
+              "name": "主动脉瓣狭窄",
+              "type": "disease",
+              "start_page": 299
+            },
+            {
+              "name": "主动脉瓣反流",
+              "type": "disease",
+              "start_page": 302
+            },
+            {
+              "name": "二尖瓣狭窄",
+              "type": "disease",
+              "start_page": 305
+            },
+            {
+              "name": "二尖瓣反流",
+              "type": "disease",
+              "start_page": 308
+            },
+            {
+              "name": "多瓣膜病",
+              "type": "disease",
+              "start_page": 312
+            },
+            {
+              "name": "风湿热",
+              "type": "disease",
+              "start_page": 313
+            }
+          ]
+        },
+        {
+          "name": "心包疾病",
+          "sections": [
+            {
+              "name": "急性心包炎",
+              "type": "disease",
+              "start_page": 315
+            },
+            {
+              "name": "心包积液及心脏压塞",
+              "type": "disease",
+              "start_page": 317
+            },
+            {
+              "name": "缩窄性心包炎",
+              "type": "disease",
+              "start_page": 318
+            }
+          ]
+        },
+        {
+          "name": "感染性心内膜炎",
+          "sections": [
+            {
+              "name": "感染性心内膜炎",
+              "type": "disease",
+              "start_page": 321
+            }
+          ]
+        },
+        {
+          "name": "心脏骤停与心脏性猝死",
+          "sections": [
+            {
+              "name": "心脏骤停与心脏性猝死",
+              "type": "disease",
+              "start_page": 328
+            }
+          ]
+        },
+        {
+          "name": "主动脉和周围血管病",
+          "sections": [
+            {
+              "name": "主动脉夹层",
+              "type": "disease",
+              "start_page": 335
+            },
+            {
+              "name": "下肢动脉硬化闭塞症",
+              "type": "disease",
+              "start_page": 338
+            },
+            {
+              "name": "静脉血栓症",
+              "type": "disease",
+              "start_page": 340
+            }
+          ]
+        },
+        {
+          "name": "心血管神经症",
+          "sections": [
+            {
+              "name": "心血管神经症",
+              "type": "disease",
+              "start_page": 342
+            }
+          ]
+        },
+        {
+          "name": "肿瘤心脏病学",
+          "sections": [
+            {
+              "name": "肿瘤治疗相关的心功能不全",
+              "type": "basic",
+              "start_page": 344
+            },
+            {
+              "name": "肿瘤治疗相关的冠状动脉疾病",
+              "type": "basic",
+              "start_page": 346
+            },
+            {
+              "name": "肿瘤治疗相关的心律失常",
+              "type": "basic",
+              "start_page": 347
+            },
+            {
+              "name": "肿瘤治疗相关的高血压",
+              "type": "basic",
+              "start_page": 348
+            },
+            {
+              "name": "肿瘤治疗相关的血栓性疾病",
+              "type": "basic",
+              "start_page": 348
+            },
+            {
+              "name": "肿瘤治疗相关的其他心血管疾病",
+              "type": "basic",
+              "start_page": 348
+            }
+          ]
+        },
+        {
+          "name": "其他心血管疾病",
+          "sections": [
+            {
+              "name": "糖尿病与高血压",
+              "type": "disease",
+              "start_page": 350
+            },
+            {
+              "name": "糖尿病与冠心病",
+              "type": "disease",
+              "start_page": 350
+            },
+            {
+              "name": "糖尿病与心力衰竭",
+              "type": "disease",
+              "start_page": 352
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "消化系统疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": [
+            {
+              "name": "常见疾病相关的消化生理、生化功能",
+              "type": "disease",
+              "start_page": 356
+            },
+            {
+              "name": "消化系统重要诊疗技术",
+              "type": "disease",
+              "start_page": 359
+            }
+          ]
+        },
+        {
+          "name": "胃食管反流病",
+          "sections": [
+            {
+              "name": "胃食管反流病",
+              "type": "disease",
+              "start_page": 363
+            }
+          ]
+        },
+        {
+          "name": "食管癌",
+          "sections": [
+            {
+              "name": "食管癌",
+              "type": "disease",
+              "start_page": 366
+            }
+          ]
+        },
+        {
+          "name": "胃炎",
+          "sections": [
+            {
+              "name": "急性胃炎",
+              "type": "disease",
+              "start_page": 369
+            },
+            {
+              "name": "慢性胃炎",
+              "type": "disease",
+              "start_page": 370
+            },
+            {
+              "name": "特殊类型的胃炎或胃病",
+              "type": "disease",
+              "start_page": 372
+            }
+          ]
+        },
+        {
+          "name": "消化性溃疡",
+          "sections": [
+            {
+              "name": "消化性溃疡",
+              "type": "disease",
+              "start_page": 374
+            }
+          ]
+        },
+        {
+          "name": "胃癌",
+          "sections": [
+            {
+              "name": "胃癌",
+              "type": "disease",
+              "start_page": 379
+            }
+          ]
+        },
+        {
+          "name": "肠结核和结核性腹膜炎",
+          "sections": [
+            {
+              "name": "肠结核",
+              "type": "disease",
+              "start_page": 383
+            },
+            {
+              "name": "结核性腹膜炎",
+              "type": "disease",
+              "start_page": 385
+            }
+          ]
+        },
+        {
+          "name": "炎症性肠病",
+          "sections": [
+            {
+              "name": "溃疡性结肠炎",
+              "type": "disease",
+              "start_page": 388
+            },
+            {
+              "name": "克罗恩病",
+              "type": "disease",
+              "start_page": 392
+            }
+          ]
+        },
+        {
+          "name": "结直肠癌",
+          "sections": [
+            {
+              "name": "结直肠癌",
+              "type": "disease",
+              "start_page": 395
+            }
+          ]
+        },
+        {
+          "name": "功能性胃肠病",
+          "sections": [
+            {
+              "name": "功能性消化不良",
+              "type": "disease",
+              "start_page": 398
+            },
+            {
+              "name": "肠易激综合征",
+              "type": "syndrome",
+              "start_page": 399
+            }
+          ]
+        },
+        {
+          "name": "病毒性肝炎",
+          "sections": [
+            {
+              "name": "病毒性肝炎",
+              "type": "disease",
+              "start_page": 402
+            }
+          ]
+        },
+        {
+          "name": "脂肪性肝病",
+          "sections": [
+            {
+              "name": "非酒精性脂肪性肝病",
+              "type": "disease",
+              "start_page": 405
+            },
+            {
+              "name": "酒精性肝病",
+              "type": "disease",
+              "start_page": 406
+            }
+          ]
+        },
+        {
+          "name": "自身免疫性肝病",
+          "sections": [
+            {
+              "name": "自身免疫性肝炎",
+              "type": "disease",
+              "start_page": 409
+            },
+            {
+              "name": "原发性胆汁性胆管炎",
+              "type": "disease",
+              "start_page": 410
+            },
+            {
+              "name": "原发性硬化性胆管炎",
+              "type": "disease",
+              "start_page": 412
+            },
+            {
+              "name": "IgG4 相关肝胆疾病",
+              "type": "disease",
+              "start_page": 413
+            }
+          ]
+        },
+        {
+          "name": "药物性肝病",
+          "sections": [
+            {
+              "name": "药物性肝病",
+              "type": "disease",
+              "start_page": 415
+            }
+          ]
+        },
+        {
+          "name": "肝硬化",
+          "sections": [
+            {
+              "name": "肝硬化",
+              "type": "disease",
+              "start_page": 417
+            }
+          ]
+        },
+        {
+          "name": "原发性肝癌",
+          "sections": [
+            {
+              "name": "原发性肝癌",
+              "type": "disease",
+              "start_page": 427
+            }
+          ]
+        },
+        {
+          "name": "急性肝衰竭",
+          "sections": [
+            {
+              "name": "急性肝衰竭",
+              "type": "disease",
+              "start_page": 432
+            }
+          ]
+        },
+        {
+          "name": "肝外胆系结石及炎症",
+          "sections": [
+            {
+              "name": "胆囊结石及胆囊炎",
+              "type": "disease",
+              "start_page": 434
+            },
+            {
+              "name": "肝外胆管结石及胆管炎",
+              "type": "disease",
+              "start_page": 436
+            }
+          ]
+        },
+        {
+          "name": "胆道系统肿瘤",
+          "sections": [
+            {
+              "name": "胆道系统良性肿瘤",
+              "type": "disease",
+              "start_page": 438
+            },
+            {
+              "name": "胆道系统恶性肿瘤",
+              "type": "disease",
+              "start_page": 438
+            },
+            {
+              "name": "胆囊癌",
+              "type": "disease",
+              "start_page": 438
+            },
+            {
+              "name": "胆管癌",
+              "type": "disease",
+              "start_page": 439
+            }
+          ]
+        },
+        {
+          "name": "胰腺炎",
+          "sections": [
+            {
+              "name": "急性胰腺炎",
+              "type": "disease",
+              "start_page": 441
+            },
+            {
+              "name": "慢性胰腺炎",
+              "type": "disease",
+              "start_page": 447
+            }
+          ]
+        },
+        {
+          "name": "胰腺癌",
+          "sections": [
+            {
+              "name": "胰腺癌",
+              "type": "disease",
+              "start_page": 450
+            }
+          ]
+        },
+        {
+          "name": "腹痛",
+          "sections": [
+            {
+              "name": "腹痛",
+              "type": "disease",
+              "start_page": 452
+            }
+          ]
+        },
+        {
+          "name": "慢性腹泻",
+          "sections": [
+            {
+              "name": "慢性腹泻",
+              "type": "disease",
+              "start_page": 455
+            }
+          ]
+        },
+        {
+          "name": "便秘",
+          "sections": [
+            {
+              "name": "便秘",
+              "type": "disease",
+              "start_page": 458
+            }
+          ]
+        },
+        {
+          "name": "消化道出血",
+          "sections": [
+            {
+              "name": "消化道出血",
+              "type": "disease",
+              "start_page": 460
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "泌尿系统疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": []
+        },
+        {
+          "name": "原发性肾小球疾病",
+          "sections": [
+            {
+              "name": "肾小球疾病概述",
+              "type": "basic",
+              "start_page": 473
+            },
+            {
+              "name": "急性肾小球肾炎",
+              "type": "disease",
+              "start_page": 476
+            },
+            {
+              "name": "急进性肾小球肾炎",
+              "type": "disease",
+              "start_page": 477
+            },
+            {
+              "name": "IgA 肾病",
+              "type": "disease",
+              "start_page": 478
+            },
+            {
+              "name": "肾病综合征",
+              "type": "syndrome",
+              "start_page": 480
+            },
+            {
+              "name": "无症状性血尿和/ 或蛋白尿",
+              "type": "symptom",
+              "start_page": 486
+            },
+            {
+              "name": "慢性肾小球肾炎",
+              "type": "disease",
+              "start_page": 487
+            }
+          ]
+        },
+        {
+          "name": "继发性肾病",
+          "sections": [
+            {
+              "name": "狼疮性肾炎",
+              "type": "disease",
+              "start_page": 490
+            },
+            {
+              "name": "糖尿病肾脏病",
+              "type": "disease",
+              "start_page": 491
+            },
+            {
+              "name": "血管炎肾损害",
+              "type": "disease",
+              "start_page": 493
+            },
+            {
+              "name": "高尿酸肾损害",
+              "type": "disease",
+              "start_page": 494
+            }
+          ]
+        },
+        {
+          "name": "间质性肾炎",
+          "sections": [
+            {
+              "name": "急性间质性肾炎",
+              "type": "disease",
+              "start_page": 496
+            },
+            {
+              "name": "慢性间质性肾炎",
+              "type": "disease",
+              "start_page": 497
+            }
+          ]
+        },
+        {
+          "name": "尿路感染",
+          "sections": [
+            {
+              "name": "尿路感染",
+              "type": "disease",
+              "start_page": 499
+            }
+          ]
+        },
+        {
+          "name": "肾小管疾病",
+          "sections": [
+            {
+              "name": "肾小管性酸中毒",
+              "type": "disease",
+              "start_page": 505
+            },
+            {
+              "name": "远端肾小管酸中毒",
+              "type": "disease",
+              "start_page": 506
+            },
+            {
+              "name": "近端肾小管酸中毒",
+              "type": "disease",
+              "start_page": 507
+            },
+            {
+              "name": "混合型肾小管酸中毒",
+              "type": "disease",
+              "start_page": 507
+            },
+            {
+              "name": "高血钾型肾小管酸中毒",
+              "type": "disease",
+              "start_page": 507
+            },
+            {
+              "name": "Fanconi 综合征",
+              "type": "syndrome",
+              "start_page": 508
+            }
+          ]
+        },
+        {
+          "name": "肾血管疾病",
+          "sections": [
+            {
+              "name": "肾动脉狭窄",
+              "type": "disease",
+              "start_page": 509
+            },
+            {
+              "name": "肾动脉栓塞和血栓形成",
+              "type": "disease",
+              "start_page": 510
+            },
+            {
+              "name": "小动脉性肾硬化症",
+              "type": "disease",
+              "start_page": 511
+            },
+            {
+              "name": "良性小动脉性肾硬化症",
+              "type": "disease",
+              "start_page": 511
+            },
+            {
+              "name": "恶性小动脉性肾硬化症",
+              "type": "disease",
+              "start_page": 512
+            },
+            {
+              "name": "肾静脉血栓形成",
+              "type": "disease",
+              "start_page": 512
+            }
+          ]
+        },
+        {
+          "name": "遗传性肾病",
+          "sections": [
+            {
+              "name": "常染色体显性遗传性多囊肾病",
+              "type": "disease",
+              "start_page": 513
+            },
+            {
+              "name": "Alport 综合征",
+              "type": "syndrome",
+              "start_page": 515
+            }
+          ]
+        },
+        {
+          "name": "急性肾损伤",
+          "sections": [
+            {
+              "name": "急性肾损伤",
+              "type": "disease",
+              "start_page": 518
+            }
+          ]
+        },
+        {
+          "name": "慢性肾衰竭",
+          "sections": [
+            {
+              "name": "慢性肾衰竭",
+              "type": "disease",
+              "start_page": 525
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "血液系统疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": []
+        },
+        {
+          "name": "缺铁性贫血",
+          "sections": [
+            {
+              "name": "缺铁性贫血",
+              "type": "disease",
+              "start_page": 549
+            }
+          ]
+        },
+        {
+          "name": "巨幼细胞贫血",
+          "sections": [
+            {
+              "name": "巨幼细胞贫血",
+              "type": "disease",
+              "start_page": 552
+            }
+          ]
+        },
+        {
+          "name": "再生障碍性贫血",
+          "sections": [
+            {
+              "name": "再生障碍性贫血",
+              "type": "disease",
+              "start_page": 555
+            }
+          ]
+        },
+        {
+          "name": "溶血性贫血",
+          "sections": [
+            {
+              "name": "概述",
+              "type": "basic",
+              "start_page": 559
+            },
+            {
+              "name": "遗传性球形红细胞增多症",
+              "type": "disease",
+              "start_page": 561
+            },
+            {
+              "name": "红细胞葡萄糖 - 6 - 磷酸脱氢酶缺乏症",
+              "type": "disease",
+              "start_page": 562
+            },
+            {
+              "name": "血红蛋白病",
+              "type": "disease",
+              "start_page": 563
+            },
+            {
+              "name": "珠蛋白生成障碍性贫血",
+              "type": "disease",
+              "start_page": 563
+            },
+            {
+              "name": "异常血红蛋白病",
+              "type": "disease",
+              "start_page": 564
+            },
+            {
+              "name": "自身免疫性溶血性贫血",
+              "type": "disease",
+              "start_page": 565
+            },
+            {
+              "name": "温抗体型AIHA",
+              "type": "disease",
+              "start_page": 565
+            },
+            {
+              "name": "冷抗体型AIHA",
+              "type": "disease",
+              "start_page": 566
+            },
+            {
+              "name": "阵发性睡眠性血红蛋白尿症",
+              "type": "disease",
+              "start_page": 567
+            }
+          ]
+        },
+        {
+          "name": "白细胞减少和粒细胞缺乏症",
+          "sections": [
+            {
+              "name": "白细胞减少和粒细胞缺乏症",
+              "type": "disease",
+              "start_page": 570
+            }
+          ]
+        },
+        {
+          "name": "骨髓增生异常性肿瘤",
+          "sections": [
+            {
+              "name": "骨髓增生异常性肿瘤",
+              "type": "disease",
+              "start_page": 572
+            }
+          ]
+        },
+        {
+          "name": "白血病",
+          "sections": [
+            {
+              "name": "概述",
+              "type": "basic",
+              "start_page": 576
+            },
+            {
+              "name": "急性白血病",
+              "type": "disease",
+              "start_page": 577
+            },
+            {
+              "name": "慢性髓系白血病",
+              "type": "disease",
+              "start_page": 585
+            },
+            {
+              "name": "慢性淋巴细胞白血病",
+              "type": "disease",
+              "start_page": 588
+            }
+          ]
+        },
+        {
+          "name": "淋巴瘤",
+          "sections": [
+            {
+              "name": "霍奇金淋巴瘤",
+              "type": "disease",
+              "start_page": 591
+            },
+            {
+              "name": "非霍奇金淋巴瘤",
+              "type": "disease",
+              "start_page": 593
+            }
+          ]
+        },
+        {
+          "name": "多发性骨髓瘤",
+          "sections": [
+            {
+              "name": "多发性骨髓瘤",
+              "type": "disease",
+              "start_page": 600
+            }
+          ]
+        },
+        {
+          "name": "骨髓增殖性肿瘤",
+          "sections": [
+            {
+              "name": "真性红细胞增多症",
+              "type": "disease",
+              "start_page": 605
+            },
+            {
+              "name": "原发性血小板增多症",
+              "type": "disease",
+              "start_page": 606
+            },
+            {
+              "name": "原发性骨髓纤维化",
+              "type": "disease",
+              "start_page": 607
+            }
+          ]
+        },
+        {
+          "name": "脾功能亢进",
+          "sections": [
+            {
+              "name": "脾功能亢进",
+              "type": "disease",
+              "start_page": 610
+            }
+          ]
+        },
+        {
+          "name": "紫癜性疾病",
+          "sections": [
+            {
+              "name": "过敏性紫癜",
+              "type": "disease",
+              "start_page": 620
+            },
+            {
+              "name": "原发免疫性血小板减少症",
+              "type": "disease",
+              "start_page": 622
+            },
+            {
+              "name": "血栓性血小板减少性紫癜",
+              "type": "disease",
+              "start_page": 624
+            }
+          ]
+        },
+        {
+          "name": "凝血障碍性疾病",
+          "sections": [
+            {
+              "name": "血友病",
+              "type": "disease",
+              "start_page": 626
+            },
+            {
+              "name": "血管性血友病",
+              "type": "disease",
+              "start_page": 628
+            }
+          ]
+        },
+        {
+          "name": "弥散性血管内凝血",
+          "sections": [
+            {
+              "name": "弥散性血管内凝血",
+              "type": "disease",
+              "start_page": 631
+            }
+          ]
+        },
+        {
+          "name": "血栓性疾病",
+          "sections": [
+            {
+              "name": "血栓性疾病",
+              "type": "disease",
+              "start_page": 635
+            }
+          ]
+        },
+        {
+          "name": "输血和输血反应",
+          "sections": [
+            {
+              "name": "输血和输血反应",
+              "type": "disease",
+              "start_page": 638
+            }
+          ]
+        },
+        {
+          "name": "造血干细胞移植",
+          "sections": [
+            {
+              "name": "造血干细胞移植",
+              "type": "disease",
+              "start_page": 642
+            }
+          ]
+        },
+        {
+          "name": "CAR - T 细胞免疫疗法在血液病中的应用",
+          "sections": [
+            {
+              "name": "CAR - T 细胞免疫疗法在血液病中的应用",
+              "type": "disease",
+              "start_page": 648
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "内分泌和代谢性疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": [
+            {
+              "name": "内分泌学原理",
+              "type": "disease",
+              "start_page": 654
+            },
+            {
+              "name": "内分泌系统",
+              "type": "disease",
+              "start_page": 654
+            },
+            {
+              "name": "激素",
+              "type": "disease",
+              "start_page": 654
+            },
+            {
+              "name": "代谢",
+              "type": "disease",
+              "start_page": 657
+            },
+            {
+              "name": "内分泌和代谢性疾病的诊断",
+              "type": "basic",
+              "start_page": 659
+            },
+            {
+              "name": "临床表现",
+              "type": "symptom",
+              "start_page": 659
+            },
+            {
+              "name": "功能诊断",
+              "type": "basic",
+              "start_page": 659
+            },
+            {
+              "name": "定位诊断",
+              "type": "basic",
+              "start_page": 660
+            },
+            {
+              "name": "病因诊断",
+              "type": "basic",
+              "start_page": 661
+            },
+            {
+              "name": "内分泌和代谢性疾病的治疗",
+              "type": "basic",
+              "start_page": 661
+            },
+            {
+              "name": "内分泌腺功能亢进的治疗",
+              "type": "basic",
+              "start_page": 661
+            },
+            {
+              "name": "内分泌腺功能减退的治疗",
+              "type": "basic",
+              "start_page": 662
+            }
+          ]
+        },
+        {
+          "name": "下丘脑疾病",
+          "sections": [
+            {
+              "name": "下丘脑的解剖结构与功能",
+              "type": "disease",
+              "start_page": 663
+            },
+            {
+              "name": "下丘脑相关疾病",
+              "type": "disease",
+              "start_page": 665
+            }
+          ]
+        },
+        {
+          "name": "垂体前叶疾病",
+          "sections": [
+            {
+              "name": "垂体瘤",
+              "type": "disease",
+              "start_page": 668
+            },
+            {
+              "name": "催乳素瘤",
+              "type": "disease",
+              "start_page": 669
+            },
+            {
+              "name": "肢端肥大症和巨人症",
+              "type": "disease",
+              "start_page": 671
+            },
+            {
+              "name": "腺垂体功能减退症",
+              "type": "disease",
+              "start_page": 674
+            },
+            {
+              "name": "生长激素缺乏性矮小症",
+              "type": "disease",
+              "start_page": 678
+            }
+          ]
+        },
+        {
+          "name": "垂体后叶疾病",
+          "sections": [
+            {
+              "name": "尿崩症",
+              "type": "disease",
+              "start_page": 680
+            },
+            {
+              "name": "抗利尿不适当综合征",
+              "type": "syndrome",
+              "start_page": 682
+            }
+          ]
+        },
+        {
+          "name": "甲状腺疾病",
+          "sections": [
+            {
+              "name": "甲状腺功能亢进症",
+              "type": "disease",
+              "start_page": 686
+            },
+            {
+              "name": "甲状腺功能减退症",
+              "type": "disease",
+              "start_page": 693
+            },
+            {
+              "name": "甲状腺炎",
+              "type": "disease",
+              "start_page": 696
+            },
+            {
+              "name": "甲状腺肿",
+              "type": "disease",
+              "start_page": 698
+            },
+            {
+              "name": "甲状腺结节和甲状腺癌",
+              "type": "disease",
+              "start_page": 699
+            },
+            {
+              "name": "甲状腺结节",
+              "type": "disease",
+              "start_page": 699
+            },
+            {
+              "name": "甲状腺癌",
+              "type": "disease",
+              "start_page": 701
+            }
+          ]
+        },
+        {
+          "name": "甲状旁腺疾病",
+          "sections": [
+            {
+              "name": "甲状旁腺功能亢进症",
+              "type": "disease",
+              "start_page": 704
+            },
+            {
+              "name": "甲状旁腺功能减退症",
+              "type": "disease",
+              "start_page": 706
+            }
+          ]
+        },
+        {
+          "name": "肾上腺疾病",
+          "sections": [
+            {
+              "name": "库欣综合征",
+              "type": "syndrome",
+              "start_page": 709
+            },
+            {
+              "name": "原发性醛固酮增多症",
+              "type": "disease",
+              "start_page": 712
+            },
+            {
+              "name": "原发性慢性肾上腺皮质功能减退症",
+              "type": "disease",
+              "start_page": 715
+            },
+            {
+              "name": "先天性肾上腺皮质增生症",
+              "type": "disease",
+              "start_page": 717
+            },
+            {
+              "name": "21 - 羟化酶缺乏症",
+              "type": "disease",
+              "start_page": 718
+            },
+            {
+              "name": "11β - 羟化酶缺乏症",
+              "type": "disease",
+              "start_page": 718
+            },
+            {
+              "name": "3β - 羟类固醇脱氢酶缺陷症",
+              "type": "disease",
+              "start_page": 719
+            },
+            {
+              "name": "17α - 羟化酶缺陷症",
+              "type": "disease",
+              "start_page": 719
+            },
+            {
+              "name": "先天性类脂性肾上腺增生",
+              "type": "disease",
+              "start_page": 720
+            },
+            {
+              "name": "先天性肾上腺皮质增生症的治疗",
+              "type": "basic",
+              "start_page": 720
+            },
+            {
+              "name": "嗜铬细胞瘤",
+              "type": "disease",
+              "start_page": 720
+            }
+          ]
+        },
+        {
+          "name": "糖尿病",
+          "sections": [
+            {
+              "name": "糖尿病",
+              "type": "disease",
+              "start_page": 724
+            },
+            {
+              "name": "糖尿病酮症酸中毒",
+              "type": "disease",
+              "start_page": 743
+            },
+            {
+              "name": "高渗高血糖综合征",
+              "type": "syndrome",
+              "start_page": 746
+            }
+          ]
+        },
+        {
+          "name": "低血糖症与胰岛素瘤",
+          "sections": [
+            {
+              "name": "低血糖症",
+              "type": "disease",
+              "start_page": 748
+            },
+            {
+              "name": "胰岛素瘤",
+              "type": "disease",
+              "start_page": 752
+            }
+          ]
+        },
+        {
+          "name": "血脂异常性疾病",
+          "sections": [
+            {
+              "name": "血脂异常性疾病",
+              "type": "disease",
+              "start_page": 754
+            }
+          ]
+        },
+        {
+          "name": "肥胖症",
+          "sections": [
+            {
+              "name": "代谢综合征",
+              "type": "syndrome",
+              "start_page": 766
+            }
+          ]
+        },
+        {
+          "name": "水、电解质代谢和酸碱平衡失常",
+          "sections": [
+            {
+              "name": "水、钠代谢失常",
+              "type": "disease",
+              "start_page": 768
+            },
+            {
+              "name": "失水",
+              "type": "disease",
+              "start_page": 769
+            },
+            {
+              "name": "水过多和水中毒",
+              "type": "disease",
+              "start_page": 771
+            },
+            {
+              "name": "低钠血症",
+              "type": "disease",
+              "start_page": 772
+            },
+            {
+              "name": "高钠血症",
+              "type": "disease",
+              "start_page": 773
+            },
+            {
+              "name": "钾代谢失常",
+              "type": "disease",
+              "start_page": 773
+            },
+            {
+              "name": "钾缺乏和低钾血症",
+              "type": "disease",
+              "start_page": 773
+            },
+            {
+              "name": "高钾血症",
+              "type": "disease",
+              "start_page": 775
+            },
+            {
+              "name": "酸碱平衡失常",
+              "type": "disease",
+              "start_page": 777
+            },
+            {
+              "name": "代谢性酸中毒",
+              "type": "disease",
+              "start_page": 779
+            },
+            {
+              "name": "代谢性碱中毒",
+              "type": "disease",
+              "start_page": 779
+            },
+            {
+              "name": "呼吸性酸中毒",
+              "type": "disease",
+              "start_page": 780
+            },
+            {
+              "name": "呼吸性碱中毒",
+              "type": "disease",
+              "start_page": 780
+            },
+            {
+              "name": "混合型酸碱平衡障碍",
+              "type": "disease",
+              "start_page": 780
+            }
+          ]
+        },
+        {
+          "name": "高尿酸血症",
+          "sections": [
+            {
+              "name": "高尿酸血症",
+              "type": "disease",
+              "start_page": 783
+            }
+          ]
+        },
+        {
+          "name": "骨质疏松症",
+          "sections": [
+            {
+              "name": "骨质疏松症",
+              "type": "disease",
+              "start_page": 787
+            }
+          ]
+        },
+        {
+          "name": "性发育异常疾病",
+          "sections": [
+            {
+              "name": "性染色体异常疾病",
+              "type": "disease",
+              "start_page": 791
+            },
+            {
+              "name": "Klinefelter 综合征",
+              "type": "syndrome",
+              "start_page": 791
+            },
+            {
+              "name": "Turner 综合征",
+              "type": "syndrome",
+              "start_page": 792
+            },
+            {
+              "name": "46，XY 性发育异常",
+              "type": "disease",
+              "start_page": 793
+            },
+            {
+              "name": "睾丸发育障碍",
+              "type": "disease",
+              "start_page": 793
+            },
+            {
+              "name": "LH/HCG 受体功能缺陷",
+              "type": "disease",
+              "start_page": 793
+            },
+            {
+              "name": "雄激素合成异常",
+              "type": "disease",
+              "start_page": 793
+            },
+            {
+              "name": "雄激素作用异常",
+              "type": "disease",
+              "start_page": 794
+            },
+            {
+              "name": "46，XX 性发育异常",
+              "type": "disease",
+              "start_page": 794
+            },
+            {
+              "name": "卵巢发育异常",
+              "type": "disease",
+              "start_page": 794
+            },
+            {
+              "name": "雄激素过多",
+              "type": "disease",
+              "start_page": 794
+            }
+          ]
+        },
+        {
+          "name": "多内分泌腺体疾病",
+          "sections": [
+            {
+              "name": "多发性内分泌腺瘤病",
+              "type": "disease",
+              "start_page": 795
+            },
+            {
+              "name": "多发性内分泌腺瘤病1 型",
+              "type": "disease",
+              "start_page": 795
+            },
+            {
+              "name": "多发性内分泌腺瘤病2 型",
+              "type": "disease",
+              "start_page": 796
+            },
+            {
+              "name": "自身免疫性多内分泌腺综合征",
+              "type": "syndrome",
+              "start_page": 797
+            },
+            {
+              "name": "1 型自身免疫性多内分泌腺综合征",
+              "type": "syndrome",
+              "start_page": 797
+            },
+            {
+              "name": "2 型自身免疫性多内分泌腺综合征",
+              "type": "syndrome",
+              "start_page": 798
+            }
+          ]
+        },
+        {
+          "name": "神经内分泌肿瘤",
+          "sections": [
+            {
+              "name": "神经内分泌肿瘤",
+              "type": "disease",
+              "start_page": 800
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "风湿免疫病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": []
+        },
+        {
+          "name": "类风湿关节炎",
+          "sections": [
+            {
+              "name": "类风湿关节炎",
+              "type": "disease",
+              "start_page": 814
+            }
+          ]
+        },
+        {
+          "name": "系统性红斑狼疮",
+          "sections": [
+            {
+              "name": "系统性红斑狼疮",
+              "type": "disease",
+              "start_page": 820
+            }
+          ]
+        },
+        {
+          "name": "脊柱关节炎",
+          "sections": [
+            {
+              "name": "总论",
+              "type": "basic",
+              "start_page": 831
+            },
+            {
+              "name": "强直性脊柱炎",
+              "type": "disease",
+              "start_page": 832
+            }
+          ]
+        },
+        {
+          "name": "系统性血管炎",
+          "sections": [
+            {
+              "name": "概论",
+              "type": "basic",
+              "start_page": 835
+            },
+            {
+              "name": "大动脉炎",
+              "type": "disease",
+              "start_page": 837
+            },
+            {
+              "name": "巨细胞动脉炎",
+              "type": "disease",
+              "start_page": 839
+            },
+            {
+              "name": "结节性多动脉炎",
+              "type": "disease",
+              "start_page": 840
+            },
+            {
+              "name": "ANCA 相关血管炎",
+              "type": "disease",
+              "start_page": 841
+            },
+            {
+              "name": "贝赫切特病",
+              "type": "disease",
+              "start_page": 842
+            }
+          ]
+        },
+        {
+          "name": "特发性炎症性肌病",
+          "sections": [
+            {
+              "name": "特发性炎症性肌病",
+              "type": "disease",
+              "start_page": 845
+            }
+          ]
+        },
+        {
+          "name": "系统性硬化症",
+          "sections": [
+            {
+              "name": "系统性硬化症",
+              "type": "disease",
+              "start_page": 848
+            }
+          ]
+        },
+        {
+          "name": "痛风",
+          "sections": [
+            {
+              "name": "痛风",
+              "type": "disease",
+              "start_page": 851
+            }
+          ]
+        },
+        {
+          "name": "骨关节炎",
+          "sections": [
+            {
+              "name": "骨关节炎",
+              "type": "disease",
+              "start_page": 855
+            }
+          ]
+        },
+        {
+          "name": "IgG4 相关性疾病",
+          "sections": [
+            {
+              "name": "IgG4 相关性疾病",
+              "type": "disease",
+              "start_page": 858
+            }
+          ]
+        },
+        {
+          "name": "成人斯蒂尔病",
+          "sections": [
+            {
+              "name": "成人斯蒂尔病",
+              "type": "disease",
+              "start_page": 865
+            }
+          ]
+        },
+        {
+          "name": "复发性多软骨炎",
+          "sections": [
+            {
+              "name": "复发性多软骨炎",
+              "type": "disease",
+              "start_page": 867
+            }
+          ]
+        },
+        {
+          "name": "风湿热",
+          "sections": [
+            {
+              "name": "风湿热",
+              "type": "disease",
+              "start_page": 869
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "理化因素所致疾病",
+      "chapters": [
+        {
+          "name": "总论",
+          "sections": []
+        },
+        {
+          "name": "中毒",
+          "sections": [
+            {
+              "name": "概述",
+              "type": "basic",
+              "start_page": 879
+            },
+            {
+              "name": "农药中毒",
+              "type": "disease",
+              "start_page": 889
+            },
+            {
+              "name": "急性有机磷杀虫药中毒",
+              "type": "disease",
+              "start_page": 889
+            },
+            {
+              "name": "急性百草枯中毒",
+              "type": "disease",
+              "start_page": 894
+            },
+            {
+              "name": "氨基甲酸酯类杀虫剂中毒",
+              "type": "disease",
+              "start_page": 896
+            },
+            {
+              "name": "灭鼠药中毒",
+              "type": "disease",
+              "start_page": 897
+            },
+            {
+              "name": "急性毒品中毒",
+              "type": "disease",
+              "start_page": 900
+            },
+            {
+              "name": "急性乙醇中毒",
+              "type": "disease",
+              "start_page": 905
+            },
+            {
+              "name": "镇静催眠药中毒",
+              "type": "disease",
+              "start_page": 907
+            },
+            {
+              "name": "急性一氧化碳中毒",
+              "type": "disease",
+              "start_page": 911
+            },
+            {
+              "name": "急性亚硝酸盐中毒",
+              "type": "disease",
+              "start_page": 913
+            },
+            {
+              "name": "有机溶剂中毒",
+              "type": "disease",
+              "start_page": 915
+            },
+            {
+              "name": "毒蛇咬伤中毒",
+              "type": "disease",
+              "start_page": 917
+            }
+          ]
+        },
+        {
+          "name": "中暑",
+          "sections": [
+            {
+              "name": "中暑",
+              "type": "disease",
+              "start_page": 922
+            }
+          ]
+        },
+        {
+          "name": "冻僵",
+          "sections": [
+            {
+              "name": "冻僵",
+              "type": "disease",
+              "start_page": 925
+            }
+          ]
+        },
+        {
+          "name": "高原病",
+          "sections": [
+            {
+              "name": "高原病",
+              "type": "disease",
+              "start_page": 927
+            }
+          ]
+        },
+        {
+          "name": "淹溺",
+          "sections": [
+            {
+              "name": "淹溺",
+              "type": "disease",
+              "start_page": 931
+            }
+          ]
+        },
+        {
+          "name": "电击",
+          "sections": [
+            {
+              "name": "电击",
+              "type": "disease",
+              "start_page": 934
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

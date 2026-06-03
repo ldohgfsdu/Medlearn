@@ -1,0 +1,11 @@
+{
+  "name": "saveGeneratedContent",
+  "version": "1.0.0",
+  "description": "AI生成内容保存云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  },
+  "author": "MedLearn Team",
+  "license": "MIT"
+}

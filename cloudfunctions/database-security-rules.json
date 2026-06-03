@@ -1,0 +1,189 @@
+{
+  "说明": "微信云开发数据库安全规则配置",
+  "版本": "1.0",
+  "日期": "2026-06-03",
+  "规则说明": {
+    "openid": "用户唯一标识，用于数据隔离",
+    "doc._openid": "文档创建者openid，云开发自动添加"
+  },
+  "集合规则": {
+    "knowledge_nodes": {
+      "描述": "知识点数据（静态数据，种子数据）",
+      "权限": "所有已登录用户可读，仅云函数可写",
+      "规则": {
+        "read": "auth.openid != null",
+        "write": "false"
+      },
+      "说明": "种子数据通过initSeedData云函数写入，客户端只读"
+    },
+    "exam_questions": {
+      "描述": "考试题目数据（静态数据，种子数据）",
+      "权限": "所有已登录用户可读，仅云函数可写",
+      "规则": {
+        "read": "auth.openid != null",
+        "write": "false"
+      },
+      "说明": "种子数据通过initSeedData云函数写入，客户端只读"
+    },
+    "causal_chains": {
+      "描述": "推导链数据（静态数据，种子数据 + AI生成）",
+      "权限": "所有已登录用户可读，仅云函数可写",
+      "规则": {
+        "read": "auth.openid != null",
+        "write": "false"
+      },
+      "说明": "种子数据通过initSeedData云函数写入，AI生成内容通过saveGeneratedContent云函数写入"
+    },
+    "cases": {
+      "描述": "病例数据（静态数据，种子数据 + AI生成）",
+      "权限": "所有已登录用户可读，仅云函数可写",
+      "规则": {
+        "read": "auth.openid != null",
+        "write": "false"
+      },
+      "说明": "种子数据通过initSeedData云函数写入，AI生成内容通过saveGeneratedContent云函数写入"
+    },
+    "learning_records": {
+      "描述": "学习记录（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的学习记录，包括推导链完成记录等"
+    },
+    "feynman_records": {
+      "描述": "费曼复述记录（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的费曼复述记录，包含AI评分"
+    },
+    "dialogue_records": {
+      "描述": "对话记录（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的苏格拉底式对话记录"
+    },
+    "case_records": {
+      "描述": "病例练习记录（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的病例沙盒练习记录"
+    },
+    "exam_records": {
+      "描述": "答题记录（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的每题答题记录"
+    },
+    "exam_sessions": {
+      "描述": "考试会话（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的考试会话记录"
+    },
+    "wrong_questions": {
+      "描述": "错题（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的错题记录"
+    },
+    "spaced_repetition": {
+      "描述": "间隔重复计划（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的间隔重复计划，基于SM-2算法"
+    },
+    "study_activities": {
+      "描述": "学习活动（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的学习活动记录"
+    },
+    "favorites": {
+      "描述": "收藏（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的收藏记录"
+    },
+    "settings": {
+      "描述": "用户设置（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的设置，包括AI配置、偏好设置等"
+    },
+    "learning_paths": {
+      "描述": "学习路径（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的学习路径"
+    },
+    "study_plans": {
+      "描述": "学习计划（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的学习计划"
+    },
+    "study_goals": {
+      "描述": "学习目标（动态数据，用户产生）",
+      "权限": "用户只能读写自己的数据",
+      "规则": {
+        "read": "doc.openid == auth.openid",
+        "write": "doc.openid == auth.openid"
+      },
+      "说明": "用户的学习目标"
+    }
+  },
+  "配置步骤": [
+    "1. 登录微信云开发控制台",
+    "2. 进入数据库管理页面",
+    "3. 选择对应的集合",
+    "4. 点击权限设置",
+    "5. 选择'自定义安全规则'",
+    "6. 复制对应的规则JSON",
+    "7. 保存并测试"
+  ],
+  "注意事项": [
+    "1. 静态数据集合（knowledge_nodes, exam_questions, causal_chains, cases）只允许云函数写入",
+    "2. 动态数据集合只允许数据创建者（openid匹配）读写",
+    "3. 所有集合要求用户已登录（auth.openid != null）",
+    "4. 安全规则在云函数中通过admin权限绕过",
+    "5. 客户端直接访问数据库时受安全规则限制"
+  ]
+}
