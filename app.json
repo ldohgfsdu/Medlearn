@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "MedLearn",
+    "slug": "medlearn",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "medlearn",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#007aff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.medlearn.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#007aff"
+      },
+      "package": "com.medlearn.app"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

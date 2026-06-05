@@ -1,25 +1,17 @@
-# Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build outputs
+.expo/
 dist/
-build/
-.taro/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
 
-# Android build
-android/app/build/
-android/.gradle/
-android/local.properties
-*.apk
-*.aab
-
-# iOS build
-ios/App/Pods/
-ios/App/build/
-*.ipa
+# macOS
+.DS_Store
 
 # Environment variables
 .env
@@ -33,67 +25,21 @@ ios/App/build/
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-
 # Logs
 logs/
 *.log
 
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage
-coverage/
-.nyc_output/
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env.test
-
-# parcel-bundler cache
-.cache
-.parcel-cache
-
-# next.js build output
-.next
-
-# nuxt.js build output
-.nuxt
-
-# vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
+# OS
+Thumbs.db
 
 # Supabase
 supabase/.temp/
 supabase/.branches/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
 
 # Temporary files
 temp/
@@ -101,6 +47,6 @@ tmp/
 *.tmp
 *.temp
 
-# Cloud functions (保留但不部署)
-cloudfunctions/node_modules/
-cloudfunctions/package-lock.json
+# Coverage
+coverage/
+.nyc_output/
