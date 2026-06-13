@@ -24,6 +24,7 @@
     "apply:remote-api": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env scripts/apply-remote-via-api.mjs",
     "seed:remote-cases": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env scripts/seed-remote-cases.mjs",
     "configure:remote-secrets": "powershell -ExecutionPolicy Bypass -File scripts/configure-remote-secrets.ps1",
+    "e2e:remote": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env scripts/run-remote-e2e.mjs",
     "deploy:remote": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote-supabase.ps1",
     "check": "npm run typecheck && npm run lint && npm test"
   },

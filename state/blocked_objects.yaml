@@ -21,13 +21,15 @@ objects:
     evidence:
       - scripts/deploy-remote-supabase.ps1
       - scripts/verify-remote-supabase.mjs
+      - scripts/run-remote-e2e.mjs
       - docs/REMOTE_DEPLOYMENT_GUIDE.md
       - docs/E2E_ACCEPTANCE_CHECKLIST.md
       - npm run verify:remote
       - npm run validate:cases
+      - npm run e2e:remote
     frozen: false
     activated_at: "2026-06-13"
     completed_at: null
-    blocked_reason: Remote schema, grants, case seeds, and functions verified; set AI_API_KEY/function secrets and complete device E2E per docs/E2E_ACCEPTANCE_CHECKLIST.md.
+    blocked_reason: Remote API E2E passed (npm run e2e:remote); iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md.
     reactivated_at: null
     reactivation_reason: null
