@@ -17,6 +17,10 @@
     "generate:case-seeds": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-alpha-case-seeds.mjs",
     "validate:state": "python scripts/validate_project_state.py",
     "verify:remote": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env scripts/verify-remote-supabase.mjs",
+    "audit:remote": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env scripts/audit-remote-schema.mjs",
+    "preflight:deploy": "powershell -ExecutionPolicy Bypass -File scripts/preflight-deploy.ps1",
+    "build:remote-bootstrap": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-remote-bootstrap.mjs",
+    "apply:remote-sql": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env scripts/apply-remote-via-db.mjs",
     "deploy:remote": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote-supabase.ps1",
     "check": "npm run typecheck && npm run lint && npm test"
   },
@@ -46,6 +50,7 @@
     "@types/react": "~19.2.14",
     "eslint": "^9.39.4",
     "eslint-config-expo": "~56.0.4",
+    "pg": "^8.16.3",
     "typescript": "~6.0.3"
   }
 }

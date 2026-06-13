@@ -47,13 +47,34 @@ function Read-DotEnvValue([string]$Key) {
 function Invoke-Step([string]$Command, [string[]]$Args = @()) {
   Write-Host "+ $Command $($Args -join ' ')" -ForegroundColor DarkGray
   if ($DryRun) { return }
+  if ($Command -eq 'supabase') { $Command = $SupabaseCli }
   & $Command @Args
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
     throw "Command failed ($LASTEXITCODE): $Command $($Args -join ' ')"
   }
 }
 
-Assert-Command 'supabase'
+function Find-SupabaseCli {
+  if (Get-Command supabase -ErrorAction SilentlyContinue) { return 'supabase' }
+  $npmGlobal = & npm prefix -g 2>$null
+  $candidate = Join-Path $npmGlobal 'supabase.cmd'
+  if (Test-Path $candidate) { return $candidate }
+  return $null
+}
+
+$SupabaseCli = Find-SupabaseCli
+if (-not $SupabaseCli) {
+  throw 'Supabase CLI not found. Install with: npm install -g supabase'
+}
+
+if (-not $env:SUPABASE_ACCESS_TOKEN) {
+  $tokenFromEnv = Read-DotEnvValue 'SUPABASE_ACCESS_TOKEN'
+  if ($tokenFromEnv) { $env:SUPABASE_ACCESS_TOKEN = $tokenFromEnv }
+}
+if (-not $env:SUPABASE_ACCESS_TOKEN) {
+  throw 'SUPABASE_ACCESS_TOKEN is required. Create one at https://supabase.com/dashboard/account/tokens and add it to .env'
+}
+
 Assert-Command 'npm'
 
 if (-not (Test-Path (Join-Path $Root 'supabase\config.toml'))) {
@@ -62,6 +83,17 @@ if (-not (Test-Path (Join-Path $Root 'supabase\config.toml'))) {
 
 Write-Step 'Checking Supabase project link'
 Invoke-Step 'supabase' @('projects', 'list')
+
+$projectUrl = Read-DotEnvValue 'EXPO_PUBLIC_SUPABASE_URL'
+if (-not $projectUrl) { $projectUrl = Read-DotEnvValue 'SUPABASE_URL' }
+$projectRef = $null
+if ($projectUrl -match '^https?://([^.]+)\.supabase\.co') {
+  $projectRef = $Matches[1]
+}
+if ($projectRef) {
+  Write-Step "Linking project ref $projectRef"
+  Invoke-Step 'supabase' @('link', '--project-ref', $projectRef, '--yes')
+}
 
 Write-Step 'Pushing database migrations (001-019)'
 Invoke-Step 'supabase' @('db', 'push')

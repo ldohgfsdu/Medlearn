@@ -378,29 +378,35 @@ def v3_nodes_path(section_start: int, section_limit: int) -> Path:
     return V3_OUTPUT_DIR / f"{PDF_STEM}{v3_scope_tag(section_start, section_limit)}.nodes.json"
 
 
+def _ollama_api_ready(timeout: float = 5.0) -> bool:
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:11434/api/tags", timeout=timeout) as resp:
+            json.loads(resp.read().decode("utf-8"))
+        return True
+    except Exception:
+        return False
+
+
 def prepare_ollama_gpu() -> None:
-    """Free VRAM from crashed runs (zombie llama-server) before loading the model."""
-    if sys.platform == "win32":
-        subprocess.run(
-            ["taskkill", "/F", "/IM", "llama-server.exe"],
-            capture_output=True,
-            text=True,
-        )
+    """Ensure Ollama is reachable and warm up the extraction model."""
     model = os.environ.get("OLLAMA_MODEL", "medlearn-qwen3:8b")
     keep_alive = os.environ.get("OLLAMA_KEEP_ALIVE", "10m")
-    try:
-        import urllib.request
 
-        unload_payload = json.dumps({"model": model, "keep_alive": 0}).encode("utf-8")
-        unload_req = urllib.request.Request(
-            "http://127.0.0.1:11434/api/generate",
-            data=unload_payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(unload_req, timeout=5)
-    except Exception:
-        pass
+    if not _ollama_api_ready():
+        print("[ingest] Ollama API unreachable; clearing stale llama-server if any")
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "llama-server.exe"],
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        if not _ollama_api_ready(timeout=15.0):
+            print("[ingest] Ollama still unavailable — extract will likely fail")
+            return
+
     try:
         import urllib.request
 

@@ -40,15 +40,17 @@ function warn(message) {
 }
 
 async function checkTables(supabase) {
+  let ok = true
   for (const table of REQUIRED_TABLES) {
-    const { error } = await supabase.from(table).select('*', { head: true, count: 'exact' })
+    const { error } = await supabase.from(table).select('id').limit(1)
     if (error) {
       fail(`${table}: ${error.message}`)
-      return false
+      ok = false
+      continue
     }
     pass(`table ${table} is reachable`)
   }
-  return true
+  return ok
 }
 
 async function checkApprovedCases(supabase) {

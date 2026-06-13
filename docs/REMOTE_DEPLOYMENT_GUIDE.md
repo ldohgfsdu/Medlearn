@@ -11,15 +11,33 @@
 | 本地 `.env` | 已填写 URL、anon key、service role key、AI 密钥 |
 | Node.js | 20+（与本地开发一致） |
 
-## 1. 安装并登录 CLI
+## 0. 预检（推荐先跑）
 
 ```powershell
-# 安装（任选其一）
-scoop install supabase
-# 或 npm i -g supabase
-
-supabase login
+npm run preflight:deploy
+npm run audit:remote
 ```
+
+## 1. 安装并配置 CLI
+
+```powershell
+npm install -g supabase
+```
+
+在 `.env` 添加 Personal Access Token（Dashboard → Account → Access Tokens）：
+
+```env
+SUPABASE_ACCESS_TOKEN=sbp_...
+```
+
+可选备用路径：若只有数据库连接串，可设置 `DATABASE_URL` 后执行：
+
+```powershell
+npm run build:remote-bootstrap
+npm run apply:remote-sql
+```
+
+或把 `scripts/remote-bootstrap.sql` 粘贴到 Supabase SQL Editor 手动执行。
 
 ## 2. 关联远端项目
 
