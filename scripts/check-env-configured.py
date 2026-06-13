@@ -25,7 +25,12 @@ def main() -> int:
     for key in KEYS:
         match = re.search(rf"^{re.escape(key)}=(.*)$", text, re.M)
         value = match.group(1).strip().strip('"').strip("'") if match else ""
-        placeholder = (not value) or value.startswith("your_") or value.endswith("_here")
+        placeholder = (
+            (not value)
+            or value.startswith("your_")
+            or value.endswith("_here")
+            or value == "sk-..."
+        )
         print(f"{key}: configured={not placeholder}")
         if placeholder:
             ok = False

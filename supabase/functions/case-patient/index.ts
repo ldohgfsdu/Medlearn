@@ -34,8 +34,8 @@ interface AIResponse {
 }
 
 const AI_API_KEY = Deno.env.get('AI_API_KEY')
-const AI_BASE_URL = Deno.env.get('AI_BASE_URL') || 'https://token-plan-cn.xiaomimimo.com/v1'
-const AI_MODEL = Deno.env.get('AI_MODEL') || 'deepseek-ai/DeepSeek-V3'
+const AI_BASE_URL = Deno.env.get('AI_BASE_URL') || 'https://api.deepseek.com/v1'
+const AI_MODEL = Deno.env.get('AI_MODEL') || 'deepseek-chat'
 const AI_INPUT_COST_PER_MILLION = Number(Deno.env.get('AI_INPUT_COST_PER_MILLION') || 0)
 const AI_OUTPUT_COST_PER_MILLION = Number(Deno.env.get('AI_OUTPUT_COST_PER_MILLION') || 0)
 const CASE_MAX_TOKENS = Number(Deno.env.get('CASE_MAX_TOKENS') || 15_000)
