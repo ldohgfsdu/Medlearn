@@ -30,6 +30,13 @@ test('database migration revokes broad template reads and protects final scores'
   assert.match(migration, /NEW\.case_id IS DISTINCT FROM OLD\.case_id/)
 })
 
+test('usage count RPC can mark usage_counted_at once without weakening score guards', () => {
+  const migration = read('supabase/migrations/021_fix_increment_usage_count_guard.sql')
+  assert.match(migration, /OLD\.usage_counted_at IS NULL/)
+  assert.match(migration, /NEW\.completed_at IS DISTINCT FROM OLD\.completed_at/)
+  assert.match(read('supabase/migrations/014_harden_case_usage_count.sql'), /usage_counted_at = NOW\(\)/)
+})
+
 test('approved cases require a recorded medical reviewer', () => {
   const migration = read('supabase/migrations/017_case_review_workflow.sql')
   assert.match(migration, /reviewed_by IS NOT NULL/)

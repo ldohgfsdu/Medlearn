@@ -9,7 +9,7 @@ objects:
       - supabase/functions
       - iOS and Android end-to-end flow
     acceptance_criteria:
-      - Migrations 001 through 020 are applied.
+      - Migrations 001 through 021 are applied.
       - Five Edge Functions are deployed with required secrets.
       - npm run verify:remote and npm run validate:cases pass.
       - An approved case completes end to end on iOS and Android.
