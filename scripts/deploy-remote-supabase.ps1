@@ -39,7 +39,7 @@ function Assert-Command([string]$Name) {
 function Read-DotEnvValue([string]$Key) {
   $envFile = Join-Path $Root '.env'
   if (-not (Test-Path $envFile)) { return $null }
-  $line = Get-Content $envFile | Where-Object { $_ -match "^\s*$([regex]::Escape($Key))\s*=" } | Select-Object -First 1
+  $line = Get-Content $envFile -Encoding utf8 | Where-Object { $_ -match "^\s*$([regex]::Escape($Key))\s*=" } | Select-Object -First 1
   if (-not $line) { return $null }
   return ($line -split '=', 2)[1].Trim().Trim('"').Trim("'")
 }

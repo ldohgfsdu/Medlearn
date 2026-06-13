@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const AI_API_KEY = Deno.env.get('AI_API_KEY')
 const AI_BASE_URL = Deno.env.get('AI_BASE_URL') || 'https://api.deepseek.com/v1'
-const AI_MODEL = Deno.env.get('AI_MODEL') || 'deepseek-chat'
+const AI_MODEL = Deno.env.get('AI_MODEL') || 'deepseek-v4-pro'
 const AI_INPUT_COST_PER_MILLION = Number(Deno.env.get('AI_INPUT_COST_PER_MILLION') || 0)
 const AI_OUTPUT_COST_PER_MILLION = Number(Deno.env.get('AI_OUTPUT_COST_PER_MILLION') || 0)
 const AI_PROXY_WINDOW_MINUTES = Number(Deno.env.get('AI_PROXY_WINDOW_MINUTES') || 60)
