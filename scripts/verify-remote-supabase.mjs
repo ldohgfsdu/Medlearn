@@ -88,20 +88,35 @@ async function checkRpcFunctions(supabase) {
   }
   pass('rpc check_ai_proxy_quota is callable')
 
-  for (const rpc of REQUIRED_RPC.filter((name) => name !== 'check_ai_proxy_quota')) {
-    const { error } = await supabase.rpc(rpc, {
-      p_user_id: '00000000-0000-0000-0000-000000000000',
+  const rpcChecks = {
+    record_case_llm_usage: {
       p_session_id: '00000000-0000-0000-0000-000000000000',
       p_prompt_tokens: 0,
       p_completion_tokens: 0,
       p_total_tokens: 0,
       p_estimated_cost: 0,
-    })
+    },
+    record_ai_proxy_usage: {
+      p_user_id: '00000000-0000-0000-0000-000000000000',
+      p_prompt_tokens: 0,
+      p_completion_tokens: 0,
+      p_total_tokens: 0,
+      p_estimated_cost: 0,
+    },
+  }
+
+  for (const rpc of REQUIRED_RPC.filter((name) => name !== 'check_ai_proxy_quota')) {
+    const { error } = await supabase.rpc(rpc, rpcChecks[rpc])
     if (!error) {
       pass(`rpc ${rpc} is callable`)
       continue
     }
-    if (error.message.includes('service role required') || error.message.includes('not found')) {
+    if (
+      error.message.includes('service role required')
+      || error.message.includes('case session not found')
+      || error.message.includes('violates foreign key constraint')
+      || error.message.includes('not found')
+    ) {
       pass(`rpc ${rpc} exists (${error.message})`)
       continue
     }

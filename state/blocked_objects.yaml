@@ -9,8 +9,9 @@ objects:
       - supabase/functions
       - iOS and Android end-to-end flow
     acceptance_criteria:
-      - Migrations 001 through 019 are applied.
+      - Migrations 001 through 020 are applied.
       - Five Edge Functions are deployed with required secrets.
+      - npm run verify:remote and npm run validate:cases pass.
       - An approved case completes end to end on iOS and Android.
       - Score reproducibility and cost events are verified.
     dependencies:
@@ -27,6 +28,6 @@ objects:
     frozen: false
     activated_at: "2026-06-13"
     completed_at: null
-    blocked_reason: Deployment credentials, an initialized remote schema, and device validation are still required.
+    blocked_reason: Remote schema, grants, case seeds, and functions verified; set AI_API_KEY/function secrets and complete device E2E per docs/E2E_ACCEPTANCE_CHECKLIST.md.
     reactivated_at: null
     reactivation_reason: null
