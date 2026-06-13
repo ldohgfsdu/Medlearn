@@ -117,30 +117,16 @@ if (-not $SkipFunctions) {
 
 if (-not $SkipSecrets) {
   Write-Step 'Setting Edge Function secrets from .env'
-  $secretMap = @{
-    'AI_API_KEY' = Read-DotEnvValue 'AI_API_KEY'
-    'AI_BASE_URL' = Read-DotEnvValue 'AI_BASE_URL'
-    'AI_MODEL' = Read-DotEnvValue 'AI_MODEL'
-    'SILICONFLOW_KEY' = Read-DotEnvValue 'SILICONFLOW_KEY'
-    'AI_INPUT_COST_PER_MILLION' = Read-DotEnvValue 'AI_INPUT_COST_PER_MILLION'
-    'AI_OUTPUT_COST_PER_MILLION' = Read-DotEnvValue 'AI_OUTPUT_COST_PER_MILLION'
-    'CASE_MAX_TOKENS' = Read-DotEnvValue 'CASE_MAX_TOKENS'
-    'CASE_MAX_COST_USD' = Read-DotEnvValue 'CASE_MAX_COST_USD'
-    'AI_PROXY_WINDOW_MINUTES' = Read-DotEnvValue 'AI_PROXY_WINDOW_MINUTES'
-    'AI_PROXY_MAX_REQUESTS' = Read-DotEnvValue 'AI_PROXY_MAX_REQUESTS'
-    'AI_PROXY_MAX_TOKENS' = Read-DotEnvValue 'AI_PROXY_MAX_TOKENS'
-  }
-
-  $pairs = @()
-  foreach ($entry in $secretMap.GetEnumerator()) {
-    if ([string]::IsNullOrWhiteSpace($entry.Value)) { continue }
-    $pairs += "$($entry.Key)=$($entry.Value)"
-  }
-
-  if ($pairs.Count -eq 0) {
-    Write-Host 'No secrets found in .env; skipping supabase secrets set.' -ForegroundColor Yellow
+  $configureScript = Join-Path $Root 'scripts\configure-remote-secrets.ps1'
+  if ($DryRun) {
+    & $configureScript -DryRun
   } else {
-    Invoke-Step 'supabase' @('secrets', 'set', '--env-file', '.env')
+    & $configureScript
+    if ($LASTEXITCODE -eq 2) {
+      Write-Host 'Secrets partially configured; add AI_API_KEY to .env and rerun configure:remote-secrets.' -ForegroundColor Yellow
+    } elseif ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+      throw "configure-remote-secrets failed ($LASTEXITCODE)"
+    }
   }
 }
 

@@ -17,6 +17,7 @@ web-build/
 .env
 .env.local
 .env.*.local
+.env.functions
 
 # Sensitive files
 *.keystore
