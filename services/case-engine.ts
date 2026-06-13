@@ -133,6 +133,33 @@ const PHASE_PERMISSIONS: Record<IntentType, CasePhase[]> = {
 
 const VALID_PHASES = new Set<string>(Object.values(CasePhase))
 
+/** Maps intent-parser targets to case_templates history field ids. */
+const HISTORY_TARGET_ALIASES: Record<string, string> = {
+  hpi_onset: 'onset',
+  hpi_duration: 'duration',
+  hpi_location: 'site',
+  hpi_character: 'character',
+  hpi_radiation: 'radiation',
+  hpi_severity: 'severity',
+  hpi_aggravating: 'aggravating',
+  hpi_relieving: 'relieving',
+  hpi_associated: 'associated',
+  hpi_previous: 'previous',
+  pmh_diseases: 'past_medical',
+  medications: 'medications',
+  allergies: 'allergies',
+  social_smoking: 'smoking',
+  social_alcohol: 'alcohol',
+  family_history: 'family',
+}
+
+/** Alpha seed placeholders — not case-specific enough; prefer AI patient voice. */
+const GENERIC_PRESET_VOICES = new Set([
+  '突然就开始不舒服了',
+  '就是现在说的这个地方',
+  '已经好几个小时了',
+])
+
 export function isValidPhase(phase: string): phase is CasePhase {
   return VALID_PHASES.has(phase)
 }
@@ -267,6 +294,7 @@ export class CaseEngine {
     }
 
     let response: string
+    let patientResponseSource: 'preset' | 'ai' | null = null
     switch (intent.type) {
       case 'empty':
         response = '请输入你的问题。'
@@ -281,13 +309,9 @@ export class CaseEngine {
         response = '医生，这和我的病有关系吗？'
         break
       case 'ask_history': {
-        const historyResponse = this.handleHistoryQuestion(state, template, intent)
-        if (historyResponse === null) {
-          this.ensureHistoryPhase(state)
-          response = await this.handleUnknownInput(sessionId, userMessage)
-        } else {
-          response = historyResponse
-        }
+        const resolved = await this.resolveHistoryOrAi(sessionId, userMessage, state, template, intent)
+        response = resolved.response
+        patientResponseSource = resolved.source
         break
       }
       case 'physical_exam':
@@ -302,6 +326,7 @@ export class CaseEngine {
       default:
         this.ensureHistoryPhase(state)
         response = await this.handleUnknownInput(sessionId, userMessage)
+        patientResponseSource = 'ai'
         break
     }
 
@@ -310,10 +335,15 @@ export class CaseEngine {
     await this.saveMessage(sessionId, userMessage, response, state.turnCount, intent)
 
     // 事件追踪
-    if (intent.type === 'ask_history' || intent.type === 'unknown') {
-      if (intent.type === 'ask_history') {
-        await trackCaseEvent({ eventName: 'patient_message_received', userId, sessionId, caseId: template.id, ...eventProps, properties: { intent: intent.type, source: 'deterministic' } })
-      }
+    if ((intent.type === 'ask_history' || intent.type === 'unknown') && patientResponseSource) {
+      await trackCaseEvent({
+        eventName: 'patient_message_received',
+        userId,
+        sessionId,
+        caseId: template.id,
+        ...eventProps,
+        properties: { intent: intent.type, source: patientResponseSource, target: intent.target },
+      })
     }
     if (intent.type === 'physical_exam') {
       await trackCaseEvent({ eventName: 'exam_requested', userId, sessionId, caseId: template.id, ...eventProps, properties: { region: intent.target } })
@@ -396,22 +426,45 @@ export class CaseEngine {
     }
   }
 
-  private handleHistoryQuestion(
+  private async resolveHistoryOrAi(
+    sessionId: string,
+    userMessage: string,
+    state: CaseState,
+    template: CaseTemplate,
+    intent: Intent,
+  ): Promise<{ response: string; source: 'preset' | 'ai' }> {
+    const preset = this.tryHistoryPreset(state, template, intent)
+    if (preset) {
+      return { response: preset, source: 'preset' }
+    }
+    this.ensureHistoryPhase(state)
+    return {
+      response: await this.handleUnknownInput(sessionId, userMessage),
+      source: 'ai',
+    }
+  }
+
+  private tryHistoryPreset(
     state: CaseState,
     template: CaseTemplate,
     intent: Intent,
   ): string | null {
     const target = intent.target
-    if (!target) return '医生，您想问什么？'
+    if (!target) return null
 
     const field = this.findHistoryField(target, template.patient_world)
-    if (!field) return null
+    if (!field || this.isGenericPresetVoice(field.patientVoice)) return null
 
     if (!state.revealed.historyFields.includes(field.id)) {
       state.revealed.historyFields.push(field.id)
     }
     this.ensureHistoryPhase(state)
     return field.patientVoice
+  }
+
+  private isGenericPresetVoice(voice: string): boolean {
+    const trimmed = voice.trim()
+    return !trimmed || GENERIC_PRESET_VOICES.has(trimmed)
   }
 
   private handleExamRequest(state: CaseState, template: CaseTemplate, intent: Intent): string {
@@ -505,11 +558,18 @@ export class CaseEngine {
       ...patientWorld.history.social,
       ...patientWorld.history.family,
     ]
-    const targetLower = target.toLowerCase()
-    return allFields.find((f) => f.id === target)
+    const resolvedTarget = HISTORY_TARGET_ALIASES[target] ?? target
+    const targetLower = resolvedTarget.toLowerCase()
+    return (
+      allFields.find((f) => f.id === resolvedTarget)
       || allFields.find((f) => f.field.toLowerCase() === targetLower)
-      || allFields.find((f) => f.field.toLowerCase().includes(targetLower) || targetLower.includes(f.field.toLowerCase()))
+      || allFields.find(
+        (f) =>
+          f.field.toLowerCase().includes(targetLower)
+          || targetLower.includes(f.field.toLowerCase()),
+      )
       || null
+    )
   }
 
   private async loadContext(sessionId: string, userId: string): Promise<{ state: CaseState; template: CaseTemplate }> {

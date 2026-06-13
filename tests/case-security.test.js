@@ -87,7 +87,10 @@ test('intro phase allows greeting and open history questions before exam workflo
   assert.match(engine, /ask_history: \[CasePhase\.INTRO, CasePhase\.HISTORY, CasePhase\.EXAM\]/)
   assert.match(engine, /unknown: \[CasePhase\.INTRO, CasePhase\.HISTORY, CasePhase\.EXAM, CasePhase\.TESTS\]/)
   assert.match(engine, /ensureHistoryPhase/)
-  assert.match(engine, /historyResponse === null/)
+  assert.match(engine, /resolveHistoryOrAi/)
+  assert.match(engine, /tryHistoryPreset/)
+  assert.match(engine, /GENERIC_PRESET_VOICES/)
+  assert.match(engine, /HISTORY_TARGET_ALIASES/)
 
   const parser = read('services/intent-parser.ts')
   assert.match(parser, /name: 'hpi_open'/)
