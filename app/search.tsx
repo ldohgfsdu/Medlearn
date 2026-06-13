@@ -1,72 +1,258 @@
-import { useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { searchKnowledge } from '@/app/lib/knowledge';
+import { useState } from 'react'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { useSearchNodes } from '@/hooks/useKnowledge'
+import { displayNodeTitle, formatNodeType } from '@/utils/knowledgeCatalog'
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme'
+
+const TYPE_COLORS: Record<string, string> = {
+  disease: Colors.error,
+  concept: Colors.primary[500],
+  mechanism: Colors.info,
+  symptom: Colors.warning,
+  treatment: Colors.success,
+}
 
 export default function SearchPage() {
-  const [query, setQuery] = useState('');
-  const router = useRouter();
+  const [query, setQuery] = useState('')
+  const router = useRouter()
+  const trimmed = query.trim()
+  const hasSearch = trimmed.length >= 2
+  const { data: results, isFetching } = useSearchNodes(query)
 
-  const { data: results, isLoading } = useQuery({
-    queryKey: ['search', query],
-    queryFn: () => searchKnowledge(query),
-    enabled: query.length > 1,
-  });
+  const handleNodePress = (node: { id: string; title: string }) => {
+    router.push({
+      pathname: '/node/[id]',
+      params: { id: node.id, title: node.title },
+    })
+  }
 
   return (
-    <View className="flex-1 bg-zinc-950 p-4">
-      <Text className="text-2xl font-bold text-white mb-6">知识搜索</Text>
-      
-      <TextInput
-        className="bg-zinc-900 text-white p-4 rounded-xl mb-6 text-base"
-        placeholder="搜索疾病、症状、检查、药物..."
-        placeholderTextColor="#666"
-        value={query}
-        onChangeText={setQuery}
-        autoCapitalize="none"
-      />
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>知识搜索</Text>
+        <Text style={styles.subtitle}>输入两个字以上，按教材知识点检索</Text>
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
+          <TextInput
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="如「心力衰竭」「肺炎」"
+            placeholderTextColor={Colors.textTertiary}
+            autoCapitalize="none"
+            returnKeyType="search"
+            autoFocus
+          />
+          {query.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setQuery('')}
+              style={styles.clearButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={16} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
-      {isLoading && (
-        <ActivityIndicator size="large" color="#22c55e" />
-      )}
-
-      <ScrollView>
-        {results?.map((item: any) => (
-          <TouchableOpacity
-            key={item.id}
-            onPress={() => router.push(`/knowledge/${item.id}`)}
-            className="bg-zinc-900 p-5 rounded-2xl mb-4 active:opacity-70"
-          >
-            <View className="flex-row justify-between items-start mb-2">
-              <Text className="text-lg font-semibold text-white flex-1">
-                {item.title}
-              </Text>
-              <Text className="text-xs text-emerald-400 bg-emerald-950 px-2 py-1 rounded-full">
-                {item.type}
-              </Text>
-            </View>
-            
-            <Text className="text-zinc-400 text-sm line-clamp-2 mb-3">
-              {item.summary || item.definition?.content?.slice(0, 120)}...
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {!hasSearch ? (
+          <View style={styles.hintBlock}>
+            <Ionicons name="book-outline" size={28} color={Colors.primary[700]} />
+            <Text style={styles.hintTitle}>从关键词进入知识点</Text>
+            <Text style={styles.hintText}>
+              搜索结果会跳转到与知识地图相同的详情页，保持阅读体验一致。
             </Text>
-            
-            <View className="flex-row gap-2">
-              {item.aliases?.slice(0, 2).map((alias: string) => (
-                <Text key={alias} className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">
-                  {alias}
-                </Text>
-              ))}
-            </View>
-          </TouchableOpacity>
-        ))}
-
-        {query.length > 1 && results?.length === 0 && (
-          <Text className="text-zinc-500 text-center py-12">
-            没有找到匹配的结果
-          </Text>
+          </View>
+        ) : isFetching ? (
+          <View style={styles.loadingBlock}>
+            <ActivityIndicator color={Colors.primary[700]} />
+            <Text style={styles.loadingText}>正在查找知识点</Text>
+          </View>
+        ) : results && results.length > 0 ? (
+          <View style={styles.resultList}>
+            {results.map((node, index) => (
+              <TouchableOpacity
+                key={node.id}
+                style={[styles.resultRow, index < results.length - 1 && styles.rowDivider]}
+                onPress={() => handleNodePress(node)}
+                activeOpacity={0.65}
+              >
+                <View style={[
+                  styles.typeDot,
+                  { backgroundColor: TYPE_COLORS[node.type] || Colors.neutral[300] },
+                ]} />
+                <View style={styles.resultCopy}>
+                  <Text style={styles.resultTitle}>
+                    {displayNodeTitle(node.title, node.sub_chapter)}
+                  </Text>
+                  <Text style={styles.resultMeta} numberOfLines={1}>
+                    {formatNodeType(node.type)}
+                    {node.chapter ? ` · ${node.chapter}` : ''}
+                    {node.sub_chapter ? ` · ${node.sub_chapter}` : ''}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.neutral[400]} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyBlock}>
+            <Text style={styles.emptyTitle}>没有找到相关知识点</Text>
+            <Text style={styles.emptyText}>试试更短、更接近教材标题的关键词。</Text>
+          </View>
         )}
       </ScrollView>
     </View>
-  );
+  )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  title: {
+    ...Typography.titleLarge,
+    color: Colors.textPrimary,
+  },
+  subtitle: {
+    ...Typography.bodyMedium,
+    color: Colors.textTertiary,
+    marginTop: Spacing.xs,
+  },
+  searchBox: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.base,
+    marginTop: Spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    color: Colors.textPrimary,
+    paddingVertical: Spacing.md,
+  },
+  clearButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing['4xl'],
+  },
+  hintBlock: {
+    minHeight: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+  },
+  hintTitle: {
+    ...Typography.titleMedium,
+    color: Colors.textPrimary,
+    marginTop: Spacing.sm,
+  },
+  hintText: {
+    ...Typography.bodyMedium,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  loadingBlock: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.bodyMedium,
+    color: Colors.textTertiary,
+  },
+  resultList: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.base,
+  },
+  resultRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  typeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  resultCopy: {
+    flex: 1,
+  },
+  resultTitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  resultMeta: {
+    ...Typography.bodySmall,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  emptyBlock: {
+    minHeight: 180,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    ...Typography.titleMedium,
+    color: Colors.textPrimary,
+  },
+  emptyText: {
+    ...Typography.bodyMedium,
+    color: Colors.textTertiary,
+    marginTop: Spacing.xs,
+  },
+})

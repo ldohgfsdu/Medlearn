@@ -271,12 +271,41 @@ def make_standalone(text: str, parent_entity: str) -> str:
     return f"{parent_entity}：{text}"
 
 
-def identify_node_entity(title: str, content: str, aspect: str) -> NodeEntityResult:
+def entity_confirmed_in_text(entity: str, *texts: str) -> bool:
+    """Return True when entity appears in any provided text blob."""
+    entity = entity.strip()
+    if not entity:
+        return False
+    return any(entity in (text or "") for text in texts)
+
+
+def title_declares_entity(title: str, entity: str) -> bool:
+    """Accept titles like '支气管哮喘的临床表现' or '慢性血栓栓塞性肺疾病'."""
+    title = title.strip()
+    entity = entity.strip()
+    if not title or not entity:
+        return False
+    return title == entity or title.startswith(f"{entity}的")
+
+
+def identify_node_entity(
+    title: str,
+    content: str,
+    aspect: str,
+    evidence: str = "",
+) -> NodeEntityResult:
     """Identify a title-derived medical subject and confirm it in raw content."""
     title = title.strip()
     content = content.strip()
+    evidence = evidence.strip()
     if not title:
         return NodeEntityResult(None, "title_missing")
+
+    searchable = "\n".join(value for value in (content, evidence) if value)
+
+    if title not in NON_ENTITY_TERMS and not CONTEXT_DEPENDENT_RE.match(title):
+        if title in searchable or evidence:
+            return NodeEntityResult(title, "confirmed_title_entity")
 
     suffixes = sorted(
         {value for value in (*ENTITY_ASPECT_SUFFIXES, aspect.strip()) if value},
@@ -302,9 +331,11 @@ def identify_node_entity(title: str, content: str, aspect: str) -> NodeEntityRes
         return NodeEntityResult(None, "context_dependent_candidate")
     if ENTITY_CONFLICT_RE.fullmatch(candidate):
         return NodeEntityResult(None, "entity_conflict")
-    if candidate not in content:
-        return NodeEntityResult(None, "entity_not_confirmed_in_content")
-    return NodeEntityResult(candidate, "confirmed_in_title_and_content")
+    if entity_confirmed_in_text(candidate, searchable) or title_declares_entity(
+        title, candidate
+    ):
+        return NodeEntityResult(candidate, "confirmed_in_title_and_content")
+    return NodeEntityResult(None, "entity_not_confirmed_in_content")
 
 
 class MedlearnPipeline:
@@ -631,11 +662,11 @@ class MedlearnPipeline:
 
 要求：
 1. nodes.type 只能是 concept、mechanism、disease、symptom、treatment、exam。
-2. 每个节点必须是一个原子知识块；parent_entity 用具体疾病/药物/机制名。
-3. title 与 content 均须包含 parent_entity；不能以“该病、其、上述”开头。
+2. 每个节点必须是一个原子知识块；parent_entity 用具体疾病/药物/机制全称（禁止仅用缩写）。
+3. title 建议写“parent_entity + 的 + aspect”；content 首句必须写出 parent_entity 全称，不能用“该病、其、上述”。
 4. aspect 填原文面向；evidence 填最短原文依据；无依据则不生成。
 5. edges.relation 用 causes、characteristic_of、treated_by、complication_of、associated_with。
-6. 只输出合法 JSON。
+6. 只输出合法 JSON，不要输出空 nodes。
 
 JSON 格式：
 {{
@@ -655,11 +686,13 @@ JSON 格式：
             "model": self.model,
             "stream": False,
             "format": "json",
+            "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "10m"),
             "messages": [{"role": "user", "content": prompt}],
             "options": {
                 "temperature": 0.1,
                 "num_ctx": min(self.num_ctx, 4096),
                 "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "999")),
+                "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "2048")),
             },
         }
         response = requests.post(
@@ -668,7 +701,29 @@ JSON 格式：
         response.raise_for_status()
         return extract_json(response.json()["message"]["content"])
 
-    def call_ollama(self, chunk: MarkdownChunk, retries: int = 2) -> dict[str, Any]:
+    def warmup_ollama(self) -> None:
+        import requests
+
+        try:
+            requests.post(
+                f"{self.ollama_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "stream": False,
+                    "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "10m"),
+                    "messages": [{"role": "user", "content": "回复 OK"}],
+                    "options": {
+                        "num_ctx": 512,
+                        "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "999")),
+                    },
+                },
+                timeout=120,
+            ).raise_for_status()
+            print("[*] Ollama 模型已预热")
+        except Exception as exc:
+            print(f"[!] Ollama 预热失败（继续尝试提取）: {exc}")
+
+    def call_ollama(self, chunk: MarkdownChunk, retries: int = 3) -> dict[str, Any]:
         import requests
 
         content = chunk.content[: self.max_content_chars_for_ctx()]
@@ -677,23 +732,43 @@ JSON 格式：
 
         for attempt in range(1, retries + 1):
             try:
-                return self.call_ollama_once(prompt)
+                data = self.call_ollama_once(prompt)
+                if not data.get("nodes"):
+                    raise ValueError("Ollama 返回空 nodes")
+                return data
             except requests.HTTPError as exc:
                 last_exc = exc
                 status = exc.response.status_code if exc.response is not None else None
-                # Context overflow returns 400 — smaller input helps; same payload won't.
-                if status == 400 and len(content) > 1500:
-                    content = content[: max(1200, len(content) // 2)]
+                if status == 400 and len(content) > 1200:
+                    content = content[: max(1000, len(content) // 2)]
                     prompt = self.build_extraction_prompt(chunk, content)
                     print(f"  [!] 块 {chunk.index} 上下文过长，截断至 {len(content)} 字重试")
+                    continue
+                if status in {400, 500} and attempt < retries:
+                    time.sleep(attempt * 2)
                     continue
                 if status in {400, 500}:
                     raise RuntimeError(f"Ollama 调用失败: {exc}") from exc
             except (requests.RequestException, KeyError, json.JSONDecodeError, ValueError) as exc:
                 last_exc = exc
             if attempt < retries:
-                time.sleep(attempt)
+                time.sleep(attempt * 2)
         raise RuntimeError(f"Ollama 调用失败（重试 {retries} 次）: {last_exc}") from last_exc
+
+    def _persist_chunk_result(
+        self,
+        cache: dict[str, Any],
+        chunk: MarkdownChunk,
+        data: dict[str, Any],
+    ) -> None:
+        cache["chunks"][str(chunk.index)] = {
+            "headings": chunk.headings,
+            "nodes": data.get("nodes", []),
+            "edges": data.get("edges", []),
+        }
+        self.cache_path.write_text(
+            json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def extract(self, chunks: list[MarkdownChunk], resume: bool = True) -> dict[str, Any]:
         cache: dict[str, Any] = {"subject": self.subject, "chunks": {}}
@@ -703,27 +778,51 @@ JSON 格式：
 
         selected = chunks[: self.limit] if self.limit else chunks
         print(f"[*] 共 {len(chunks)} 个语义块，本次处理 {len(selected)} 个")
+        if selected and not cache["chunks"]:
+            self.warmup_ollama()
+
+        pending: list[MarkdownChunk] = []
         for position, chunk in enumerate(selected, start=1):
             key = str(chunk.index)
             if key in cache["chunks"]:
                 print(f"  [=] {position}/{len(selected)} 块 {chunk.index} 已缓存")
                 continue
+            pending.append(chunk)
+
+        failed: list[MarkdownChunk] = []
+        for position, chunk in enumerate(pending, start=1):
             try:
                 data = self.call_ollama(chunk)
-                cache["chunks"][key] = {
-                    "headings": chunk.headings,
-                    "nodes": data.get("nodes", []),
-                    "edges": data.get("edges", []),
-                }
-                self.cache_path.write_text(
-                    json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
-                )
+                self._persist_chunk_result(cache, chunk, data)
                 print(
-                    f"  [+] {position}/{len(selected)} 块 {chunk.index}: "
-                    f"{len(data.get('nodes', []))} 个节点"
+                    f"  [+] {len(selected) - len(pending) + position}/{len(selected)} "
+                    f"块 {chunk.index}: {len(data.get('nodes', []))} 个节点"
                 )
             except RuntimeError as exc:
+                failed.append(chunk)
                 print(f"  [!] 块 {chunk.index} 跳过: {exc}")
+
+        if failed:
+            print(f"[*] 对 {len(failed)} 个失败块做最终重试")
+            for chunk in failed:
+                try:
+                    data = self.call_ollama(chunk, retries=2)
+                    self._persist_chunk_result(cache, chunk, data)
+                    print(
+                        f"  [+] 重试成功 块 {chunk.index}: "
+                        f"{len(data.get('nodes', []))} 个节点"
+                    )
+                except RuntimeError as exc:
+                    print(f"  [!] 重试仍失败 块 {chunk.index}: {exc}")
+
+        raw_nodes = sum(
+            len(result.get("nodes") or [])
+            for result in cache.get("chunks", {}).values()
+        )
+        print(
+            f"[*] 提取缓存: {len(cache.get('chunks', {}))} 块, "
+            f"原始节点 {raw_nodes}"
+        )
         return cache
 
     def build_rows(self, cache: dict[str, Any]) -> list[dict[str, Any]]:
@@ -739,7 +838,9 @@ JSON 格式：
                 parent_entity = str(raw.get("parent_entity", "")).strip()
                 aspect = str(raw.get("aspect", "")).strip()
                 evidence = str(raw.get("evidence", "")).strip()
-                node_entity = identify_node_entity(title, raw_content, aspect)
+                node_entity = identify_node_entity(
+                    title, raw_content, aspect, evidence
+                )
                 content = make_standalone(
                     raw_content, node_entity.entity or parent_entity
                 )
@@ -839,9 +940,19 @@ JSON 格式：
             return False
         if CONTEXT_DEPENDENT_RE.match(title) or CONTEXT_DEPENDENT_RE.match(content):
             return False
-        parent_path = parent_entity in title and parent_entity in content
+
+        corpus = "\n".join(value for value in (title, content, evidence) if value)
+        parent_in_title = entity_confirmed_in_text(parent_entity, title)
+        parent_in_corpus = entity_confirmed_in_text(parent_entity, corpus)
+        parent_path = parent_in_title and (
+            parent_in_corpus
+            or title_declares_entity(title, parent_entity)
+            or title == parent_entity
+        )
         node_path = bool(
-            node_entity and node_entity in title and node_entity in content
+            node_entity
+            and entity_confirmed_in_text(node_entity, title)
+            and entity_confirmed_in_text(node_entity, corpus)
         )
         return parent_path or node_path
 
@@ -966,12 +1077,30 @@ JSON 格式：
             ).execute()
             print(f"  [+] 已写入 {min(start + batch_size, len(rows))}/{len(rows)}")
 
+    def rebuild_from_cache(self) -> list[dict[str, Any]]:
+        if not self.cache_path.exists():
+            raise FileNotFoundError(f"未找到提取缓存: {self.cache_path}")
+        cache = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        rows = self.build_rows(cache)
+        nodes_path, preview_path, quality_path = self.write_outputs(rows)
+        raw_nodes = sum(
+            len(result.get("nodes") or [])
+            for result in cache.get("chunks", {}).values()
+        )
+        print(
+            f"[+] 从缓存重建: {nodes_path}（原始 {raw_nodes} → 原子 {len(rows)}）"
+        )
+        print(f"[+] 地图预览: {preview_path}")
+        print(f"[+] 原子性报告: {quality_path}")
+        return rows
+
     def run(
         self,
         upload: bool,
         force_parse: bool,
         no_resume: bool,
         catalog_only: bool,
+        rebuild_only: bool = False,
     ) -> None:
         if not self.source_path.exists():
             raise FileNotFoundError(f"输入文件不存在: {self.source_path}")
@@ -982,14 +1111,23 @@ JSON 格式：
             print(f"[+] 目录清单: {self.catalog_path}")
             print(f"[+] 目录质量报告: {self.catalog_report_path}")
             return
-        markdown = self.read_source(force=force_parse)
-        chunks = split_markdown(markdown, self.max_chars)
-        cache = self.extract(chunks, resume=not no_resume)
-        rows = self.build_rows(cache)
-        nodes_path, preview_path, quality_path = self.write_outputs(rows)
-        print(f"[+] 节点缓存: {nodes_path}（{len(rows)} 个节点）")
-        print(f"[+] 地图预览: {preview_path}")
-        print(f"[+] 原子性报告: {quality_path}")
+        if rebuild_only:
+            rows = self.rebuild_from_cache()
+        else:
+            markdown = self.read_source(force=force_parse)
+            chunks = split_markdown(markdown, self.max_chars)
+            cache = self.extract(chunks, resume=not no_resume)
+            rows = self.build_rows(cache)
+            nodes_path, preview_path, quality_path = self.write_outputs(rows)
+            raw_nodes = sum(
+                len(result.get("nodes") or [])
+                for result in cache.get("chunks", {}).values()
+            )
+            print(
+                f"[+] 节点缓存: {nodes_path}（原始 {raw_nodes} → 原子 {len(rows)}）"
+            )
+            print(f"[+] 地图预览: {preview_path}")
+            print(f"[+] 原子性报告: {quality_path}")
         if upload:
             report = json.loads(quality_path.read_text(encoding="utf-8"))
             failed_checks = [
@@ -1027,6 +1165,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force-parse", action="store_true", help="重新解析 PDF")
     parser.add_argument("--no-resume", action="store_true", help="忽略已有 LLM 抽取缓存")
     parser.add_argument(
+        "--rebuild-only",
+        action="store_true",
+        help="仅从 .extraction.json 重建 nodes/quality，不调用 Ollama",
+    )
+    parser.add_argument(
         "--pymupdf-only",
         action="store_true",
         help="跳过 Docling，仅用 PyMuPDF 解析（低内存环境推荐）",
@@ -1055,7 +1198,13 @@ def main() -> None:
         section_start=args.section_start,
         pymupdf_only=args.pymupdf_only,
     )
-    pipeline.run(args.upload, args.force_parse, args.no_resume, args.catalog_only)
+    pipeline.run(
+        args.upload,
+        args.force_parse,
+        args.no_resume,
+        args.catalog_only,
+        args.rebuild_only,
+    )
 
 
 if __name__ == "__main__":

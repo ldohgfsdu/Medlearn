@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
@@ -28,7 +28,16 @@ const COMPLAINT_META: Record<string, {
 
 export default function CasesScreen() {
   const router = useRouter()
+  const navigation = useNavigation()
+  const { section } = useLocalSearchParams<{ section?: string }>()
+  const showHistoryFirst = section === 'history'
   const { user } = useAuth()
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerTitle: showHistoryFirst ? '病例记录' : '病例中心',
+    })
+  }, [navigation, showHistoryFirst])
   const [loading, setLoading] = useState<string | null>(null)
   const [pendingChiefComplaint, setPendingChiefComplaint] = useState<string | null>(null)
   const { data: completedSessions = [] } = useQuery({
@@ -118,28 +127,21 @@ export default function CasesScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.intro}>
-        <Text style={styles.eyebrow}>SIMULATED CLINIC</Text>
-        <Text style={styles.introTitle}>从一个主诉开始</Text>
-        <Text style={styles.introText}>
-          系统随机生成病例。你负责收集线索、提出诊断，并解释每一步判断。
-        </Text>
-        <View style={styles.flowRow}>
-          {['问诊', '检查', '诊断', '复盘'].map((step, index) => (
-            <View key={step} style={styles.flowItem}>
-              <Text style={styles.flowIndex}>0{index + 1}</Text>
-              <Text style={styles.flowText}>{step}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      {!showHistoryFirst && (
+        <>
+          <View style={styles.pageIntro}>
+            <Text style={styles.pageIntroTitle}>从一个主诉开始</Text>
+            <Text style={styles.pageIntroText}>
+              系统随机生成病例。你负责收集线索、提出诊断，并解释每一步判断。
+            </Text>
+          </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>选择主诉</Text>
-        <Text style={styles.sectionMeta}>随机病例</Text>
-      </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>选择主诉</Text>
+            <Text style={styles.sectionMeta}>随机病例</Text>
+          </View>
 
-      <View style={styles.cardGrid}>
+          <View style={styles.cardGrid}>
         {CHIEF_COMPLAINTS.map((complaint, index) => {
           const meta = COMPLAINT_META[complaint.id]
           const isFeatured = index === 0
@@ -179,9 +181,11 @@ export default function CasesScreen() {
             </TouchableOpacity>
           )
         })}
-      </View>
+          </View>
+        </>
+      )}
 
-      <View style={[styles.sectionHeader, styles.historyHeader]}>
+      <View style={[styles.sectionHeader, !showHistoryFirst && styles.historyHeader]}>
         <Text style={styles.sectionTitle}>病例记录</Text>
         <Text style={styles.sectionMeta}>{completedSessions.length} 次完成</Text>
       </View>
@@ -271,55 +275,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing['3xl'],
   },
-  intro: {
-    backgroundColor: Colors.ink,
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
-    overflow: 'hidden',
-    ...Shadows.level2,
+  pageIntro: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
   },
-  eyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-    color: '#9DC8B9',
+  pageIntroTitle: {
+    ...Typography.titleLarge,
+    color: Colors.textPrimary,
   },
-  introTitle: {
-    fontSize: 28,
-    lineHeight: 35,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-    color: '#FFFDF9',
+  pageIntroText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.textSecondary,
     marginTop: Spacing.sm,
-  },
-  introText: {
-    ...Typography.bodyMedium,
-    lineHeight: 22,
-    color: 'rgba(255, 253, 249, 0.65)',
-    marginTop: Spacing.sm,
-    maxWidth: 330,
-  },
-  flowRow: {
-    flexDirection: 'row',
-    marginTop: Spacing.xl,
-    paddingTop: Spacing.base,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 253, 249, 0.18)',
-  },
-  flowItem: {
-    flex: 1,
-  },
-  flowIndex: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: Colors.accent,
-    marginBottom: 3,
-  },
-  flowText: {
-    ...Typography.labelMedium,
-    color: '#FFFDF9',
+    maxWidth: 340,
   },
   sectionHeader: {
     flexDirection: 'row',

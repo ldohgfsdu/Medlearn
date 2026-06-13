@@ -30,33 +30,29 @@ export default function AnalyticsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.hero}>
-        <View style={styles.heroTop}>
-          <Text style={styles.heroEyebrow}>LEARNING RECORD</Text>
-          <Text style={styles.heroIndex}>{hasData ? '01' : '00'}</Text>
-        </View>
-        <Text style={styles.heroTitle}>
-          {hasData ? '先看趋势，\n再决定下一次练什么' : '完成一次病例，\n这里才开始有意义'}
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>
+          {hasData ? '学习记录概览' : '还没有学习记录'}
         </Text>
-        <Text style={styles.heroDescription}>
+        <Text style={styles.summaryDescription}>
           {hasData
             ? '记录只用于发现稳定优势与重复盲点，不用来制造连续打卡压力。'
-            : '报告不会填充虚构数据。完成病例后，这里会基于真实表现生成分析。'}
+            : '完成病例后，这里会基于真实表现生成分析，不会填充虚构数据。'}
         </Text>
-        <View style={styles.heroStats}>
-          <View style={styles.heroStat}>
-            <Text style={styles.heroValue}>{completedCases}</Text>
-            <Text style={styles.heroLabel}>完成病例</Text>
+        <View style={styles.summaryStats}>
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryValue}>{completedCases}</Text>
+            <Text style={styles.summaryLabel}>完成病例</Text>
           </View>
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStat}>
-            <Text style={styles.heroValue}>{avgScore}</Text>
-            <Text style={styles.heroLabel}>平均分</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryValue}>{avgScore}</Text>
+            <Text style={styles.summaryLabel}>平均分</Text>
           </View>
-          <View style={styles.heroDivider} />
-          <View style={styles.heroStat}>
-            <Text style={styles.heroValue}>{totalMinutes}</Text>
-            <Text style={styles.heroLabel}>学习分钟</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryValue}>{totalMinutes}</Text>
+            <Text style={styles.summaryLabel}>学习分钟</Text>
           </View>
         </View>
       </View>
@@ -67,7 +63,6 @@ export default function AnalyticsScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={styles.sectionEyebrow}>BY SPECIALTY</Text>
                   <Text style={styles.sectionTitle}>知识维度</Text>
                 </View>
                 <Text style={styles.sectionCount}>{String(data.subjectScores.length).padStart(2, '0')}</Text>
@@ -101,7 +96,6 @@ export default function AnalyticsScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={styles.sectionEyebrow}>REASONING SIGNALS</Text>
                   <Text style={styles.sectionTitle}>推理维度</Text>
                 </View>
                 <Text style={styles.sectionCount}>{String(data.reasoningMetrics.length).padStart(2, '0')}</Text>
@@ -162,72 +156,51 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Colors.textTertiary,
   },
-  hero: {
-    minHeight: 300,
-    backgroundColor: Colors.ink,
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
+  summaryCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
     marginBottom: Spacing['2xl'],
   },
-  heroTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  summaryTitle: {
+    ...Typography.titleLarge,
+    color: Colors.textPrimary,
   },
-  heroEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    color: '#9DC8B9',
-  },
-  heroIndex: {
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '300',
-    color: 'rgba(231, 220, 201, 0.28)',
-  },
-  heroTitle: {
-    fontSize: 28,
-    lineHeight: 36,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-    color: '#FFFDF9',
-    marginTop: Spacing.md,
-  },
-  heroDescription: {
-    ...Typography.bodyMedium,
-    lineHeight: 22,
-    color: 'rgba(255, 253, 249, 0.62)',
-    maxWidth: 330,
+  summaryDescription: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.textSecondary,
     marginTop: Spacing.sm,
   },
-  heroStats: {
+  summaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 'auto',
-    paddingTop: Spacing.xl,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 253, 249, 0.18)',
+    borderTopColor: Colors.border,
   },
-  heroStat: {
+  summaryStat: {
     flex: 1,
+    alignItems: 'center',
   },
-  heroDivider: {
+  summaryDivider: {
     width: StyleSheet.hairlineWidth,
     height: 34,
-    backgroundColor: 'rgba(255, 253, 249, 0.18)',
-    marginHorizontal: Spacing.md,
+    backgroundColor: Colors.border,
   },
-  heroValue: {
-    fontSize: 23,
+  summaryValue: {
+    fontSize: 22,
     lineHeight: 28,
     fontWeight: '800',
-    color: '#FFFDF9',
+    color: Colors.textPrimary,
   },
-  heroLabel: {
-    ...Typography.labelSmall,
-    color: 'rgba(255, 253, 249, 0.5)',
+  summaryLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: Colors.textTertiary,
     marginTop: 3,
   },
   section: {

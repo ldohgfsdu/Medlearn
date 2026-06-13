@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSearchNodes, useSubjectCatalog, useTreeBySubject } from '@/hooks/useKnowledge'
 import { displayNodeTitle } from '@/utils/knowledgeCatalog'
-import { BorderRadius, Colors, Shadows, Spacing, Typography } from '@/constants/theme'
+import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme'
 
 const TYPE_COLORS: Record<string, string> = {
   disease: Colors.error,
@@ -109,24 +109,19 @@ export default function KnowledgeMapScreen() {
         contentContainerStyle={styles.subjectContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.catalogHero}>
-          <Text style={styles.eyebrow}>KNOWLEDGE ATLAS</Text>
-          <Text style={styles.catalogTitle}>从科目进入，{'\n'}把知识放回结构里</Text>
-          <Text style={styles.catalogDescription}>
+        <View style={styles.pageIntro}>
+          <Text style={styles.pageIntroTitle}>从科目进入，把知识放回结构里</Text>
+          <Text style={styles.pageIntroText}>
             按教材目录浏览知识点。先建立章节位置，再进入复述、测验与病例训练。
           </Text>
-          <View style={styles.catalogMeta}>
-            <Text style={styles.catalogMetaValue}>
-              {loadingSubjects ? '—' : String(totalCatalogNodes).padStart(2, '0')}
-            </Text>
-            <Text style={styles.catalogMetaLabel}>可浏览知识点</Text>
-          </View>
         </View>
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionEyebrow}>SUBJECT INDEX</Text>
             <Text style={styles.sectionTitle}>选择科目</Text>
+            <Text style={styles.sectionMeta}>
+              {loadingSubjects ? '整理中' : `${totalCatalogNodes} 个知识点`}
+            </Text>
           </View>
           <Text style={styles.sectionCount}>{String(subjects?.length ?? 0).padStart(2, '0')}</Text>
         </View>
@@ -398,53 +393,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing['4xl'],
   },
-  catalogHero: {
-    minHeight: 272,
-    overflow: 'hidden',
-    backgroundColor: Colors.ink,
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
-    marginBottom: Spacing['2xl'],
-    ...Shadows.level2,
+  pageIntro: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
   },
-  eyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.6,
-    color: '#9DC8B9',
+  pageIntroTitle: {
+    ...Typography.titleLarge,
+    color: Colors.textPrimary,
   },
-  catalogTitle: {
-    fontSize: 30,
-    lineHeight: 38,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    color: '#FFFDF9',
-    marginTop: Spacing.md,
+  pageIntroText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    maxWidth: 340,
   },
-  catalogDescription: {
-    ...Typography.bodyMedium,
-    lineHeight: 22,
-    color: 'rgba(255, 253, 249, 0.64)',
-    maxWidth: 320,
-    marginTop: Spacing.md,
-  },
-  catalogMeta: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing.sm,
-    marginTop: 'auto',
-    paddingTop: Spacing.xl,
-  },
-  catalogMetaValue: {
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '300',
-    color: '#E7DCC9',
-  },
-  catalogMetaLabel: {
-    ...Typography.labelSmall,
-    color: 'rgba(255, 253, 249, 0.5)',
+  sectionMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: Colors.textTertiary,
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',

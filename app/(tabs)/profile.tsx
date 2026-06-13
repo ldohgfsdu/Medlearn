@@ -4,19 +4,18 @@ import { Ionicons } from '@expo/vector-icons'
 import Constants from 'expo-constants'
 import { useAuth } from '@/hooks/useAuth'
 import { useProfileStats } from '@/hooks/useProfileStats'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
 
 const MENU_ITEMS: {
   icon: keyof typeof Ionicons.glyphMap
   label: string
   note: string
-  route?: '/(tabs)/analytics'
-  action?: 'achievements' | 'preferences' | 'feedback' | 'about'
+  route?: '/(tabs)/analytics' | '/(tabs)/ask'
+  action?: 'about'
 }[] = [
   { icon: 'analytics-outline', label: '学习报告', note: '查看能力维度与进步趋势', route: '/(tabs)/analytics' },
-  { icon: 'ribbon-outline', label: '学习成就', note: '里程碑与真实学习记录', action: 'achievements' },
-  { icon: 'options-outline', label: '偏好设置', note: '通知、内容与学习节奏', action: 'preferences' },
-  { icon: 'chatbox-outline', label: '反馈建议', note: '告诉我们哪里还不够好', action: 'feedback' },
+  { icon: 'ribbon-outline', label: '学习成就', note: '里程碑与真实学习记录', route: '/(tabs)/analytics' },
+  { icon: 'chatbox-outline', label: '反馈建议', note: '在智能问答中描述问题与操作步骤', route: '/(tabs)/ask' },
   { icon: 'information-circle-outline', label: '关于 Medlearn', note: '版本、隐私与使用说明', action: 'about' },
 ]
 
@@ -32,38 +31,6 @@ export default function ProfileScreen() {
   const handleMenuPress = (item: (typeof MENU_ITEMS)[number]) => {
     if (item.route) {
       router.push(item.route)
-      return
-    }
-
-    if (item.action === 'achievements') {
-      Alert.alert(
-        '学习成就',
-        `已完成 ${cases} 个病例，累计学习 ${learningDays} 天，获得 ${xp} XP。`,
-        [
-          { text: '知道了', style: 'cancel' },
-          { text: '查看学习报告', onPress: () => router.push('/(tabs)/analytics') },
-        ],
-      )
-      return
-    }
-
-    if (item.action === 'preferences') {
-      Alert.alert(
-        '偏好设置',
-        '当前采用短时训练、即时反馈和医学安全提示。更多个性化选项会在后续版本开放。',
-      )
-      return
-    }
-
-    if (item.action === 'feedback') {
-      Alert.alert(
-        '反馈建议',
-        '可以在智能问答中直接描述问题，并附上所在页面和操作步骤。',
-        [
-          { text: '稍后', style: 'cancel' },
-          { text: '去反馈', onPress: () => router.push('/(tabs)/ask') },
-        ],
-      )
       return
     }
 
@@ -90,18 +57,18 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.profileCard}>
-        <View style={styles.profileOrb} />
         <View style={styles.profileTop}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{nickname.slice(0, 1)}</Text>
           </View>
-          <View style={styles.levelBadge}>
-            <View style={styles.levelDot} />
-            <Text style={styles.levelText}>医学生 · LEVEL 01</Text>
+          <View style={styles.profileCopy}>
+            <Text style={styles.nickname}>{nickname}</Text>
+            <Text style={styles.email}>{email}</Text>
+            <Text style={styles.profileMeta}>
+              累计学习 {learningDays} 天 · 完成 {cases} 个病例
+            </Text>
           </View>
         </View>
-        <Text style={styles.nickname}>{nickname}</Text>
-        <Text style={styles.email}>{email}</Text>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -116,17 +83,14 @@ export default function ProfileScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{learningDays}</Text>
-            <Text style={styles.statLabel}>累计学习日</Text>
+            <Text style={styles.statLabel}>学习日</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionEyebrow}>ACCOUNT & PROGRESS</Text>
-          <Text style={styles.sectionTitle}>我的学习</Text>
-        </View>
-        <Text style={styles.sectionCount}>05</Text>
+        <Text style={styles.sectionTitle}>我的学习</Text>
+        <Text style={styles.sectionCount}>{String(MENU_ITEMS.length).padStart(2, '0')}</Text>
       </View>
 
       <View style={styles.menuGroup}>
@@ -169,113 +133,84 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing['3xl'],
   },
   profileCard: {
-    minHeight: 305,
-    backgroundColor: Colors.ink,
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
-    marginBottom: Spacing['2xl'],
-    overflow: 'hidden',
-    ...Shadows.level2,
-  },
-  profileOrb: {
-    position: 'absolute',
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    right: -60,
-    top: -70,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(216, 235, 224, 0.15)',
+    borderColor: Colors.border,
+    padding: Spacing.lg,
+    marginBottom: Spacing['2xl'],
   },
   profileTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.md,
   },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E7DCC9',
+    backgroundColor: Colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 25,
     fontWeight: '800',
-    color: Colors.ink,
+    color: Colors.primary[700],
   },
-  levelBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  levelDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.accent,
-  },
-  levelText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: '#9DC8B9',
+  profileCopy: {
+    flex: 1,
   },
   nickname: {
-    fontSize: 30,
-    lineHeight: 37,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-    color: '#FFFDF9',
-    marginTop: Spacing.lg,
+    ...Typography.titleLarge,
+    color: Colors.textPrimary,
   },
   email: {
-    ...Typography.bodySmall,
-    color: 'rgba(255, 253, 249, 0.55)',
+    fontSize: 13,
+    lineHeight: 18,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  profileMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: Colors.textSecondary,
     marginTop: Spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 'auto',
-    paddingTop: Spacing.xl,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 253, 249, 0.18)',
+    borderTopColor: Colors.border,
   },
   statItem: {
     flex: 1,
+    alignItems: 'center',
   },
   statValue: {
-    fontSize: 23,
+    fontSize: 22,
     lineHeight: 28,
     fontWeight: '800',
-    color: '#FFFDF9',
+    color: Colors.textPrimary,
   },
   statLabel: {
-    ...Typography.labelSmall,
-    color: 'rgba(255, 253, 249, 0.5)',
+    fontSize: 12,
+    lineHeight: 16,
+    color: Colors.textTertiary,
     marginTop: 3,
   },
   statDivider: {
     width: StyleSheet.hairlineWidth,
     height: 32,
-    backgroundColor: 'rgba(255, 253, 249, 0.18)',
-    marginHorizontal: Spacing.md,
+    backgroundColor: Colors.border,
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
-  },
-  sectionEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    color: Colors.textTertiary,
-    marginBottom: 3,
   },
   sectionTitle: {
     ...Typography.titleLarge,
@@ -303,9 +238,9 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   menuIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',

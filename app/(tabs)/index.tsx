@@ -47,7 +47,7 @@ const TRAIN_ITEMS = [
     title: '病例复盘',
     subtitle: '查看已完成病例的评分与优先改进项',
     icon: 'document-text-outline' as const,
-    route: '/(tabs)/cases' as const,
+    route: { pathname: '/(tabs)/cases', params: { section: 'history' } } as const,
   },
   {
     index: '04',
@@ -268,9 +268,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   avatarButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.ink,

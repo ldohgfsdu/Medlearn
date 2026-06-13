@@ -387,19 +387,129 @@ def prepare_ollama_gpu() -> None:
             text=True,
         )
     model = os.environ.get("OLLAMA_MODEL", "medlearn-qwen3:8b")
+    keep_alive = os.environ.get("OLLAMA_KEEP_ALIVE", "10m")
     try:
         import urllib.request
 
-        payload = json.dumps({"model": model, "keep_alive": 0}).encode("utf-8")
-        req = urllib.request.Request(
+        unload_payload = json.dumps({"model": model, "keep_alive": 0}).encode("utf-8")
+        unload_req = urllib.request.Request(
             "http://127.0.0.1:11434/api/generate",
-            data=payload,
+            data=unload_payload,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        urllib.request.urlopen(req, timeout=5)
+        urllib.request.urlopen(unload_req, timeout=5)
     except Exception:
         pass
+    try:
+        import urllib.request
+
+        warmup_payload = json.dumps(
+            {
+                "model": model,
+                "stream": False,
+                "keep_alive": keep_alive,
+                "messages": [{"role": "user", "content": "回复 OK"}],
+                "options": {
+                    "num_ctx": 512,
+                    "num_gpu": int(os.environ.get("OLLAMA_NUM_GPU", "999")),
+                },
+            }
+        ).encode("utf-8")
+        warmup_req = urllib.request.Request(
+            "http://127.0.0.1:11434/api/chat",
+            data=warmup_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(warmup_req, timeout=120)
+        print(f"[ingest] Ollama warmed up ({model})")
+    except Exception as exc:
+        print(f"[ingest] Ollama warmup skipped: {exc}")
+
+
+def v3_extraction_cache_path(section_start: int, section_limit: int) -> Path:
+    return V3_OUTPUT_DIR / (
+        f"{PDF_STEM}{v3_scope_tag(section_start, section_limit)}.extraction.json"
+    )
+
+
+def rebuild_v3_nodes(part_title: str, section_title: str) -> Path:
+    section_start, section_limit = resolve_catalog_section_range(part_title, section_title)
+    cache_path = v3_extraction_cache_path(section_start, section_limit)
+    if not cache_path.exists():
+        raise FileNotFoundError(f"No V3 extraction cache: {cache_path}")
+
+    cmd = [
+        sys.executable,
+        str(V3_SCRIPT),
+        str(PDF_PATH),
+        "--output-dir",
+        str(V3_OUTPUT_DIR),
+        "--section-start",
+        str(section_start),
+        "--section-limit",
+        str(section_limit),
+        "--rebuild-only",
+    ]
+    print(f"[ingest] Rebuilding nodes from cache: {' '.join(cmd)}")
+    result = subprocess.run(
+        cmd,
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.stdout:
+        print(result.stdout)
+    if result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+        raise RuntimeError(f"V3 rebuild failed (exit {result.returncode})")
+
+    nodes_path = v3_nodes_path(section_start, section_limit)
+    if not nodes_path.exists():
+        raise FileNotFoundError(f"No V3 nodes output after rebuild: {nodes_path}")
+    return nodes_path
+
+
+def summarize_v3_failure(part_title: str, section_title: str) -> str:
+    try:
+        section_start, section_limit = resolve_catalog_section_range(
+            part_title, section_title
+        )
+    except Exception as exc:
+        return f"V3 extract produced 0 nodes ({exc})"
+
+    cache_path = v3_extraction_cache_path(section_start, section_limit)
+    nodes_path = v3_nodes_path(section_start, section_limit)
+    if not cache_path.exists():
+        return (
+            "V3 extract produced 0 nodes (no LLM cache — check Ollama logs / chunk errors)"
+        )
+
+    cache = load_json(cache_path)
+    chunk_count = len(cache.get("chunks") or {})
+    raw_nodes = sum(
+        len(result.get("nodes") or [])
+        for result in (cache.get("chunks") or {}).values()
+    )
+    built_nodes = 0
+    if nodes_path.exists():
+        built_nodes = len((load_json(nodes_path).get("nodes") or []))
+
+    if raw_nodes and built_nodes == 0:
+        return (
+            f"V3 extract produced 0 nodes after filtering "
+            f"(raw={raw_nodes}, chunks={chunk_count}) — try rebuild-from-cache"
+        )
+    if chunk_count and raw_nodes == 0:
+        return (
+            f"V3 extract produced 0 nodes (LLM returned empty for {chunk_count} chunks)"
+        )
+    return (
+        f"V3 extract produced 0 nodes (chunks={chunk_count}, raw={raw_nodes}, built={built_nodes})"
+    )
 
 
 def run_v3_extract(part_title: str, section_title: str) -> Path:
@@ -408,6 +518,24 @@ def run_v3_extract(part_title: str, section_title: str) -> Path:
 
     prepare_ollama_gpu()
     section_start, section_limit = resolve_catalog_section_range(part_title, section_title)
+    nodes_path = v3_nodes_path(section_start, section_limit)
+    cache_path = v3_extraction_cache_path(section_start, section_limit)
+
+    if cache_path.exists() and (
+        not nodes_path.exists()
+        or len((load_json(nodes_path).get("nodes") or [])) == 0
+    ):
+        cache = load_json(cache_path)
+        raw_nodes = sum(
+            len(result.get("nodes") or [])
+            for result in (cache.get("chunks") or {}).values()
+        )
+        if raw_nodes:
+            print(
+                f"[ingest] Found LLM cache with {raw_nodes} raw nodes; rebuilding outputs"
+            )
+            return rebuild_v3_nodes(part_title, section_title)
+
     cmd = [
         sys.executable,
         str(V3_SCRIPT),
@@ -420,7 +548,7 @@ def run_v3_extract(part_title: str, section_title: str) -> Path:
         str(section_limit),
         "--pymupdf-only",
         "--max-chars",
-        "3200",
+        "2800",
     ]
     print(
         f"[ingest] Catalog range: units {section_start}..{section_start + section_limit - 1} "
@@ -441,9 +569,20 @@ def run_v3_extract(part_title: str, section_title: str) -> Path:
         print(result.stderr, file=sys.stderr)
         raise RuntimeError(f"V3 extract failed (exit {result.returncode})")
 
-    nodes_path = v3_nodes_path(section_start, section_limit)
     if not nodes_path.exists():
         raise FileNotFoundError(f"No V3 nodes output: {nodes_path}")
+
+    if len((load_json(nodes_path).get("nodes") or [])) == 0 and cache_path.exists():
+        cache = load_json(cache_path)
+        raw_nodes = sum(
+            len(result.get("nodes") or [])
+            for result in (cache.get("chunks") or {}).values()
+        )
+        if raw_nodes:
+            print(
+                f"[ingest] Extract finished with 0 atomic nodes but raw={raw_nodes}; rebuilding"
+            )
+            return rebuild_v3_nodes(part_title, section_title)
     return nodes_path
 
 
@@ -649,7 +788,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
             pipeline_version=pipeline_version,
         )
         if not rows:
-            raise RuntimeError("V3 extract produced 0 nodes (check Ollama logs / chunk errors)")
+            raise RuntimeError(summarize_v3_failure(part_title, section_title))
         set_section_status(manifest, part_title, section_title, "extracted", node_count=len(rows))
         state["current_section"] = f"{part_title}/{section_title}"
         save_state(state)
@@ -814,6 +953,46 @@ def cmd_run_next(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rebuild_cache(args: argparse.Namespace) -> int:
+    manifest = load_manifest()
+    state = load_state()
+    part_title = args.part
+    section_title = args.section
+    if not resolve_section(manifest, part_title=part_title, section_title=section_title):
+        raise KeyError(f"Section not in manifest: {part_title} / {section_title}")
+
+    try:
+        nodes_path = rebuild_v3_nodes(part_title, section_title)
+        rows = normalize_v3_nodes(part_title, section_title, nodes_path)
+        cache_path = write_normalized_cache(
+            part_title,
+            section_title,
+            rows,
+            source_path=nodes_path,
+            pipeline_version="v3",
+        )
+        if not rows:
+            raise RuntimeError(summarize_v3_failure(part_title, section_title))
+        set_section_status(
+            manifest, part_title, section_title, "extracted", node_count=len(rows)
+        )
+        state["current_section"] = f"{part_title}/{section_title}"
+        state["last_error"] = None
+        save_state(state)
+        print(f"[rebuild-cache] {part_title} / {section_title}: {len(rows)} nodes → {cache_path}")
+        if args.upload:
+            args.source = None
+            args.skip_verify = False
+            return cmd_upload(args)
+        return 0
+    except Exception as exc:
+        set_section_status(manifest, part_title, section_title, "failed", error=str(exc))
+        state["last_error"] = str(exc)
+        save_state(state)
+        print(f"[rebuild-cache] FAILED {part_title} / {section_title}: {exc}", file=sys.stderr)
+        return 1
+
+
 def cmd_convert_v4(args: argparse.Namespace) -> int:
     manifest = load_manifest()
     input_path = Path(args.input)
@@ -851,6 +1030,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="Show manifest + remote status")
     sub.add_parser("catalog", help="Ensure cache directories and PDF catalog")
+
+    p_rebuild = sub.add_parser(
+        "rebuild-cache",
+        help="Rebuild V3 nodes from existing .extraction.json without calling Ollama",
+    )
+    p_rebuild.add_argument("--section", required=True)
+    p_rebuild.add_argument("--part", required=True)
+    p_rebuild.add_argument("--upload", action="store_true")
 
     for name in ("extract", "upload", "run-next"):
         cmd = sub.add_parser(name, help=f"{name} one manifest section")
@@ -910,6 +1097,7 @@ def main() -> int:
         "run-next": cmd_run_next,
         "run-parts": cmd_run_parts,
         "convert-v4": cmd_convert_v4,
+        "rebuild-cache": cmd_rebuild_cache,
     }
     return handlers[args.command](args)
 

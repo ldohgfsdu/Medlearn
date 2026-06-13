@@ -29,11 +29,11 @@ ollama_gpu_config:
     '
 last_completed_section: 第二篇 呼吸系统疾病/第九章 肺癌
 last_completed_mode: fixture_upload_only
-current_section: 第二篇 呼吸系统疾病/第十一章 肺血栓栓塞症
+current_section: 第二篇 呼吸系统疾病/第十二章 肺动脉高压
 last_upload_count: 86
 last_remote_count: 86
 last_error: null
-updated_at: '2026-06-13T15:16:18.659512+00:00'
+updated_at: '2026-06-13T15:45:26.899057+00:00'
 real_llm_gate:
   target_section: 第二篇 呼吸系统疾病/第一章 总论
   checklist:

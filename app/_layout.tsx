@@ -83,6 +83,17 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="search"
+              options={{
+                headerTitle: '知识搜索',
+                headerBackTitle: '返回',
+              }}
+            />
+            <Stack.Screen
+              name="knowledge/[id]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="node/[id]"
               options={{
                 headerTitle: '',

@@ -1,8 +1,8 @@
-import { Tabs } from 'expo-router'
+import { Tabs, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { Platform, StyleSheet, View, type ColorValue } from 'react-native'
+import { Platform, Pressable, StyleSheet, View, type ColorValue } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Colors, Shadows } from '@/constants/theme'
+import { Colors, Shadows, Spacing } from '@/constants/theme'
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
@@ -35,7 +35,7 @@ export default function TabsLayout() {
           ...Shadows.level1,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: '700',
           letterSpacing: 0.2,
           marginTop: 1,
@@ -65,6 +65,16 @@ export default function TabsLayout() {
         options={{
           title: '知识',
           headerTitle: '知识地图',
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push('/search')}
+              style={styles.headerAction}
+              accessibilityLabel="搜索知识点"
+              accessibilityRole="button"
+            >
+              <Ionicons name="search-outline" size={22} color={Colors.primary[700]} />
+            </Pressable>
+          ),
           tabBarIcon: ({ color, size, focused }) =>
             renderTabIcon('book-outline', 'book', color, size, focused),
         }}
@@ -107,13 +117,20 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   iconWrap: {
-    width: 38,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapActive: {
     backgroundColor: Colors.primary[50],
+  },
+  headerAction: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm,
   },
 })
