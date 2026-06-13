@@ -119,7 +119,7 @@ const VALID_TRANSITIONS: Record<CasePhase, CasePhase[]> = {
 }
 
 const PHASE_PERMISSIONS: Record<IntentType, CasePhase[]> = {
-  ask_history: [CasePhase.HISTORY, CasePhase.EXAM],
+  ask_history: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM],
   physical_exam: [CasePhase.EXAM, CasePhase.HISTORY],
   order_test: [CasePhase.TESTS, CasePhase.EXAM],
   mention_diagnosis: [CasePhase.DIAGNOSIS, CasePhase.EXAM, CasePhase.TESTS],
@@ -128,7 +128,7 @@ const PHASE_PERMISSIONS: Record<IntentType, CasePhase[]> = {
   greeting: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM, CasePhase.TESTS],
   off_topic: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM, CasePhase.TESTS, CasePhase.DIAGNOSIS],
   empty: [],
-  unknown: [CasePhase.HISTORY, CasePhase.EXAM, CasePhase.TESTS],
+  unknown: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM, CasePhase.TESTS],
 }
 
 const VALID_PHASES = new Set<string>(Object.values(CasePhase))
@@ -273,13 +273,23 @@ export class CaseEngine {
         break
       case 'greeting':
         response = `你好医生！${template.demographics.presentationContext}。`
+        if (state.currentPhase === CasePhase.INTRO) {
+          state.currentPhase = CasePhase.HISTORY
+        }
         break
       case 'off_topic':
         response = '医生，这和我的病有关系吗？'
         break
-      case 'ask_history':
-        response = this.handleHistoryQuestion(state, template, intent)
+      case 'ask_history': {
+        const historyResponse = this.handleHistoryQuestion(state, template, intent)
+        if (historyResponse === null) {
+          this.ensureHistoryPhase(state)
+          response = await this.handleUnknownInput(sessionId, userMessage)
+        } else {
+          response = historyResponse
+        }
         break
+      }
       case 'physical_exam':
         response = this.handleExamRequest(state, template, intent)
         break
@@ -290,6 +300,7 @@ export class CaseEngine {
         response = this.handleDiagnosisMention(state, template, intent)
         break
       default:
+        this.ensureHistoryPhase(state)
         response = await this.handleUnknownInput(sessionId, userMessage)
         break
     }
@@ -379,19 +390,27 @@ export class CaseEngine {
     return { hint, state }
   }
 
-  private handleHistoryQuestion(state: CaseState, template: CaseTemplate, intent: Intent): string {
+  private ensureHistoryPhase(state: CaseState): void {
+    if (state.currentPhase === CasePhase.INTRO) {
+      state.currentPhase = CasePhase.HISTORY
+    }
+  }
+
+  private handleHistoryQuestion(
+    state: CaseState,
+    template: CaseTemplate,
+    intent: Intent,
+  ): string | null {
     const target = intent.target
     if (!target) return '医生，您想问什么？'
 
     const field = this.findHistoryField(target, template.patient_world)
-    if (!field) return '医生，这个...我不太清楚。'
+    if (!field) return null
 
     if (!state.revealed.historyFields.includes(field.id)) {
       state.revealed.historyFields.push(field.id)
     }
-    if (state.currentPhase === CasePhase.INTRO) {
-      state.currentPhase = CasePhase.HISTORY
-    }
+    this.ensureHistoryPhase(state)
     return field.patientVoice
   }
 
@@ -470,6 +489,8 @@ export class CaseEngine {
         return '医生，您可以继续开检查，或者提交诊断。'
       case CasePhase.DIAGNOSIS:
         return '请提交您的诊断。'
+      case CasePhase.INTRO:
+        return '请先问候患者，然后询问症状、病史或哪里不舒服。'
       default:
         return '请按流程操作。'
     }

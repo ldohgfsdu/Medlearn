@@ -256,7 +256,7 @@ export default function CaseChatScreen() {
     switch (state.currentPhase) {
       case CasePhase.INTRO:
         return [
-          { label: '开始问诊', action: () => setInputText('你今天怎么了？') },
+          { label: '开始问诊', action: () => setInputText('你好，请问你哪里不舒服？') },
         ]
       case CasePhase.HISTORY:
         return [
@@ -563,11 +563,12 @@ const styles = StyleSheet.create({
   },
   phaseItem: {
     alignItems: 'center',
+    minWidth: 44,
   },
   phaseDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.neutral[200],
     alignItems: 'center',
     justifyContent: 'center',

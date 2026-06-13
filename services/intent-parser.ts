@@ -63,7 +63,7 @@ const INTENT_RULES: IntentRule[] = [
     ],
     intent: { type: 'ask_history', target: 'hpi_onset' },
     confidence: 0.95,
-    phase: [CasePhase.HISTORY, CasePhase.EXAM],
+    phase: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM],
   },
   // HPI - 持续时间
   {
@@ -178,11 +178,31 @@ const INTENT_RULES: IntentRule[] = [
       /还有.{0,50}不舒服/,
       /还有什么/,
       /其他.{0,50}症状/,
+      /有.{0,10}呼吸困难/,
+      /呼吸困难.{0,10}吗/,
       /出汗|恶心|呕吐|头晕|呼吸困难|胸闷/,
     ],
     intent: { type: 'ask_history', target: 'hpi_associated' },
     confidence: 0.85,
-    phase: [CasePhase.HISTORY, CasePhase.EXAM],
+    phase: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM],
+  },
+  // HPI - 开放问诊
+  {
+    name: 'hpi_open',
+    patterns: [
+      /怎么了/,
+      /哪儿不舒服/,
+      /哪里不舒服/,
+      /什么地方不舒服/,
+      /什么不舒服/,
+      /怎么不舒服/,
+      /哪里难受/,
+      /什么症状/,
+      /什么不适/,
+    ],
+    intent: { type: 'unknown' },
+    confidence: 0.8,
+    phase: [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM],
   },
   // HPI - 既往发作
   {
@@ -539,8 +559,17 @@ export class IntentParser {
 
     // 规则匹配
     for (const rule of this.rules) {
-      // 检查阶段限制
-      if (rule.phase && !rule.phase.includes(currentPhase)) continue
+      // 检查阶段限制（接诊阶段允许病史类与开放提问规则）
+      if (
+        rule.phase &&
+        !rule.phase.includes(currentPhase) &&
+        !(
+          currentPhase === CasePhase.INTRO &&
+          (rule.intent.type === 'ask_history' || rule.intent.type === 'unknown')
+        )
+      ) {
+        continue
+      }
 
       for (const pattern of rule.patterns) {
         if (pattern.test(cleaned)) {

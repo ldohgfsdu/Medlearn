@@ -82,6 +82,18 @@ test('knowledge access layer uses knowledge_nodes schema', () => {
   assert.doesNotMatch(source, /knowledge_points/)
 })
 
+test('intro phase allows greeting and open history questions before exam workflow', () => {
+  const engine = read('services/case-engine.ts')
+  assert.match(engine, /ask_history: \[CasePhase\.INTRO, CasePhase\.HISTORY, CasePhase\.EXAM\]/)
+  assert.match(engine, /unknown: \[CasePhase\.INTRO, CasePhase\.HISTORY, CasePhase\.EXAM, CasePhase\.TESTS\]/)
+  assert.match(engine, /ensureHistoryPhase/)
+  assert.match(engine, /historyResponse === null/)
+
+  const parser = read('services/intent-parser.ts')
+  assert.match(parser, /name: 'hpi_open'/)
+  assert.match(parser, /有\.\{0,10\}呼吸困难/)
+})
+
 test('case lifecycle actions emit their required analytics events', () => {
   assert.match(read('services/case-engine.ts'), /hint_requested/)
   assert.match(read('supabase/functions/case-abandon/index.ts'), /case_abandoned/)
