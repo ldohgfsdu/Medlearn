@@ -228,18 +228,28 @@ supabase start
 supabase db reset
 ```
 
-`supabase/config.toml` 会按顺序应用 `supabase/migrations/001-018`，并执行 `supabase/seeds/*.sql`。
+`supabase/config.toml` 会按顺序应用 `supabase/migrations/001-019`，并执行 `supabase/seeds/*.sql`。
 
-远端项目在完成 `supabase link` 后可执行：
+远端项目推荐一键部署：
+
+```powershell
+.\scripts\deploy-remote-supabase.ps1
+```
+
+或手动执行：
 
 ```bash
 supabase db push
+supabase db execute --linked -f supabase/seeds/002_alpha_case_library.sql
 supabase functions deploy ai-proxy
 supabase functions deploy embedding-proxy
 supabase functions deploy case-submit
 supabase functions deploy case-patient
 supabase functions deploy case-abandon
+npm run verify:remote
 ```
+
+详细步骤见 [远端部署指南](docs/REMOTE_DEPLOYMENT_GUIDE.md)，真机验收见 [E2E 清单](docs/E2E_ACCEPTANCE_CHECKLIST.md)。
 
 至少配置：
 

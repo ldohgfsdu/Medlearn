@@ -18,8 +18,12 @@ objects:
       - alpha_case_library
       - ai_proxy_cost_controls
     evidence:
-      - Local npm run check and seed generation pass.
-      - Remote deployment and device validation still require project credentials.
+      - scripts/deploy-remote-supabase.ps1
+      - scripts/verify-remote-supabase.mjs
+      - docs/REMOTE_DEPLOYMENT_GUIDE.md
+      - docs/E2E_ACCEPTANCE_CHECKLIST.md
+      - npm run verify:remote
+      - npm run validate:cases
     frozen: false
     activated_at: "2026-06-13"
     completed_at: null
