@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS knowledge_nodes (
     title TEXT NOT NULL,
     subject TEXT,
     chapter TEXT,
+    sub_chapter TEXT,
     knowledge_path TEXT[],
     content TEXT,
     key_points TEXT[] DEFAULT '{}',
@@ -354,12 +355,12 @@ CREATE TRIGGER trigger_learning_paths_updated_at BEFORE UPDATE ON learning_paths
 CREATE TRIGGER trigger_study_plans_updated_at BEFORE UPDATE ON study_plans FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trigger_study_goals_updated_at BEFORE UPDATE ON study_goals FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-INSERT INTO knowledge_nodes (id, title, type, subject, content, key_points, difficulty) VALUES
-('k001', '心力衰竭', 'disease', '内科学', '心力衰竭是各种心脏结构或功能性疾病导致心室充盈和（或）射血功能受损，心排血量不能满足机体组织代谢需要，以肺循环和（或）体循环淤血，器官、组织血液灌注不足为临床表现的一组综合征。', ARRAY['心排血量下降', '肺循环淤血', '体循环淤血', '组织灌注不足'], 2),
-('k002', '高血压', 'disease', '内科学', '高血压是以体循环动脉压升高为主要临床表现的心血管综合征，可分为原发性高血压和继发性高血压。', ARRAY['收缩压≥140mmHg', '舒张压≥90mmHg', '靶器官损害', '心血管风险分层'], 1),
-('k003', '肺炎', 'disease', '内科学', '肺炎是指终末气道、肺泡和肺间质的炎症，可由病原微生物、理化因素、免疫损伤、过敏及药物所致。', ARRAY['发热', '咳嗽咳痰', '肺部湿啰音', '胸片浸润影'], 1),
-('k004', '糖尿病', 'disease', '内科学', '糖尿病是由多病因引起以慢性高血糖为特征的代谢性疾病，是由于胰岛素分泌和（或）利用缺陷所引起。', ARRAY['多饮多尿多食', '血糖升高', '糖化血红蛋白', '并发症筛查'], 2),
-('k005', '冠心病', 'disease', '内科学', '冠状动脉粥样硬化性心脏病是指冠状动脉发生粥样硬化引起管腔狭窄或闭塞，导致心肌缺血缺氧或坏死而引起的心脏病。', ARRAY['胸痛', '心电图改变', '冠脉造影', '血运重建'], 2)
+INSERT INTO knowledge_nodes (id, title, type, subject, chapter, sub_chapter, content, key_points, difficulty, order_num, textbook) VALUES
+('k001', '心力衰竭', 'disease', '内科学', '第四篇 循环系统疾病', '第一章 心力衰竭', '心力衰竭是各种心脏结构或功能性疾病导致心室充盈和（或）射血功能受损，心排血量不能满足机体组织代谢需要，以肺循环和（或）体循环淤血，器官、组织血液灌注不足为临床表现的一组综合征。', ARRAY['心排血量下降', '肺循环淤血', '体循环淤血', '组织灌注不足'], 2, 0, '内科学'),
+('k002', '高血压', 'disease', '内科学', '第四篇 循环系统疾病', '第二章 原发性高血压', '高血压是以体循环动脉压升高为主要临床表现的心血管综合征，可分为原发性高血压和继发性高血压。', ARRAY['收缩压≥140mmHg', '舒张压≥90mmHg', '靶器官损害', '心血管风险分层'], 1, 1, '内科学'),
+('k003', '肺炎', 'disease', '内科学', '第一篇 呼吸系统疾病', '第三章 肺部感染性疾病', '肺炎是指终末气道、肺泡和肺间质的炎症，可由病原微生物、理化因素、免疫损伤、过敏及药物所致。', ARRAY['发热', '咳嗽咳痰', '肺部湿啰音', '胸片浸润影'], 1, 2, '内科学'),
+('k004', '糖尿病', 'disease', '内科学', '第七篇 内分泌和代谢疾病', '第一章 糖尿病', '糖尿病是由多病因引起以慢性高血糖为特征的代谢性疾病，是由于胰岛素分泌和（或）利用缺陷所引起。', ARRAY['多饮多尿多食', '血糖升高', '糖化血红蛋白', '并发症筛查'], 2, 3, '内科学'),
+('k005', '冠心病', 'disease', '内科学', '第四篇 循环系统疾病', '第三章 冠状动脉粥样硬化性心脏病', '冠状动脉粥样硬化性心脏病是指冠状动脉发生粥样硬化引起管腔狭窄或闭塞，导致心肌缺血缺氧或坏死而引起的心脏病。', ARRAY['胸痛', '心电图改变', '冠脉造影', '血运重建'], 2, 4, '内科学')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO exam_questions (id, type, question, options, answer, explanation, difficulty) VALUES

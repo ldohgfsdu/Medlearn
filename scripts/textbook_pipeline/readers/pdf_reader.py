@@ -1,57 +1,58 @@
+"""PDF reader using PyMuPDF."""
+from __future__ import annotations
+import re
+import hashlib
 from pathlib import Path
-from typing import Any
-
-import fitz
-
-from .base import ReaderResult, TextbookReader
-
+import pymupdf as fitz
+from .base import TextbookReader, ReaderResult, PageRecord, TocEntry
+from ..metadata import PIPELINE_VERSION
 
 class PdfReader(TextbookReader):
-    format = 'pdf'
+    def read(self, path: str | Path, book_id: str | None = None) -> ReaderResult:
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(path)
 
-    def read(self, path: Path) -> ReaderResult:
-        errors: list[str] = []
-        pages: list[dict[str, Any]] = []
-        toc: list[dict[str, Any]] = []
-        encrypted = False
-        no_text_pages = 0
-        page_errors: list[dict[str, Any]] = []
+        doc = fitz.open(str(path))
+        total_pages = doc.page_count
+        raw_toc = doc.get_toc()
 
-        doc = fitz.open(path)
-        try:
-            encrypted = bool(doc.is_encrypted)
-            if encrypted:
-                errors.append('PDF is encrypted')
-            for page_index in range(len(doc)):
-                try:
-                    text = doc[page_index].get_text('text')
-                    if not text.strip():
-                        no_text_pages += 1
-                    pages.append({
-                        'pageIndex': page_index,
-                        'pageNumber': page_index + 1,
-                        'sourceType': 'page',
-                        'text': text,
-                    })
-                except Exception as exc:
-                    message = str(exc)
-                    page_errors.append({'pageIndex': page_index, 'error': message})
-                    errors.append(f'page {page_index + 1}: {message}')
-            toc = [
-                {'level': level, 'title': title, 'pageNumber': page}
-                for level, title, page in doc.get_toc(simple=True)
-            ]
-        finally:
-            doc.close()
+        toc: list[TocEntry] = []
+        for lvl, title, page in raw_toc:
+            clean = title.replace('\n', '').strip()
+            if lvl <= 3 and clean:
+                toc.append(TocEntry(level=lvl, title=clean, page=page))
 
-        report = {
-            'format': self.format,
-            'pageCount': len(pages),
-            'tocCount': len(toc),
-            'emptyPageCount': no_text_pages,
-            'encrypted': encrypted,
-            'emptyToc': len(toc) < 5,
-            'noTextLayer': len(pages) > 0 and no_text_pages / max(len(pages), 1) > 0.8,
-            'pageErrors': page_errors,
-        }
-        return ReaderResult(pages=pages, toc=toc, report=report, errors=errors)
+        pages: list[PageRecord] = []
+        total_chars = 0
+        for page_num in range(total_pages):
+            text = re.sub(r'\s+', ' ', doc[page_num].get_text()).strip()
+            char_count = len(text)
+            total_chars += char_count
+            pages.append(PageRecord(page_number=page_num + 1, text=text, char_count=char_count))
+
+        doc.close()
+
+        source_sample = f"{path.name}:{total_pages}:{total_chars}"
+        sample_hash = hashlib.md5(source_sample.encode()).hexdigest()[:12]
+
+        return ReaderResult(
+            source_path=str(path),
+            book_id=book_id or "",
+            pages=pages,
+            toc=toc,
+            metadata={
+                "fileName": path.name,
+                "totalPages": total_pages,
+                "totalChars": total_chars,
+                "sourceSize": path.stat().st_size,
+                "sourceSampleHash": sample_hash,
+                "pipelineVersion": PIPELINE_VERSION,
+            },
+            report={
+                "sourceType": "pdf",
+                "totalPages": total_pages,
+                "tocEntries": len(toc),
+                "avgCharsPerPage": round(total_chars / max(total_pages, 1)),
+            },
+        )

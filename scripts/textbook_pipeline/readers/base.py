@@ -1,36 +1,31 @@
+"""Base reader interface for textbook pipeline."""
+from __future__ import annotations
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 @dataclass
 class PageRecord:
-    pageIndex: int
-    pageNumber: int
+    page_number: int
     text: str
-    sourceType: str = 'page'
-    chunkIndex: int | None = None
-    charStart: int | None = None
-    charEnd: int | None = None
-
+    char_count: int = 0
 
 @dataclass
 class TocEntry:
     level: int
     title: str
-    pageNumber: int
-
+    page: int
 
 @dataclass
 class ReaderResult:
-    pages: list[dict[str, Any]]
-    toc: list[dict[str, Any]]
+    source_path: str
+    book_id: str
+    pages: list[PageRecord] = field(default_factory=list)
+    toc: list[TocEntry] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
     report: dict[str, Any] = field(default_factory=dict)
-    errors: list[str] = field(default_factory=list)
 
-
-class TextbookReader:
-    format = 'unknown'
-
-    def read(self, path: Path) -> ReaderResult:
-        raise NotImplementedError
+class TextbookReader(ABC):
+    @abstractmethod
+    def read(self, path: str | Path, book_id: str | None = None) -> ReaderResult: ...

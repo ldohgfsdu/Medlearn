@@ -1,35 +1,52 @@
+"""Atomic file writes: write to .tmp then os.replace."""
+from __future__ import annotations
 import json
 import os
-import shutil
+import tempfile
 from pathlib import Path
-from typing import Any
 
-
-def ensure_parent(path: Path) -> None:
+def atomic_write_json(path: str | Path, data, indent: int = 2) -> None:
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=indent)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
+def atomic_write_jsonl(path: str | Path, records: list[dict]) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for rec in records:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
-def check_disk_space(path: Path, expected_bytes: int = 0) -> None:
-    target = path.parent if path.suffix else path
-    target.mkdir(parents=True, exist_ok=True)
-    usage = shutil.disk_usage(target)
-    required = max(expected_bytes * 2, 10 * 1024 * 1024)
-    if usage.free < required:
-        raise OSError(f'Insufficient disk space for {path}: free={usage.free}, required={required}')
-
-
-def atomic_write_text(path: Path, content: str, encoding: str = 'utf-8') -> None:
-    ensure_parent(path)
-    check_disk_space(path, len(content.encode(encoding)))
-    tmp_path = path.with_name(path.name + '.tmp')
-    tmp_path.write_text(content, encoding=encoding)
-    os.replace(tmp_path, path)
-
-
-def atomic_write_json(path: Path, data: Any) -> None:
-    atomic_write_text(path, json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
-
-
-def atomic_write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
-    content = ''.join(json.dumps(row, ensure_ascii=False) + '\n' for row in rows)
-    atomic_write_text(path, content, encoding='utf-8')
+def atomic_write_text(path: str | Path, text: str) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise

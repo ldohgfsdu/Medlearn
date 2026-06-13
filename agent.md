@@ -1,8 +1,8 @@
-# AGENT.md - MedLearn 开发规则
+# AGENT.md - Medlearn 开发规则
 
 **版本**: 3.0
 **更新日期**: 2026-06-05
-**项目**: MedLearn - AI 驱动的医学思维训练移动应用
+**项目**: Medlearn - AI 驱动的医学思维训练移动应用
 
 ---
 

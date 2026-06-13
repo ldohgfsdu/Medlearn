@@ -1,7 +1,7 @@
-# MedLearn 后端接口文档
+# Medlearn 后端接口文档
 
-**版本**: 1.0  
-**日期**: 2026-06-02  
+**版本**: 1.1  
+**日期**: 2026-06-04  
 **对应 PRD**: v2.0  
 
 ---
@@ -9,10 +9,10 @@
 ## 目录
 
 1. [接口概览](#1-接口概览)
-2. [云函数接口](#2-云函数接口)
-3. [云数据库直访接口](#3-云数据库直访接口)
+2. [Supabase Edge Functions 接口](#2-supabase-edge-functions-接口)
+3. [Supabase 数据库接口](#3-supabase-数据库接口)
 4. [AI 服务接口](#4-ai-服务接口)
-5. [数据集合参考](#5-数据集合参考)
+5. [数据表参考](#5-数据表参考)
 
 ---
 
@@ -20,27 +20,27 @@
 
 ### 1.1 接口分类
 
-MedLearn 后端接口分为三类：
+Medlearn 后端接口分为三类：
 
 | 类型 | 调用方式 | 适用场景 |
 |------|----------|----------|
-| **云函数** | `wx.cloud.callFunction()` | 需要服务端执行的业务逻辑（登录、事务、分析） |
-| **云数据库直访** | `cloud.ts` 封装层 | 单表 CRUD 操作（前端直接读写云数据库） |
-| **AI 服务** | `Taro.request()` 直连 | AI 评估/生成（客户端直连 AI API） |
+| **Supabase Edge Functions** | `supabase.rpc()` 或 Edge Function 调用 | 需要服务端执行的业务逻辑（登录、事务、分析） |
+| **Supabase 数据库直访** | Supabase 客户端直接操作 | 单表 CRUD 操作（前端直接读写 Supabase PostgreSQL） |
+| **AI 服务** | `fetch()` 直连 | AI 评估/生成（客户端直连 AI API） |
 
 ### 1.2 通用响应格式
 
-**云函数统一响应格式**：
+**Supabase Edge Function 统一响应格式**：
 
 ```typescript
-interface CloudFunctionResponse<T = any> {
+interface EdgeFunctionResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
 }
 ```
 
-**云数据库直访响应格式**：
+**Supabase 数据库直访响应格式**：
 
 ```typescript
 interface DBQueryResponse {
@@ -48,11 +48,11 @@ interface DBQueryResponse {
 }
 
 interface DBAddResponse {
-  _id: string;
+  id: string;
 }
 
 interface DBUpdateResponse {
-  stats: { updated: number };
+  count: number;
 }
 
 interface DBCountResponse {
@@ -64,39 +64,39 @@ interface DBCountResponse {
 
 | 接口类型 | 认证方式 | 说明 |
 |----------|----------|------|
-| 云函数 | 自动注入 `_openid` | 云函数通过 `cloud.getWXContext().OPENID` 获取用户身份 |
-| 云数据库直访 | 安全规则 `_openid` 匹配 | 云数据库安全规则限制用户只能读写自己的数据 |
-| AI 服务 | API Key | 用户在设置页配置，存储在 `wx.Storage`，通过 HTTP Header 传递 |
+| Supabase Edge Functions | Supabase Auth JWT | Edge Function 通过 `auth.uid()` 获取用户身份 |
+| Supabase 数据库直访 | Row Level Security (RLS) | PostgreSQL RLS 策略限制用户只能读写自己的数据 |
+| AI 服务 | API Key | 用户在设置页配置，存储在 `localStorage`，通过 HTTP Header 传递 |
 
 ---
 
-## 2. 云函数接口
+## 2. Supabase Edge Functions 接口
 
-### 2.1 initUser — 微信登录
+### 2.1 initUser — 用户登录
 
-**功能**：微信登录 code 换取 openid，新用户自动创建记录
+**功能**：通过 Supabase Auth 登录，新用户自动创建记录
 
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'initUser',
-  data: { code: string }
+const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: 'github' // 或其他 OAuth 提供商
 });
+// 登录成功后 Supabase 自动管理 session
 ```
 
 **请求参数**：
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| code | string | ✅ | `Taro.login()` 获取的微信登录凭证 |
+| provider | string | ✅ | OAuth 提供商（github / google 等） |
 
 **响应参数**：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | success | boolean | 是否成功 |
-| openid | string | 用户唯一标识（成功时返回） |
+| user_id | string | 用户唯一标识（成功时返回） |
 | isNewUser | boolean | 是否新用户 |
 | error | string | 错误信息（失败时返回） |
 
@@ -105,25 +105,25 @@ const result = await wx.cloud.callFunction({
 ```json
 {
   "success": true,
-  "openid": "oXXXXXXXXXXXXXXXX",
+  "user_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "isNewUser": true
 }
 ```
 
 **业务逻辑**：
 
-1. 调用 `cloud.openapi.auth.code2Session({ code })` 换取 openid
-2. 查询 `users` 集合是否已有该 openid 的记录
-3. 新用户：创建记录（含 `createdAt`、`lastLoginAt`、`settings`）
-4. 老用户：更新 `lastLoginAt`
-5. 返回 openid + isNewUser 标志
+1. 用户通过 Supabase Auth 完成 OAuth 登录，获取 `auth.uid()`
+2. 查询 `users` 表是否已有该 `user_id` 的记录
+3. 新用户：创建记录（含 `created_at`、`last_login_at`、`settings`）
+4. 老用户：更新 `last_login_at`
+5. 返回 `user_id` + `isNewUser` 标志
 
 **错误码**：
 
 | 错误信息 | 原因 |
 |----------|------|
-| `Failed to get openid` | code 无效或过期 |
-| `Unknown error` | 微信 API 调用异常 |
+| `Failed to authenticate` | OAuth code 无效或过期 |
+| `Unknown error` | Supabase Auth API 调用异常 |
 
 ---
 
@@ -134,9 +134,8 @@ const result = await wx.cloud.callFunction({
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'initSeedData',
-  data: {}
+const { data, error } = await supabase.functions.invoke('initSeedData', {
+  body: {}
 });
 ```
 
@@ -168,20 +167,20 @@ const result = await wx.cloud.callFunction({
 
 **业务逻辑**：
 
-1. 检查 `knowledge_nodes` 集合是否已有数据，有则返回 `skipped: true`
+1. 检查 `knowledge_nodes` 表是否已有数据，有则返回 `skipped: true`
 2. 从 `data/` 目录读取 6 个 JSON 文件
 3. 三个知识点数据源按 `id` 去重合并
-4. 分批写入（每批 20 条并发），写入 4 个集合：
-   - `knowledge_nodes`（小写）
-   - `exam_questions`（小写）
-   - `causal_chains`（小写）
-   - `cases`（小写）
+4. 分批写入（每批 20 条并发），写入 4 张表：
+   - `knowledge_nodes`
+   - `exam_questions`
+   - `causal_chains`
+   - `cases`
 
 **注意事项**：
 
-- 集合名使用小写下划线格式，与前端 `COLLECTIONS` 常量一致
+- 表名使用小写下划线格式，与前端 `COLLECTIONS` 常量一致
 - 800+ 条数据分批写入，耗时约 10-30 秒
-- 此云函数由服务端调用，不依赖用户 openid
+- 此函数由服务端调用，不依赖用户 `user_id`
 
 ---
 
@@ -192,9 +191,8 @@ const result = await wx.cloud.callFunction({
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'submitExam',
-  data: {
+const { data, error } = await supabase.functions.invoke('submitExam', {
+  body: {
     session: ExamSessionData,
     records: ExamRecordData[],
     wrongQuestions: WrongQuestionData[],
@@ -285,7 +283,7 @@ const result = await wx.cloud.callFunction({
 
 **注意事项**：
 
-- 4 张表写入非真正事务（云数据库不支持跨集合事务），如中间步骤失败，前面写入不会回滚
+- 使用 Supabase PostgreSQL 事务确保 4 张表写入的原子性，中间步骤失败会回滚
 - 错题数组可选，答全对时传空数组或不传
 
 ---
@@ -297,9 +295,8 @@ const result = await wx.cloud.callFunction({
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'analytics',
-  data: {
+const { data, error } = await supabase.functions.invoke('analytics', {
+  body: {
     action: 'getMasteryMap' | 'getWeakPoints' | 'getActivityTimeline',
     days?: number
   }
@@ -387,9 +384,9 @@ Array<{
 
 **注意事项**：
 
-- 所有动态数据查询已添加 `_openid` 过滤，确保数据隔离
-- `knowledge_nodes` 为静态数据，不按 openid 过滤
-- `getActivityTimeline` 使用 `db.command.gte` 做复合条件查询
+- 所有动态数据查询已添加 `user_id` 过滤（通过 RLS 或查询条件），确保数据隔离
+- `knowledge_nodes` 为静态数据，不按 `user_id` 过滤
+- `getActivityTimeline` 使用 `gte` 做复合条件查询
 
 ---
 
@@ -400,9 +397,8 @@ Array<{
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'completePathway',
-  data: {
+const { data, error } = await supabase.functions.invoke('completePathway', {
+  body: {
     learningRecord: LearningRecordData,
     activity: StudyActivityData
   }
@@ -460,9 +456,8 @@ const result = await wx.cloud.callFunction({
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'saveGeneratedContent',
-  data: {
+const { data, error } = await supabase.functions.invoke('saveGeneratedContent', {
+  body: {
     nodes?: KnowledgeNode[],
     chain?: CausalChain,
     case?: MedicalCase
@@ -498,13 +493,12 @@ const result = await wx.cloud.callFunction({
 **调用方式**：
 
 ```typescript
-const result = await wx.cloud.callFunction({
-  name: 'deleteUserData',
-  data: {}
+const { data, error } = await supabase.functions.invoke('deleteUserData', {
+  body: {}
 });
 ```
 
-**请求参数**：无（openid 通过 `cloud.getWXContext()` 自动获取）
+**请求参数**：无（`user_id` 通过 `auth.uid()` 自动获取）
 
 **响应参数**：
 
@@ -512,7 +506,7 @@ const result = await wx.cloud.callFunction({
 |------|------|------|
 | success | boolean | 是否成功 |
 | totalDeleted | number | 总删除记录数 |
-| details | object | 每个集合的删除数量 |
+| details | object | 每张表的删除数量 |
 
 **响应示例**：
 
@@ -539,9 +533,9 @@ const result = await wx.cloud.callFunction({
 }
 ```
 
-**删除范围**（14 个集合）：
+**删除范围**（14 张表）：
 
-| 集合 | 说明 |
+| 表 | 说明 |
 |------|------|
 | learning_records | 学习记录 |
 | feynman_records | 费曼复述记录 |
@@ -561,20 +555,20 @@ const result = await wx.cloud.callFunction({
 **注意事项**：
 
 - 不删除 `knowledge_nodes`、`exam_questions`、`causal_chains`、`cases` 等静态种子数据
-- 不删除 `users` 集合中的用户记录（仅清除关联数据）
-- 分页删除（每页 100 条），每页内并发删除
+- 不删除 `users` 表中的用户记录（仅清除关联数据）
+- 分页删除（每页 100 条），使用 PostgreSQL 批量删除提升效率
 - 建议前端实现 7 天冷静期机制
 
 ---
 
-## 3. 云数据库直访接口
+## 3. Supabase 数据库接口
 
-前端通过 `cloud.ts` 封装层直接访问云数据库，不经过云函数。
+前端通过 Supabase 客户端直接访问 Supabase PostgreSQL 数据库，不经过 Edge Function。
 
 ### 3.1 queryCollection — 条件查询
 
 ```typescript
-queryCollection(collectionName: string, options?: {
+queryCollection(tableName: string, options?: {
   where?: Record<string, any>;
   orderBy?: { field: string; direction: 'asc' | 'desc' };
   limit?: number;
@@ -586,7 +580,7 @@ queryCollection(collectionName: string, options?: {
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| collectionName | string | ✅ | 集合名（使用 `COLLECTIONS` 常量） |
+| tableName | string | ✅ | 表名（使用 `COLLECTIONS` 常量） |
 | options.where | object | ❌ | 查询条件 |
 | options.orderBy | object | ❌ | 排序 |
 | options.limit | number | ❌ | 限制数量（默认 20，最大 100） |
@@ -597,7 +591,7 @@ queryCollection(collectionName: string, options?: {
 ### 3.2 queryAll — 分页遍历全部记录
 
 ```typescript
-queryAll(collectionName: string, where?: Record<string, any>): Promise<any[]>
+queryAll(tableName: string, where?: Record<string, any>): Promise<any[]>
 ```
 
 **说明**：自动分页遍历（每页 100 条），返回所有匹配记录。适用于数据量较大的场景。
@@ -605,29 +599,29 @@ queryAll(collectionName: string, where?: Record<string, any>): Promise<any[]>
 ### 3.3 getById — 按 ID 获取单条
 
 ```typescript
-getById(collectionName: string, id: string): Promise<any | null>
+getById(tableName: string, id: string): Promise<any | null>
 ```
 
 ### 3.4 addRecord — 新增单条
 
 ```typescript
-addRecord(collectionName: string, data: Record<string, any>): Promise<string>
+addRecord(tableName: string, data: Record<string, any>): Promise<string>
 ```
 
-**返回值**：新记录的 `_id`
+**返回值**：新记录的 `id`
 
 ### 3.5 addBatch — 批量新增
 
 ```typescript
-addBatch(collectionName: string, records: Record<string, any>[]): Promise<number>
+addBatch(tableName: string, records: Record<string, any>[]): Promise<number>
 ```
 
-**说明**：每批 20 条 `Promise.allSettled` 并发写入，返回成功写入的数量。
+**说明**：每批 20 条并发写入，返回成功写入的数量。
 
 ### 3.6 updateRecord — 更新记录
 
 ```typescript
-updateRecord(collectionName: string, id: string, data: Record<string, any>): Promise<boolean>
+updateRecord(tableName: string, id: string, data: Record<string, any>): Promise<boolean>
 ```
 
 **返回值**：是否更新成功
@@ -635,20 +629,20 @@ updateRecord(collectionName: string, id: string, data: Record<string, any>): Pro
 ### 3.7 countRecords — 计数
 
 ```typescript
-countRecords(collectionName: string, where?: Record<string, any>): Promise<number>
+countRecords(tableName: string, where?: Record<string, any>): Promise<number>
 ```
 
 ### 3.8 hasRecords — 是否有记录
 
 ```typescript
-hasRecords(collectionName: string): Promise<boolean>
+hasRecords(tableName: string): Promise<boolean>
 ```
 
 ---
 
 ## 4. AI 服务接口
 
-AI 服务通过 `ai.ts` 实现客户端直连 AI API，不经过云函数。
+AI 服务通过 `ai.ts` 实现客户端直连 AI API，不经过 Supabase Edge Function。
 
 ### 4.1 配置管理
 
@@ -658,7 +652,7 @@ AI 服务通过 `ai.ts` 实现客户端直连 AI API，不经过云函数。
 getAIConfig(): { apiKey: string; baseUrl: string; model: string }
 ```
 
-**说明**：从 `wx.Storage` 读取配置，未配置时返回默认值。
+**说明**：从 `localStorage` 读取配置，未配置时返回默认值。
 
 | 字段 | 默认值 |
 |------|--------|
@@ -951,7 +945,7 @@ testConnection(): Promise<{ success: boolean; message: string; models?: string[]
 | 0-3s | 展示评估框架骨架 |
 | 15s+ | 展示"🤔 AI 正在深度分析中"提示 + 取消按钮 |
 | 30s+ | 展示超时错误 + 重新提交按钮 |
-| 默认超时 | 60 秒（`Taro.request` timeout 参数） |
+| 默认超时 | 60 秒（`fetch()` timeout 参数） |
 
 #### 响应解析
 
@@ -963,9 +957,9 @@ AI 返回文本后，`extractJson()` 尝试从以下格式提取 JSON：
 
 ---
 
-## 5. 数据集合参考
+## 5. 数据表参考
 
-### 5.1 集合名常量
+### 5.1 表名常量
 
 ```typescript
 export const COLLECTIONS = {
@@ -990,29 +984,29 @@ export const COLLECTIONS = {
 } as const;
 ```
 
-### 5.2 集合分类
+### 5.2 表分类
 
 #### 静态数据（种子数据，初始化后极少变化）
 
-| 集合 | 数据量 | 写入方式 |
+| 表 | 数据量 | 写入方式 |
 |------|--------|----------|
-| knowledge_nodes | 800+ | initSeedData 云函数 / seedData.ts 客户端 |
+| knowledge_nodes | 800+ | initSeedData Edge Function / seedData.ts 客户端 |
 | exam_questions | 36 | 同上 |
 | causal_chains | 34 | 同上 |
 | cases | 7 | 同上 |
 
 #### 动态数据（用户产生，持续增长）
 
-| 集合 | 写入方式 | 读取方式 |
+| 表 | 写入方式 | 读取方式 |
 |------|----------|----------|
-| learning_records | completePathway 云函数 | queryCollection |
+| learning_records | completePathway Edge Function | queryCollection |
 | feynman_records | addRecord 直写 | queryCollection |
 | case_records | addRecord 直写 | queryCollection |
-| exam_records | submitExam 云函数 | queryCollection |
-| exam_sessions | submitExam 云函数 | queryCollection |
+| exam_records | submitExam Edge Function | queryCollection |
+| exam_sessions | submitExam Edge Function | queryCollection |
 | dialogue_records | addRecord 直写 | queryCollection |
-| wrong_questions | submitExam 云函数 / addRecord | queryCollection |
-| study_activities | 云函数 / addRecord | analytics 云函数 / queryCollection |
+| wrong_questions | submitExam Edge Function / addRecord | queryCollection |
+| study_activities | Edge Function / addRecord | analytics Edge Function / queryCollection |
 | spaced_repetition | addRecord / updateRecord | queryCollection / countRecords |
 | settings | addRecord / updateRecord | queryCollection |
 | favorites | addRecord / updateRecord | queryCollection |
@@ -1020,9 +1014,9 @@ export const COLLECTIONS = {
 | study_plans | addRecord / updateRecord | queryCollection |
 | study_goals | addRecord / updateRecord | queryCollection |
 
-### 5.3 安全规则
+### 5.3 安全规则（RLS 策略）
 
-| 集合类型 | 读权限 | 写权限 |
+| 表类型 | 读权限 | 写权限 |
 |----------|--------|--------|
-| 静态数据 | 所有已登录用户 | 仅云函数 |
-| 动态数据 | 仅记录所有者（`_openid` 匹配） | 仅记录所有者 |
+| 静态数据 | 所有已登录用户 | 仅 Edge Function（Service Role） |
+| 动态数据 | 仅记录所有者（`auth.uid() = user_id`） | 仅记录所有者 |

@@ -1,4 +1,6 @@
 pymupdf
-sentence-transformers
 supabase
 python-dotenv
+requests
+docling
+PyYAML

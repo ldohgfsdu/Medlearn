@@ -1,0 +1,12 @@
+schema_version: 1
+adrs:
+  - id: ADR-004
+    title: Display Hierarchy vs Semantic Graph Separation
+    status: proposed
+    path: scripts/textbook_pipeline/ADR-004-display-graph-separation.md
+    applies_to:
+      - knowledge_display
+      - semantic_graph
+      - textbook_pipeline
+    supersedes: []
+

@@ -1,5 +1,6 @@
--- MedLearn 数据库初始化脚本
--- 在 Supabase SQL Editor 中运行
+-- Medlearn 数据库初始化脚本
+-- ⚠️ 已废弃：请使用 supabase/migrations/ 下的增量迁移脚本
+-- 本文件仅作参考，不应再用于实际部署
 
 -- 1. 知识点表
 CREATE TABLE IF NOT EXISTS knowledge_nodes (
@@ -8,10 +9,15 @@ CREATE TABLE IF NOT EXISTS knowledge_nodes (
     type TEXT DEFAULT 'concept',
     subject TEXT,
     chapter TEXT,
+    sub_chapter TEXT,
+    level INTEGER DEFAULT 3,
     content TEXT,
     key_points TEXT[] DEFAULT '{}',
     difficulty INTEGER DEFAULT 1,
     tags TEXT[] DEFAULT '{}',
+    order_num INTEGER DEFAULT 0,
+    textbook TEXT,
+    source TEXT DEFAULT 'seed',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -38,31 +44,32 @@ CREATE TABLE IF NOT EXISTS cases (
 );
 
 -- 4. 插入测试知识点
-INSERT INTO knowledge_nodes (id, title, type, subject, content, key_points, difficulty) VALUES
-('k001', '心力衰竭', 'disease', '内科学', 
+-- subject=教材, chapter=篇, sub_chapter=章, level=2(章级)或3(知识点)
+INSERT INTO knowledge_nodes (id, title, type, subject, chapter, sub_chapter, level, content, key_points, difficulty, order_num, textbook) VALUES
+('k001', '心力衰竭', 'disease', '内科学', '第四篇 循环系统疾病', '第一章 心力衰竭', 3,
  '心力衰竭是各种心脏结构或功能性疾病导致心室充盈和（或）射血功能受损，心排血量不能满足机体组织代谢需要，以肺循环和（或）体循环淤血，器官、组织血液灌注不足为临床表现的一组综合征。',
  ARRAY['心排血量下降', '肺循环淤血', '体循环淤血', '组织灌注不足'],
- 2),
+ 2, 0, '内科学'),
  
-('k002', '高血压', 'disease', '内科学',
+('k002', '高血压', 'disease', '内科学', '第四篇 循环系统疾病', '第二章 原发性高血压', 3,
  '高血压是以体循环动脉压升高为主要临床表现的心血管综合征，可分为原发性高血压和继发性高血压。',
  ARRAY['收缩压≥140mmHg', '舒张压≥90mmHg', '靶器官损害', '心血管风险分层'],
- 1),
+ 1, 1, '内科学'),
  
-('k003', '肺炎', 'disease', '内科学',
+('k003', '肺炎', 'disease', '内科学', '第一篇 呼吸系统疾病', '第三章 肺部感染性疾病', 3,
  '肺炎是指终末气道、肺泡和肺间质的炎症，可由病原微生物、理化因素、免疫损伤、过敏及药物所致。',
  ARRAY['发热', '咳嗽咳痰', '肺部湿啰音', '胸片浸润影'],
- 1),
+ 1, 2, '内科学'),
  
-('k004', '糖尿病', 'disease', '内科学',
+('k004', '糖尿病', 'disease', '内科学', '第七篇 内分泌和代谢疾病', '第一章 糖尿病', 3,
  '糖尿病是由多病因引起以慢性高血糖为特征的代谢性疾病，是由于胰岛素分泌和（或）利用缺陷所引起。',
  ARRAY['多饮多尿多食', '血糖升高', '糖化血红蛋白', '并发症筛查'],
- 2),
+ 2, 3, '内科学'),
  
-('k005', '冠心病', 'disease', '内科学',
+('k005', '冠心病', 'disease', '内科学', '第四篇 循环系统疾病', '第三章 冠状动脉粥样硬化性心脏病', 3,
  '冠状动脉粥样硬化性心脏病是指冠状动脉发生粥样硬化引起管腔狭窄或闭塞，导致心肌缺血缺氧或坏死而引起的心脏病。',
  ARRAY['胸痛', '心电图改变', '冠脉造影', '血运重建'],
- 2);
+ 2, 4, '内科学');
 
 -- 5. 插入测试题目
 INSERT INTO exam_questions (id, type, question, options, answer, explanation, difficulty) VALUES

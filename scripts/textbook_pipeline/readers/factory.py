@@ -1,14 +1,23 @@
+"""Reader factory: dispatch by file extension."""
+from __future__ import annotations
 from pathlib import Path
-
-from .pdf_reader import PdfReader
-from .txt_reader import TxtReader
-from .base import TextbookReader
+from .base import TextbookReader, ReaderResult
 
 
-def reader_for(path: Path) -> TextbookReader:
-    suffix = path.suffix.lower()
-    if suffix == '.pdf':
+def get_reader(path: str | Path) -> TextbookReader:
+    """Factory function. Currently using standard PdfReader.
+    Enhanced version with local model post-processing is applied in higher layers."""
+    ext = Path(path).suffix.lower()
+    if ext == ".pdf":
+        from .pdf_reader import PdfReader
         return PdfReader()
-    if suffix == '.txt':
+    elif ext == ".txt":
+        from .txt_reader import TxtReader
         return TxtReader()
-    raise ValueError(f'Unsupported textbook format: {path.suffix}')
+    else:
+        raise ValueError(f"Unsupported file type: {ext}")
+
+
+def read_file(path: str | Path, book_id: str | None = None) -> ReaderResult:
+    reader = get_reader(path)
+    return reader.read(path, book_id=book_id)

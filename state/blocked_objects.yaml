@@ -1,0 +1,28 @@
+schema_version: 1
+objects:
+  - id: remote_supabase_validation
+    title: Validate the deployed Supabase environment
+    status: blocked
+    objective: Verify migrations, functions, permissions, costs, and the complete case flow against a real project.
+    scope:
+      - supabase/migrations
+      - supabase/functions
+      - iOS and Android end-to-end flow
+    acceptance_criteria:
+      - Migrations 001 through 019 are applied.
+      - Five Edge Functions are deployed with required secrets.
+      - An approved case completes end to end on iOS and Android.
+      - Score reproducibility and cost events are verified.
+    dependencies:
+      - server_case_approval_enforcement
+      - alpha_case_library
+      - ai_proxy_cost_controls
+    evidence:
+      - Local npm run check and seed generation pass.
+      - Remote deployment and device validation still require project credentials.
+    frozen: false
+    activated_at: "2026-06-13"
+    completed_at: null
+    blocked_reason: Deployment credentials, an initialized remote schema, and device validation are still required.
+    reactivated_at: null
+    reactivation_reason: null

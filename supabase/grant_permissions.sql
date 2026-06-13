@@ -17,5 +17,7 @@ GRANT ALL ON learning_paths TO authenticated, service_role;
 GRANT ALL ON study_plans TO authenticated, service_role;
 GRANT ALL ON study_goals TO authenticated, service_role;
 
-GRANT SELECT ON user_learning_stats TO anon, authenticated, service_role;
-GRANT SELECT ON node_mastery TO anon, authenticated, service_role;
+-- NOTE: anon grants for user_learning_stats and node_mastery have been revoked in migration 012
+-- (supabase/migrations/012_fix_security_issues.sql)
+GRANT SELECT ON user_learning_stats TO authenticated, service_role;
+GRANT SELECT ON node_mastery TO authenticated, service_role;

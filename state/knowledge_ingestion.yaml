@@ -1,0 +1,54 @@
+schema_version: 1
+active_object:
+  id: knowledge_ingestion_convergence
+  title: Converge extraction and upload knowledge_nodes
+  status: active
+  manifest: manifests/internal_medicine_ingestion.yaml
+  pipeline_entrypoint: scripts/ingest_knowledge.py
+  notes: 'V4 architecture accepted. Upload path smoke-tested with fixture for section
+    1. Real production ingestion remains pending until section 1 completes PDF → Docling
+    → Ollama → normalize → Supabase → verify.
+
+    '
+production_status:
+  architecture: accepted
+  contract: v4_accepted
+  upload_pipeline: verified_fixture_section_1
+  real_extraction_pipeline: ready_for_section_1_extract
+  production_ingestion: not_accepted
+  app_integration: db_query_ready_ui_pending
+ollama_gpu_config:
+  num_gpu: 999
+  num_ctx: 4096
+  processor_at_smoke: 100% GPU
+  vram_used_mib: 6967
+  note: 'Previous num_gpu 20 caused hybrid CPU/GPU. num_gpu 999 + num_ctx 4096 loads
+    fully on RTX 3080. Pipeline now passes OLLAMA_NUM_GPU (default 999) and caps num_ctx
+    at 4096 in API options.
+
+    '
+last_completed_section: 第二篇 呼吸系统疾病/第九章 肺癌
+last_completed_mode: fixture_upload_only
+current_section: 第二篇 呼吸系统疾病/第十一章 肺血栓栓塞症
+last_upload_count: 86
+last_remote_count: 86
+last_error: null
+updated_at: '2026-06-13T15:16:18.659512+00:00'
+real_llm_gate:
+  target_section: 第二篇 呼吸系统疾病/第一章 总论
+  checklist:
+    ollama_model_registered: true
+    ollama_inference_ready: true
+    ollama_gpu_offload: 100pct_gpu
+    pdf_catalog_unit_resolved: true
+    docling_output_valid: pending
+    llm_v4_contract: pending
+    normalize_ok: pending
+    normalized_cache_written: true
+    supabase_upload_ok: true
+    no_extraction_failed: true
+    identity_fields_correct: true
+    provenance_from_real_pipeline: pending
+    idempotent_upload: true
+    app_query_path_readable: true
+    app_ui_visible: pending

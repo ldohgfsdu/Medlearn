@@ -1,0 +1,15 @@
+/* 保留键盘用户可见的焦点，不干扰鼠标和触屏交互。 */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid #1f7563;
+  outline-offset: 3px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+[role="textbox"]:focus-visible {
+  outline: none;
+}

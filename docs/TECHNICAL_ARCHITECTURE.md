@@ -1,4 +1,6 @@
-# MedLearn 技术架构文档
+# Medlearn 技术架构文档
+
+> **现状说明（2026-06）**：本文档基于早期 Taro/Capacitor 版本。当前已全面迁移到 **Expo Router + React Native + Supabase**（AGENT.md 3.0）。前端 AI 调用统一经 `services/ai.ts` + Edge Functions 代理。知识提取使用 pipeline_v3（Python + Docling + Ollama）。请以 AGENT.md、PROJECT_STATUS.md 和实际代码为准。历史设计保留供参考。
 
 **版本**: 1.0  
 **日期**: 2026-06-02  
@@ -10,7 +12,7 @@
 
 1. [架构总览](#1-架构总览)
 2. [前端架构](#2-前端架构)
-3. [后端架构（云开发）](#3-后端架构云开发)
+3. [后端架构（Supabase）](#3-后端架构supabase)
 4. [数据模型](#4-数据模型)
 5. [功能-模块映射](#5-功能-模块映射)
 6. [核心流程](#6-核心流程)
@@ -25,35 +27,35 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                     微信小程序前端                         │
+│              Android APK (Capacitor + Taro H5)            │
 │                                                          │
-│  Pages ──→ Hooks ──→ Services ──→ Taro API / wx API      │
+│  Pages ──→ Hooks ──→ Services ──→ supabase client / fetch │
 │                                                          │
 └──────────┬──────────────┬──────────────┬─────────────────┘
            │              │              │
            ▼              ▼              ▼
     ┌────────────┐ ┌────────────┐ ┌────────────┐
-    │  AI API    │ │  云数据库   │ │ wx.Storage │
-    │ (客户端直连)│ │ (18 集合)  │ │ (本地缓存) │
+    │  AI API    │ │ Supabase   │ │ localStorage│
+    │ (客户端直连)│ │ PostgreSQL │ │ (本地缓存)  │
     └────────────┘ └──────┬─────┘ └────────────┘
                           │
-                    ┌─────▼──────┐
-                    │   云函数    │
-                    │  (6 个)    │
-                    └────────────┘
+                    ┌─────▼──────────────┐
+                    │  Supabase Edge     │
+                    │  Functions (6 个)  │
+                    └────────────────────┘
 ```
 
 ### 1.2 前后端分离原则
 
 | 层 | 职责 | 技术实现 |
 |----|------|----------|
-| **前端（小程序）** | UI 渲染、用户交互、路由管理、本地缓存、AI 请求发起 | Taro 4 + React 18 + TypeScript |
-| **后端（云开发）** | 数据持久化、用户认证、业务逻辑事务 | 云数据库 + 云函数 |
+| **前端（APK）** | UI 渲染、用户交互、路由管理、本地缓存、AI 请求发起 | Taro 4 H5 + Capacitor + React 18 + TypeScript |
+| **后端（Supabase）** | 数据持久化、用户认证、业务逻辑事务 | Supabase PostgreSQL + Supabase Edge Functions |
 
 **分离边界**：
-- 前端通过 `Taro.request` 直连 AI API（V1.0），不经过云函数
-- 前端通过 `cloud.ts` 封装层访问云数据库，不直接操作数据库
-- 云函数仅处理需要服务端执行的业务逻辑（登录、考试提交、数据分析）
+- 前端通过 `fetch` 直连 AI API（V1.0），不经过 Edge Functions
+- 前端通过 `supabase.ts` 封装层访问 Supabase PostgreSQL，不直接操作数据库
+- Edge Functions 仅处理需要服务端执行的业务逻辑（认证、考试提交、数据分析）
 - AI 评估逻辑在前端组装 Prompt，通过 `ai.ts` 发起请求，结果由前端解析和展示
 
 ### 1.3 技术栈
@@ -65,7 +67,10 @@
 | 语言 | TypeScript | 5.x |
 | 样式 | SCSS Modules | — |
 | 构建 | Webpack5 | 5.x |
-| 后端 | 微信云开发 | 基础库 3.16.1 |
+| 原生壳 | Capacitor | 6.x |
+| 后端 | Supabase | — |
+| 数据库 | Supabase PostgreSQL | 15+ |
+| 认证 | Supabase Auth | — |
 | AI | Anthropic / OpenAI 兼容 | — |
 
 ---
@@ -114,14 +119,14 @@ src/
 ├── services/                  # 服务层（前后端交互边界）
 │   ├── ai.ts                  # AI 调用（直连 API）
 │   ├── auth.ts                # 认证
-│   ├── cloud.ts               # 云数据库封装
+│   ├── supabase.ts            # Supabase 数据库封装
 │   ├── cache.ts               # 本地缓存
 │   ├── seedData.ts            # 种子数据初始化
 │   └── knowledgeGrouping.ts   # 知识点分组算法
 │
 ├── hooks/                     # 数据 Hooks
 │   ├── useStaticData.ts       # 静态数据（cache-first）
-│   └── useCloudQuery.ts       # 动态数据（cache-then-cloud）
+│   └── useSupabaseQuery.ts    # 动态数据（cache-then-server）
 │
 ├── constants/                 # 常量
 │   ├── subjects.ts            # 8 大系统定义
@@ -177,7 +182,7 @@ src/
 
 ```
 ai.ts
-├── getAIConfig()              # 读取 AI 配置（从 settings 集合 / 本地缓存）
+├── getAIConfig()              # 读取 AI 配置（从 settings 表 / 本地缓存）
 ├── setAIConfig(config)        # 保存 AI 配置
 ├── fetchModels(baseUrl, key)  # 获取可用模型列表
 ├── testConnection(config)     # 测试 API 连接
@@ -194,8 +199,8 @@ ai.ts
 **AI 调用流程**：
 
 ```
-页面组件 → ai.ts 函数 → 组装 Prompt → Taro.request → AI API
-                                                       ↓
+页面组件 → ai.ts 函数 → 组装 Prompt → fetch → AI API
+                                                  ↓
 页面组件 ← 解析响应 ← StreamingContent 打字机渲染 ← 完整 JSON 响应
 ```
 
@@ -208,19 +213,19 @@ ai.ts
 - 30 秒：展示超时错误 + 重新提交按钮
 - 取消后已输入内容保留
 
-#### 2.3.2 cloud.ts — 云数据库封装
+#### 2.3.2 supabase.ts — Supabase 数据库封装
 
 ```
-cloud.ts
-├── 集合名常量（18 个）
-├── query(collection, conditions, options)  # 查询
-├── queryById(collection, id)               # 按 ID 查询
-├── add(collection, data)                   # 新增
-├── addBatch(collection, dataList)          # 批量新增（每批 20 条）
-├── update(collection, id, data)            # 更新
-├── remove(collection, id)                  # 删除
-├── count(collection, conditions)           # 计数
-└── queryPage(collection, conditions, page, pageSize)  # 分页查询
+supabase.ts
+├── 表名常量（18 个）
+├── query(table, conditions, options)  # 查询
+├── queryById(table, id)               # 按 ID 查询
+├── add(table, data)                   # 新增
+├── addBatch(table, dataList)          # 批量新增
+├── update(table, id, data)            # 更新
+├── remove(table, id)                  # 删除
+├── count(table, conditions)           # 计数
+└── queryPage(table, conditions, page, pageSize)  # 分页查询
 ```
 
 #### 2.3.3 cache.ts — 本地缓存
@@ -234,16 +239,16 @@ cache.ts
 └── isExpired(key, ttl)       # 检查是否过期
 ```
 
-底层使用 `Taro.getStorageSync` / `Taro.setStorageSync`。
+底层使用 `localStorage`（通过 Taro 跨端 API 封装）。
 
 #### 2.3.4 seedData.ts — 种子数据初始化
 
 ```
 seedData.ts
-└── initSeedData(openid)      # 首次登录初始化种子数据
+└── initSeedData(userId)      # 首次登录初始化种子数据
     ├── 检查 knowledge_nodes 是否已有数据
     ├── 合并 3 个知识点源（按 id 去重）
-    ├── 分批写入 knowledge_nodes（每批 20 条）
+    ├── 分批写入 knowledge_nodes
     ├── 写入 exam_questions（36 条）
     ├── 写入 causal_chains（34 条）
     └── 写入 cases（7 条）
@@ -253,10 +258,10 @@ seedData.ts
 
 | Hook | 策略 | 适用数据 |
 |------|------|----------|
-| `useStaticData` | cache-first：优先读缓存 → 缓存不存在查云端 → 写入缓存 | knowledge_nodes, exam_questions, causal_chains, cases |
-| `useCloudQuery` | cache-then-cloud：先展示缓存 → 后台查云端 → 一致不更新 UI | learning_records, feynman_records, dialogue_records 等 |
+| `useStaticData` | cache-first：优先读缓存 → 缓存不存在查数据库 → 写入缓存 | knowledge_nodes, exam_questions, causal_chains, cases |
+| `useSupabaseQuery` | cache-then-server：先展示缓存 → 后台查数据库 → 一致不更新 UI | learning_records, feynman_records, dialogue_records 等 |
 
-**选择理由**：静态数据 800+ 条、变化极少，反复查云端浪费且会闪；动态数据需反映最新状态但不能乐观更新。
+**选择理由**：静态数据 800+ 条、变化极少，反复查数据库浪费且会闪；动态数据需反映最新状态但不能乐观更新。
 
 ### 2.5 通用组件
 
@@ -277,21 +282,21 @@ seedData.ts
 | 状态类型 | 管理方式 | 示例 |
 |----------|----------|------|
 | 页面内状态 | React useState / useReducer | 费曼复述输入、考试答题 |
-| 跨页面共享状态 | 云数据库 + 本地缓存 | 用户设置、学习记录 |
-| 间隔重复计划 | 云数据库 `spaced_repetition` 集合 | 待复习知识点 |
-| AI 配置 | `settings` 集合 + 本地缓存 | API Key / Model |
+| 跨页面共享状态 | Supabase + 本地缓存 | 用户设置、学习记录 |
+| 间隔重复计划 | Supabase `spaced_repetition` 表 | 待复习知识点 |
+| AI 配置 | `settings` 表 + 本地缓存 | API Key / Model |
 
 ---
 
-## 3. 后端架构（云开发）
+## 3. 后端架构（Supabase）
 
-### 3.1 云数据库
+### 3.1 数据库表
 
-18 个集合，按用途分类：
+18 个表，按用途分类：
 
 #### 静态数据（种子数据，初始化后极少变化）
 
-| 集合 | 数据量 | 来源 |
+| 表 | 数据量 | 来源 |
 |------|--------|------|
 | `knowledge_nodes` | 800+ | seedKnowledge + extractedKnowledge + extractedKnowledgeNodes |
 | `exam_questions` | 36 | seedExamQuestions |
@@ -300,7 +305,7 @@ seedData.ts
 
 #### 动态数据（用户产生，持续增长）
 
-| 集合 | 用途 | PRD 功能 |
+| 表 | 用途 | PRD 功能 |
 |------|------|----------|
 | `learning_records` | 学习记录 | F-P0-06 |
 | `feynman_records` | 费曼复述记录 | F-P0-02 |
@@ -319,28 +324,28 @@ seedData.ts
 
 #### 数据安全规则
 
-所有集合的安全规则：读写均以 `openid` 为条件，用户只能访问自己的数据。静态数据集合（knowledge_nodes 等）对所有已登录用户只读。
+所有表通过 Supabase Row Level Security (RLS) 控制访问：读写均以 `user_id` 为条件，用户只能访问自己的数据。静态数据表（knowledge_nodes 等）对所有已认证用户只读。
 
-### 3.2 云函数
+### 3.2 Supabase Edge Functions
 
-| 云函数 | 用途 | PRD 功能 | 调用方 |
+| Edge Function | 用途 | PRD 功能 | 调用方 |
 |--------|------|----------|--------|
-| `initUser` | 微信登录：code → openid | F-P0-07 | 前端 `auth.ts` |
+| `initUser` | Supabase Auth 认证初始化 | F-P0-07 | 前端 `auth.ts` |
 | `initSeedData` | 首次登录种子数据写入 | F-P0-01 | 前端 `seedData.ts` |
 | `submitExam` | 考试提交事务（4 表原子写入） | F-P1-01 | 前端 exam 页面 |
 | `analytics` | 服务端计算 mastery map / weak points / activity timeline | F-P1-05 | 前端 home 页面 |
 | `completePathway` | 推导链完成记录 | F-P1-04 | 前端 pathway 页面 |
 | `saveGeneratedContent` | AI 生成内容保存 | F-P2-01 / F-P2-02 | 前端 ai.ts |
 
-**为什么这些逻辑放云函数**：
-- `initUser`：需要服务端调用微信 API 换取 openid，客户端无法完成
+**为什么这些逻辑放 Edge Functions**：
+- `initUser`：通过 Supabase Auth 完成用户认证，需要服务端执行
 - `initSeedData`：800+ 条数据分批写入，需服务端执行避免客户端超时
 - `submitExam`：4 表原子写入（exam_sessions + exam_records + wrong_questions + study_activities），需事务保证
 - `analytics`：需加载全量用户数据计算，客户端加载全表不现实
 - `completePathway` / `saveGeneratedContent`：多表写入事务
 
-**不在云函数的逻辑**：
-- AI 调用：V1.0 客户端直连（云函数 20s 超时限制）
+**不在 Edge Functions 的逻辑**：
+- AI 调用：V1.0 客户端直连（Edge Functions 有冷启动延迟）
 - 费曼复述评估保存：单表写入，客户端直接操作
 - VINDICATE 评估保存：单表写入
 - 间隔重复更新：单表更新
@@ -355,8 +360,7 @@ seedData.ts
 
 ```typescript
 interface KnowledgeNode {
-  _id: string;
-  id: string;
+  id: string;  // UUID
   type: 'concept' | 'mechanism' | 'disease' | 'symptom' | 'treatment' | 'exam';
   title: string;
   subject: string;
@@ -378,8 +382,8 @@ interface KnowledgeNode {
 
 ```typescript
 interface FeynmanRecord {
-  _id: string;
-  openid: string;
+  id: string;  // UUID
+  user_id: string;
   nodeId: string;
   transcript: string;
   aiScore: {
@@ -397,8 +401,8 @@ interface FeynmanRecord {
 
 ```typescript
 interface DialogueRecord {
-  _id: string;
-  openid: string;
+  id: string;  // UUID
+  user_id: string;
   nodeId: string;
   messages: Array<{
     role: 'user' | 'assistant';
@@ -413,8 +417,8 @@ interface DialogueRecord {
 
 ```typescript
 interface SpacedRepetition {
-  _id: string;
-  openid: string;
+  id: string;  // UUID
+  user_id: string;
   nodeId: string;
   nextReview: number;
   interval: number;
@@ -429,8 +433,8 @@ interface SpacedRepetition {
 
 ```typescript
 interface ExamSession {
-  _id: string;
-  openid: string;
+  id: string;  // UUID
+  user_id: string;
   questionIds: string[];
   score: number;
   weakNodes: string[];
@@ -442,8 +446,8 @@ interface ExamSession {
 
 ```typescript
 interface CaseRecord {
-  _id: string;
-  openid: string;
+  id: string;  // UUID
+  user_id: string;
   caseId: string;
   currentStage: number;
   stageScores: Record<string, number>;
@@ -494,36 +498,36 @@ export const VINDICATE_CATEGORIES = [
 
 | PRD 功能 | 前端页面 | 前端服务/Hook | 后端 |
 |----------|----------|---------------|------|
-| F-P0-01 知识地图 | `pages/feynman/` | `useStaticData` + `knowledgeGrouping.ts` + `constants/subjects.ts` | 云数据库 `knowledge_nodes` |
-| F-P0-02 费曼复述 | `pagesA/feynman-detail/` | `ai.ts: evaluateFeynman` + `useCloudQuery` | 云数据库 `feynman_records` |
-| F-P0-03 苏格拉底对话 | `pagesA/feynman-detail/` | `ai.ts: continueLearningDialogue` + `useCloudQuery` | 云数据库 `dialogue_records` |
-| F-P0-04 VINDICATE | `pagesA/feynman-detail/` + `pagesA/case-detail/` | `ai.ts: evaluateVindicate` + `constants/vindicate.ts` | 云数据库 `dialogue_records` |
-| F-P0-05 病例沙盒 | `pages/clinic-sandbox/` + `pagesA/case-detail/` | `ai.ts: evaluateDiagnosis + evaluateTreatment` | 云数据库 `case_records` + `cases` |
-| F-P0-06 间隔重复 | `pages/feynman/` + `pages/home/` | `spacedRepetition.ts` + `useCloudQuery` | 云数据库 `spaced_repetition` |
-| F-P0-07 微信登录 | `pages/profile/` + `pagesB/setup/` | `auth.ts` | 云函数 `initUser` + 云数据库 `settings` |
+| F-P0-01 知识地图 | `pages/feynman/` | `useStaticData` + `knowledgeGrouping.ts` + `constants/subjects.ts` | Supabase `knowledge_nodes` 表 |
+| F-P0-02 费曼复述 | `pagesA/feynman-detail/` | `ai.ts: evaluateFeynman` + `useSupabaseQuery` | Supabase `feynman_records` 表 |
+| F-P0-03 苏格拉底对话 | `pagesA/feynman-detail/` | `ai.ts: continueLearningDialogue` + `useSupabaseQuery` | Supabase `dialogue_records` 表 |
+| F-P0-04 VINDICATE | `pagesA/feynman-detail/` + `pagesA/case-detail/` | `ai.ts: evaluateVindicate` + `constants/vindicate.ts` | Supabase `dialogue_records` 表 |
+| F-P0-05 病例沙盒 | `pages/clinic-sandbox/` + `pagesA/case-detail/` | `ai.ts: evaluateDiagnosis + evaluateTreatment` | Supabase `case_records` + `cases` 表 |
+| F-P0-06 间隔重复 | `pages/feynman/` + `pages/home/` | `spacedRepetition.ts` + `useSupabaseQuery` | Supabase `spaced_repetition` 表 |
+| F-P0-07 用户登录 | `pages/profile/` + `pagesB/setup/` | `auth.ts` | Supabase Auth + Supabase `settings` 表 |
 | F-P0-08 合规标识 | 全局（所有 AI 输出区域） | `StreamingContent` 组件内嵌标识 | — |
 
 ### 5.2 P1 功能
 
 | PRD 功能 | 前端页面 | 前端服务/Hook | 后端 |
 |----------|----------|---------------|------|
-| F-P1-01 模拟考试 | `pagesB/exam/` + `pagesB/wrong-questions/` | `useStaticData` + `useCloudQuery` | 云函数 `submitExam` + 云数据库 `exam_sessions/records/wrong_questions` |
-| F-P1-02 语音输入 | `pagesA/feynman-detail/` | 微信同声传译插件 + 本地医学术语词典 | — |
-| F-P1-03 疾病对比 | `pagesB/compare-mode/` | `ai.ts: extractComparisonDimensions` | 云数据库 `dialogue_records` |
-| F-P1-04 推导链 | `pagesA/pathway/` | `useStaticData` | 云函数 `completePathway` |
-| F-P1-05 学习仪表盘 | `pages/home/` | `useCloudQuery` + `ECharts` 组件 | 云函数 `analytics` |
-| F-P1-06 AI 调用渐进 | `pagesB/settings/` + `services/ai.ts` | V1.0 直连 → V1.5 云函数代理 | V1.5 新增云函数 |
-| F-P1-07 账户注销 | `pages/profile/` | `cloud.ts` | 新增云函数 `deleteUserData` |
+| F-P1-01 模拟考试 | `pagesB/exam/` + `pagesB/wrong-questions/` | `useStaticData` + `useSupabaseQuery` | Supabase Edge Function `submitExam` + Supabase `exam_sessions/records/wrong_questions` 表 |
+| F-P1-02 语音输入 | `pagesA/feynman-detail/` | Web Speech API + 本地医学术语词典 | — |
+| F-P1-03 疾病对比 | `pagesB/compare-mode/` | `ai.ts: extractComparisonDimensions` | Supabase `dialogue_records` 表 |
+| F-P1-04 推导链 | `pagesA/pathway/` | `useStaticData` | Supabase Edge Function `completePathway` |
+| F-P1-05 学习仪表盘 | `pages/home/` | `useSupabaseQuery` + `ECharts` 组件 | Supabase Edge Function `analytics` |
+| F-P1-06 AI 调用渐进 | `pagesB/settings/` + `services/ai.ts` | V1.0 直连 → V1.5 Edge Function 代理 | V1.5 新增 Edge Function |
+| F-P1-07 账户注销 | `pages/profile/` | `supabase.ts` | 新增 Edge Function `deleteUserData` |
 
 ### 5.3 P2 功能
 
 | PRD 功能 | 前端页面 | 前端服务/Hook | 后端 |
 |----------|----------|---------------|------|
-| F-P2-01 AI 生成病例 | `pages/clinic-sandbox/` | `ai.ts: generateMedicalCase` | 云函数 `saveGeneratedContent` |
-| F-P2-02 AI 生成推导链 | `pagesA/pathway/` | `ai.ts: generateCausalChain` | 云函数 `saveGeneratedContent` |
-| F-P2-03 学习日历 | `pagesB/study-calendar/` | `useCloudQuery` | 云数据库 `study_activities` |
-| F-P2-04 学习计划 | `pagesB/learning-hub/` | `useCloudQuery` | 云数据库 `study_plans/study_goals` |
-| F-P2-05 社交分享 | `pages/profile/` | Canvas 绘制 + `Taro.shareAppMessage` | — |
+| F-P2-01 AI 生成病例 | `pages/clinic-sandbox/` | `ai.ts: generateMedicalCase` | Supabase Edge Function `saveGeneratedContent` |
+| F-P2-02 AI 生成推导链 | `pagesA/pathway/` | `ai.ts: generateCausalChain` | Supabase Edge Function `saveGeneratedContent` |
+| F-P2-03 学习日历 | `pagesB/study-calendar/` | `useSupabaseQuery` | Supabase `study_activities` 表 |
+| F-P2-04 学习计划 | `pagesB/learning-hub/` | `useSupabaseQuery` | Supabase `study_plans/study_goals` 表 |
+| F-P2-05 社交分享 | `pages/profile/` | Canvas 绘制 + Web Share API | — |
 
 ---
 
@@ -554,8 +558,8 @@ feynman-detail 页面（默认费曼模式）
     ▼
 AI 返回完整评估结果
     │
-    ├── 保存至 feynman_records 集合
-    ├── 更新 spaced_repetition 集合（SM-2 算法）
+    ├── 保存至 feynman_records 表
+    ├── 更新 spaced_repetition 表（SM-2 算法）
     ├── 记录 study_activities
     │
     ▼
@@ -589,7 +593,7 @@ AI 返回评估结果
     ├── 遗漏类别高亮
     │
     ▼
-保存至 dialogue_records 集合
+保存至 dialogue_records 表
 ```
 
 ### 6.3 病例沙盒流程（F-P0-05）
@@ -611,7 +615,7 @@ case-detail 页面（6 阶段状态机）
 每阶段独立评分 → 汇总为病例总分
     │
     ▼
-保存至 case_records 集合
+保存至 case_records 表
 支持中途退出并保存进度（currentStage 字段）
 ```
 
@@ -627,7 +631,7 @@ case-detail 页面（6 阶段状态机）
 spacedRepetition.ts: 计算 nextReview / interval / easeFactor
     │
     ▼
-更新 spaced_repetition 集合
+更新 spaced_repetition 表
     │
     ▼
 知识地图待复习铃铛 🔔 读取 nextReview ≤ 今日的数据
@@ -643,7 +647,7 @@ spacedRepetition.ts: 计算 nextReview / interval / easeFactor
 exam 页面（三态状态机：选题 → 答题 → 结果）
     │
     ▼
-答题完成 → 云函数 submitExam（4 表原子写入）
+答题完成 → Supabase Edge Function submitExam（4 表原子写入）
     │
     ├── exam_sessions: 考试会话
     ├── exam_records: 每题答题记录
@@ -663,22 +667,22 @@ exam 页面（三态状态机：选题 → 答题 → 结果）
 进入费曼复述模式 → 完成闭环
 ```
 
-### 6.6 微信登录流程（F-P0-07）
+### 6.6 Supabase Auth 登录流程（F-P0-07）
 
 ```
 app.tsx onLaunch
     │
     ▼
-Taro.login() → 获取 code
+supabase.auth.signInWithOAuth / signInWithPassword
     │
     ▼
-云函数 initUser(code) → 换取 openid
+获取 user_id（Supabase Auth 返回）
     │
     ▼
-openid 存入全局 + settings 集合
+user_id 存入全局 + settings 表
     │
     ▼
-检查是否首次登录 → 是 → initSeedData(openid)
+检查是否首次登录 → 是 → initSeedData(user_id)
 ```
 
 ---
@@ -692,13 +696,13 @@ openid 存入全局 + settings 集合
 | 主包 | home + feynman + clinic-sandbox + profile + 框架 + 通用组件 + 服务层 | ≤ 1.8MB |
 | 分包 pagesA | feynman-detail + case-detail + pathway | ≤ 500KB |
 | 分包 pagesB | exam + compare-mode + wrong-questions + settings + study-calendar + learning-hub + setup | ≤ 800KB |
-| 分包 echarts | echarts-for-weixin | ≤ 900KB |
+| 分包 echarts | echarts | ≤ 900KB |
 
 ### 7.2 体积控制
 
 - ECharts 放入独立分包，主包通过异步加载引用
 - 知识地图使用 emoji + CSS 进度环，不使用图片资源
-- 种子数据通过云数据库加载，不打包进主包
+- 种子数据通过 Supabase 加载，不打包进主包
 - 构建后运行 `scripts/check-size.sh` 检查主包体积（阈值 1.8MB）
 
 ---
@@ -708,7 +712,7 @@ openid 存入全局 + settings 集合
 | 债务 | 影响 | 修复计划 |
 |------|------|----------|
 | VINDICATE 定义分散在 feynman-detail 和 case-detail 中 | 维护困难，定义不一致 | 创建 `constants/vindicate.ts` 统一导出 |
-| AI 调用客户端直连 | API Key 泄露风险 | V1.5 迁移云函数代理 |
+| AI 调用客户端直连 | API Key 泄露风险 | V1.5 迁移 Supabase Edge Function 代理 |
 | 无 lint/typecheck 配置 | 代码质量无自动保障 | 补充 ESLint + TypeScript 严格模式 |
 | 无自动化测试 | 回归风险 | V1.5 补充核心流程测试 |
 | 种子数据 3 个源文件合并逻辑复杂 | 维护成本高 | V2.0 统一数据源 |

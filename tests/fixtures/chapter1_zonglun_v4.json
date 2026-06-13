@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "knowledge_point": {
+        "title": "呼吸系统疾病总论",
+        "type": "concept"
+      },
+      "content": {
+        "definition": {
+          "content": "呼吸系统由呼吸道和肺组成，负责气体交换，是维持生命活动的重要系统。"
+        },
+        "clinical_significance": {
+          "content": "呼吸系统疾病是内科学中最常见的疾病类别之一，临床表现以咳嗽、咳痰、呼吸困难为主。"
+        }
+      },
+      "relations": [],
+      "extraction_report": {}
+    }
+  ]
+}

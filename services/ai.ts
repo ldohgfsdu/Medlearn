@@ -1,9 +1,72 @@
-import { matchDocuments } from '@/lib/supabase'
+import { matchDocuments, supabase } from '@/lib/supabase'
 import { getEmbedding } from './vector'
 
-const API_KEY = process.env.EXPO_PUBLIC_AI_API_KEY || ''
-const BASE_URL = process.env.EXPO_PUBLIC_AI_API_BASE_URL || 'https://token-plan-cn.xiaomimimo.com/v1'
-const MODEL = process.env.EXPO_PUBLIC_AI_MODEL || 'mimo-v2.5-pro'
+interface AIMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+interface AIResponse {
+  choices?: Array<{ message?: { content?: string } }>
+}
+
+interface ContextChunk {
+  document_name?: string | null
+  page_number?: number | null
+  content: string
+}
+
+async function invokeAI(
+  messages: AIMessage[],
+  options: {
+    temperature?: number
+    maxTokens?: number
+    responseFormat?: { type: 'json_object' }
+    onSlowResponse?: () => void
+  } = {}
+): Promise<AIResponse> {
+  const warningId = options.onSlowResponse
+    ? setTimeout(options.onSlowResponse, 15_000)
+    : null
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    const request = supabase.functions.invoke<AIResponse>('ai-proxy', {
+      body: {
+        messages,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens ?? 2_000,
+        response_format: options.responseFormat,
+      },
+    })
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('AI_REQUEST_TIMEOUT')), 30_000)
+    })
+    const { data, error } = await Promise.race([request, timeout])
+
+    if (error) throw new Error(`AI_PROXY_ERROR: ${error.message}`)
+    if (!data) throw new Error('AI_EMPTY_RESPONSE')
+    return data
+  } finally {
+    if (warningId) clearTimeout(warningId)
+    if (timeoutId) clearTimeout(timeoutId)
+  }
+}
+
+function extractJSON(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) throw new Error('AI 返回内容不包含有效 JSON')
+
+    try {
+      return JSON.parse(match[0])
+    } catch {
+      throw new Error('无法解析 AI 返回的 JSON')
+    }
+  }
+}
 
 export interface EvaluationResult {
   score: number
@@ -13,61 +76,94 @@ export interface EvaluationResult {
 }
 
 /**
- * RAG 驱动的费曼复述评估引擎
+ * 通用医学学习对话（非严格 RAG 评估场景）
+ * 始终通过 ai-proxy，服务端密钥隔离。
+ * 提示模型保持教育用途、建议用户在费曼/病例中深入练习。
  */
-export async function evaluateWithRAG(nodeTitle: string, userTranscript: string): Promise<EvaluationResult> {
-  // 1. 获取复述的向量
+export async function sendChatMessage(
+  history: AIMessage[],
+  onSlowResponse?: () => void
+): Promise<string> {
+  const result = await invokeAI(
+    [
+      {
+        role: 'system',
+        content:
+          '你是 Medlearn 的医学学习助手。仅用于教育和复习目的。回答要准确、结构化，优先引用常见教材概念。不要给出针对真实患者的个性化诊断或治疗建议。回答末尾可简要建议用户通过“费曼复述”或“病例训练”进一步练习相关知识点。',
+      },
+      ...history,
+    ],
+    {
+      temperature: 0.4,
+      maxTokens: 2000,
+      onSlowResponse,
+    },
+  )
+
+  const content = result.choices?.[0]?.message?.content
+  if (!content) throw new Error('AI_EMPTY_CONTENT')
+  return content.trim()
+}
+
+export async function evaluateWithRAG(
+  nodeTitle: string,
+  userTranscript: string,
+  onSlowResponse?: () => void
+): Promise<EvaluationResult> {
   const vector = await getEmbedding(userTranscript)
+  const contextChunks = (await matchDocuments(vector, 3)) as ContextChunk[]
 
-  // 2. 去数据库找最相关的 2 段教材原文
-  const contextChunks = await matchDocuments(vector, 2)
-  const textbookContext = contextChunks.map((c: any) => `【教材页码 ${c.page_number}】: ${c.content}`).join('\n\n')
+  if (!contextChunks || contextChunks.length === 0) {
+    throw new Error('TEXTBOOK_NOT_FOUND')
+  }
 
-  // 3. 构建 Prompt
-  const systemPrompt = `你是一名严谨的医学教授。你将根据提供的教材原文，对学生的费曼复述进行评估。
-不要使用你自带的知识，必须以提供的【教材原文】为准。`
+  const textbookContext = contextChunks
+    .map(
+      (chunk) =>
+        `【教材：${chunk.document_name || '参考资料'} 第${chunk.page_number || '?'}页】 ${chunk.content}`,
+    )
+    .join('\n\n')
 
-  const userPrompt = `
-知识点标题：${nodeTitle}
+  const result = await invokeAI(
+    [
+      {
+        role: 'system',
+        content:
+          '你是严谨的医学教师。只能依据用户提供的教材原文评估复述，必须输出 JSON，不得补充教材之外的医学结论。',
+      },
+      {
+        role: 'user',
+        content: `知识点：${nodeTitle}
 
-【教材原文】：
-${textbookContext || '（未找到相关教材片段，请根据通用医学知识评估）'}
+【教材原文】
+${textbookContext}
 
-【学生复述内容】：
+【学生复述】
 ${userTranscript}
 
-请严格按以下 JSON 格式评估：
-{
-  "score": 0-100的数字,
-  "feedback": "简短的专业反馈",
-  "missingPoints": ["漏掉的教材关键点1", "点2"],
-  "reference": "引用的教材名称及页码"
-}`
-
-  // 4. 调用 AI API
-  const response = await fetch(`${BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY}`
+请返回：{"score": 0-100, "feedback": "...", "missingPoints": ["..."], "reference": "..."}`,
+      },
+    ],
+    {
+      temperature: 0.2,
+      responseFormat: { type: 'json_object' },
+      onSlowResponse,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' }
-    })
-  })
+  )
 
-  const result = await response.json()
-  const evaluation = JSON.parse(result.choices[0].message.content)
+  const content = result.choices?.[0]?.message?.content
+  if (!content) throw new Error('AI_EMPTY_CONTENT')
 
+  const parsed = extractJSON(content) as Partial<EvaluationResult>
   return {
-    score: evaluation.score,
-    feedback: evaluation.feedback,
-    missingPoints: evaluation.missingPoints,
-    reference: evaluation.reference || (contextChunks[0]?.document_name || '参考教材')
+    score: typeof parsed.score === 'number' ? parsed.score : 0,
+    feedback: typeof parsed.feedback === 'string' ? parsed.feedback : '无法解析反馈',
+    missingPoints: Array.isArray(parsed.missingPoints)
+      ? parsed.missingPoints.filter((point): point is string => typeof point === 'string')
+      : [],
+    reference:
+      typeof parsed.reference === 'string'
+        ? parsed.reference
+        : contextChunks[0]?.document_name || '参考教材',
   }
 }

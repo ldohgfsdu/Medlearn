@@ -1,0 +1,153 @@
+schema_version: 1
+objects:
+  - id: project_governance_bootstrap
+    title: Project governance bootstrap
+    status: completed
+    objective: Establish a validated, machine-readable project governance system.
+    scope:
+      - docs/PROJECT_CONSTITUTION.md
+      - docs/ADR_INDEX.yaml
+      - docs/CURRENT_STATE.md
+      - state/active_object.yaml
+      - state/completed_objects.yaml
+      - state/blocked_objects.yaml
+      - scripts/validate_project_state.py
+      - scripts/generate_current_state.py
+    acceptance_criteria:
+      - Project constitution separates stable identity from current execution state.
+      - YAML files are the only source of runtime project state.
+      - Invalid state prevents CURRENT_STATE.md generation.
+      - Generated current state is reproducible from validated YAML.
+    dependencies: []
+    evidence:
+      - python scripts/validate_project_state.py
+      - python scripts/generate_current_state.py --check
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-13"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: knowledge_data_model_alignment
+    title: Align the knowledge data model
+    status: completed
+    objective: Choose and migrate to one authoritative knowledge schema.
+    scope:
+      - hooks/useKnowledge.ts
+      - app/lib/knowledge.ts
+      - supabase/migrations
+      - scripts/textbook_pipeline
+    acceptance_criteria:
+      - One authoritative schema is documented.
+      - Application queries and ingestion writes target that schema.
+      - Numbered migrations create every required table and relation.
+      - Existing data has an explicit migration or compatibility plan.
+    dependencies: []
+    evidence:
+      - app/lib/knowledge.ts now queries knowledge_nodes only.
+      - scripts/textbook_pipeline/knowledge_node_adapter.py adapts pipeline output.
+      - npm run typecheck
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-13"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: knowledge_v5_integration
+    title: Integrate experimental V5 knowledge pages
+    status: completed
+    objective: Make knowledge search and detail pages use one supported client and data model.
+    scope:
+      - app/search.tsx
+      - app/knowledge/[id].tsx
+      - app/lib/knowledge.ts
+      - app/lib/supabase.ts
+    acceptance_criteria:
+      - TypeScript passes.
+      - ESLint passes.
+      - Expo web export succeeds.
+      - The selected knowledge schema is backed by numbered migrations.
+    dependencies:
+      - knowledge_data_model_alignment
+    evidence:
+      - npm run typecheck
+      - npm run lint
+      - tests/case-security.test.js knowledge_nodes assertion
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-13"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: server_case_approval_enforcement
+    title: Enforce approved case status inside service-role functions
+    status: completed
+    objective: Prevent service-role Edge Functions from operating on draft, paused, or retired cases.
+    scope:
+      - supabase/functions/case-patient/index.ts
+      - supabase/functions/case-submit/index.ts
+      - supabase/functions/case-abandon/index.ts
+      - supabase/functions/_shared/case-template-guard.ts
+    acceptance_criteria:
+      - Every service-role case lookup verifies is_active and review_status.
+      - Draft and disabled cases are rejected even if a session references them.
+      - Regression tests cover the bypass attempt.
+    dependencies: []
+    evidence:
+      - tests/case-security.test.js service-role case functions reject unapproved templates
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-13"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: ai_proxy_cost_controls
+    title: Add user-level AI proxy cost controls
+    status: completed
+    objective: Bound generic AI proxy usage per user and record its cost.
+    scope:
+      - supabase/functions/ai-proxy/index.ts
+      - supabase/migrations/019_ai_proxy_cost_controls.sql
+    acceptance_criteria:
+      - Per-user rate limits or quotas are enforced server-side.
+      - Token usage and estimated cost are recorded.
+      - Limit and provider failure paths have regression coverage.
+    dependencies:
+      - external:ai_provider_pricing
+    evidence:
+      - supabase/migrations/019_ai_proxy_cost_controls.sql
+      - tests/case-security.test.js ai proxy quota assertion
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-13"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: alpha_case_library
+    title: Build the medically approved Alpha case library
+    status: completed
+    objective: Provide the 15 medically reviewed cases required by the MVP release gate.
+    scope:
+      - shared/alpha-case-library.ts
+      - supabase/seeds/002_alpha_case_library.sql
+      - scripts/generate-alpha-case-seeds.mjs
+    acceptance_criteria:
+      - At least 15 cases are approved and enabled.
+      - Every approved case has reviewed_by and reviewed_at.
+      - Every case passes quality and diagnosis leakage regression tests.
+    dependencies:
+      - external:qualified_medical_review
+    evidence:
+      - tests/case-seeds.test.ts
+      - scripts/generate-alpha-case-seeds.mjs
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-13"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null

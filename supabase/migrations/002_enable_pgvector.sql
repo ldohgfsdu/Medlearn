@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     page_number INTEGER,                   -- 来源页码
     chapter TEXT,                          -- 章节标题
     section TEXT,                          -- 小节标题
-    embedding VECTOR(384),                 -- 向量（可选，用于语义检索）
+    embedding VECTOR(1024),                -- 向量（可选，用于语义检索）
     metadata JSONB DEFAULT '{}',           -- 其他元信息
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -42,7 +42,7 @@ CREATE INDEX idx_document_chunks_chapter ON document_chunks(chapter);
 -- 向量相似度索引（IVFFlat，适合中小规模数据）
 CREATE INDEX idx_document_chunks_embedding ON document_chunks 
     USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+    WITH (lists = 200);
 
 -- ============================================
 -- 4. 创建向量检索函数
@@ -50,7 +50,7 @@ CREATE INDEX idx_document_chunks_embedding ON document_chunks
 
 -- 相似度检索函数
 CREATE OR REPLACE FUNCTION match_documents(
-    query_embedding VECTOR(384),
+    query_embedding VECTOR(1024),
     match_count INT DEFAULT 5,
     filter_document TEXT DEFAULT NULL
 )
@@ -85,7 +85,7 @@ $$;
 -- 全文检索 + 向量检索混合函数
 CREATE OR REPLACE FUNCTION hybrid_search_documents(
     query_text TEXT,
-    query_embedding VECTOR(384),
+    query_embedding VECTOR(1024),
     match_count INT DEFAULT 5,
     filter_document TEXT DEFAULT NULL
 )

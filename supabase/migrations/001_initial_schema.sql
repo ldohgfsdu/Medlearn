@@ -1,4 +1,4 @@
--- MedLearn 数据库 Schema
+-- Medlearn 数据库 Schema
 -- 适用于 Supabase (PostgreSQL)
 -- 创建日期: 2026-06-03
 
@@ -17,10 +17,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS knowledge_nodes (
     id TEXT PRIMARY KEY,
     order_num INTEGER DEFAULT 0,
+    level INTEGER,
     type TEXT NOT NULL CHECK (type IN ('concept', 'mechanism', 'disease', 'symptom', 'treatment', 'exam')),
     title TEXT NOT NULL,
     subject TEXT,
     chapter TEXT,
+    sub_chapter TEXT,
     knowledge_path TEXT[],
     content TEXT,
     key_points TEXT[],
