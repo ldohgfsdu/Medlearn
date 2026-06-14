@@ -1,4 +1,7 @@
 
+> [!WARNING]
+> Archived historical document. This is not a current source of product scope, architecture, status or implementation guidance. See `../PROJECT_CONSTITUTION.md`, `../MVP_PRD_V2.md` and `../CURRENT_STATE.md`.
+
 好。这份文档将覆盖全部细节。由于内容量巨大，我会按完整目录结构展开每一个章节，确保无遗漏。
 
 ---

@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical snapshot from 2026-06-11. Current execution state is generated in `../CURRENT_STATE.md` from `state/*.yaml`.
+
 # Medlearn 项目状态
 
 更新时间：2026-06-11

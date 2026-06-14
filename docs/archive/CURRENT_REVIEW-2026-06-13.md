@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical review from 2026-06-13. Its findings may have been resolved. Use `../CURRENT_STATE.md` and current repository evidence for present status.
+
 # MedLearn 项目全面审查报告
 **日期**: 2026-06-13  
 **审查者**: Hermes Agent (工具驱动，基于真实文件和命令输出)  

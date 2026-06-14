@@ -1,3 +1,6 @@
+> [!WARNING]
+> Archived historical plan. It was superseded by `../MVP_PRD_V2.md` and must not be treated as current scope.
+
 # Medlearn MVP PRD
 
 > Status: Draft for execution

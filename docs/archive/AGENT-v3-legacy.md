@@ -1,3 +1,6 @@
+> [!WARNING]
+> Archived agent guidance. Do not use this file as current product, architecture or workflow authority.
+
 # AGENT.md - Medlearn 开发规则
 
 **版本**: 3.0

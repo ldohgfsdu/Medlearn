@@ -1,6 +1,6 @@
 # Medlearn 技术架构文档
 
-> **现状说明（2026-06）**：本文档基于早期 Taro/Capacitor 版本。当前已全面迁移到 **Expo Router + React Native + Supabase**（AGENT.md 3.0）。前端 AI 调用统一经 `services/ai.ts` + Edge Functions 代理。知识提取使用 pipeline_v3（Python + Docling + Ollama）。请以 AGENT.md、PROJECT_STATUS.md 和实际代码为准。历史设计保留供参考。
+> **现状说明（2026-06）**：本文档包含早期 Taro/Capacitor 设计，相关章节仅供历史参考。当前实现采用 **Expo Router + React Native + Supabase**。产品边界以 `PROJECT_CONSTITUTION.md` 和 `MVP_PRD_V2.md` 为准，执行状态以 `CURRENT_STATE.md` 和 `state/*.yaml` 为准，技术现实以当前代码和自动化验证为准。
 
 **版本**: 1.0  
 **日期**: 2026-06-02  
