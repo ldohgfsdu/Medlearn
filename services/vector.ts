@@ -3,14 +3,38 @@
  * 将用户的复述文字转化为数字向量，用于 Supabase RAG 检索
  */
 
+import { loadAISettings } from '@/lib/ai-settings'
 import { supabase } from '@/lib/supabase'
 
 const MAX_TEXT_LENGTH = 8000
-const embeddingCache = new Map<string, number[]>()
-const EMBEDDING_PROVIDER = process.env.EXPO_PUBLIC_EMBEDDING_PROVIDER || 'ollama'
-const OLLAMA_URL = (process.env.EXPO_PUBLIC_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '')
-const OLLAMA_EMBED_MODEL = process.env.EXPO_PUBLIC_OLLAMA_EMBED_MODEL || 'bge-m3'
+const MAX_CACHE_ENTRIES = 200
 const EXPECTED_DIMENSION = 1024
+const OLLAMA_TIMEOUT_MS = 30_000
+
+/** Simple LRU cache with max entry limit */
+const embeddingCache = new Map<string, number[]>()
+
+function cacheGet(key: string): number[] | undefined {
+  const val = embeddingCache.get(key)
+  if (val !== undefined) {
+    // Move to end (most recently used)
+    embeddingCache.delete(key)
+    embeddingCache.set(key, val)
+  }
+  return val
+}
+
+function cacheSet(key: string, value: number[]): void {
+  if (embeddingCache.has(key)) {
+    embeddingCache.delete(key)
+  }
+  embeddingCache.set(key, value)
+  // Evict oldest entries when over limit
+  while (embeddingCache.size > MAX_CACHE_ENTRIES) {
+    const oldest = embeddingCache.keys().next().value
+    if (oldest !== undefined) embeddingCache.delete(oldest)
+  }
+}
 
 function simpleHash(str: string): string {
   let hash = 0
@@ -35,22 +59,34 @@ async function getEmbeddingViaProxy(text: string): Promise<number[]> {
   return data?.data?.[0]?.embedding || []
 }
 
-async function getEmbeddingViaOllama(text: string): Promise<number[]> {
-  const response = await fetch(`${OLLAMA_URL}/api/embed`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: OLLAMA_EMBED_MODEL,
-      input: text,
-    }),
-  })
+async function getEmbeddingViaOllama(
+  text: string,
+  ollamaUrl: string,
+  ollamaModel: string,
+): Promise<number[]> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
 
-  if (!response.ok) {
-    throw new Error(`Ollama embedding failed: HTTP ${response.status}`)
+  try {
+    const response = await fetch(`${ollamaUrl}/api/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: ollamaModel,
+        input: text,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Ollama embedding failed: HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data?.embeddings?.[0] || []
+  } finally {
+    clearTimeout(timeout)
   }
-
-  const data = await response.json()
-  return data?.embeddings?.[0] || []
 }
 
 export async function getEmbedding(text: string): Promise<number[]> {
@@ -61,12 +97,13 @@ export async function getEmbedding(text: string): Promise<number[]> {
 
   const truncated = trimmed.length > MAX_TEXT_LENGTH ? trimmed.slice(0, MAX_TEXT_LENGTH) : trimmed
   const cacheKey = simpleHash(truncated)
-  const cached = embeddingCache.get(cacheKey)
+  const cached = cacheGet(cacheKey)
   if (cached) return cached
 
+  const settings = await loadAISettings()
   const embedding =
-    EMBEDDING_PROVIDER === 'ollama'
-      ? await getEmbeddingViaOllama(truncated)
+    settings.embeddingProvider === 'ollama'
+      ? await getEmbeddingViaOllama(truncated, settings.ollamaUrl, settings.ollamaEmbedModel)
       : await getEmbeddingViaProxy(truncated)
 
   if (embedding.length !== EXPECTED_DIMENSION) {
@@ -75,6 +112,6 @@ export async function getEmbedding(text: string): Promise<number[]> {
     )
   }
 
-  embeddingCache.set(cacheKey, embedding)
+  cacheSet(cacheKey, embedding)
   return embedding
 }

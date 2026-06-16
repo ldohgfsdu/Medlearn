@@ -24,6 +24,39 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
+interface AIOverride {
+  api_key?: string
+  base_url?: string
+  model?: string
+}
+
+function parseAIOverride(raw: unknown): AIOverride | null {
+  if (!raw || typeof raw !== 'object') return null
+  const record = raw as Record<string, unknown>
+  const apiKey = typeof record.api_key === 'string' ? record.api_key.trim() : ''
+  const baseUrl = typeof record.base_url === 'string' ? record.base_url.trim().replace(/\/$/, '') : ''
+  const model = typeof record.model === 'string' ? record.model.trim() : ''
+  if (!apiKey || !baseUrl || !model) return null
+  return { api_key: apiKey, base_url: baseUrl, model }
+}
+
+const ALLOWED_AI_HOSTS = [
+  'api.deepseek.com',
+  'api.openai.com',
+  'api.siliconflow.cn',
+]
+
+function isAllowedBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return false
+    const hostname = parsed.hostname
+    return ALLOWED_AI_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h))
+  } catch {
+    return false
+  }
+}
+
 function estimateCost(usage: {
   prompt_tokens?: number
   completion_tokens?: number
@@ -57,27 +90,41 @@ serve(async (req) => {
     if (authError || !user) {
       return jsonResponse({ error: 'Invalid authorization' }, 401)
     }
-    if (!AI_API_KEY) {
+    const body = await req.json()
+    const aiOverride = parseAIOverride(body?.ai_override)
+    const usingUserKey = Boolean(aiOverride?.api_key)
+    const resolvedApiKey = aiOverride?.api_key || AI_API_KEY
+    const resolvedBaseUrl = aiOverride?.base_url || AI_BASE_URL
+    const resolvedModel = aiOverride?.model || AI_MODEL
+
+    if (aiOverride?.base_url && !isAllowedBaseUrl(resolvedBaseUrl)) {
+      return jsonResponse({ error: 'AI base_url is not in the allowed list' }, 400)
+    }
+
+    if (!resolvedApiKey) {
       return jsonResponse({ error: 'AI service is not configured' }, 503)
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     })
-    const { data: withinQuota, error: quotaError } = await admin.rpc('check_ai_proxy_quota', {
-      p_user_id: user.id,
-      p_window_minutes: AI_PROXY_WINDOW_MINUTES,
-      p_max_requests: AI_PROXY_MAX_REQUESTS,
-      p_max_tokens: AI_PROXY_MAX_TOKENS,
-    })
-    if (quotaError) {
-      return jsonResponse({ error: 'Quota check failed' }, 503)
-    }
-    if (withinQuota !== true) {
-      return jsonResponse({ error: 'AI proxy quota exceeded' }, 429)
+
+    if (!usingUserKey) {
+      const { data: withinQuota, error: quotaError } = await admin.rpc('check_ai_proxy_quota', {
+        p_user_id: user.id,
+        p_window_minutes: AI_PROXY_WINDOW_MINUTES,
+        p_max_requests: AI_PROXY_MAX_REQUESTS,
+        p_max_tokens: AI_PROXY_MAX_TOKENS,
+      })
+      if (quotaError) {
+        return jsonResponse({ error: 'Quota check failed' }, 503)
+      }
+      if (withinQuota !== true) {
+        return jsonResponse({ error: 'AI proxy quota exceeded' }, 429)
+      }
     }
 
-    const { messages, temperature = 0.7, max_tokens = 2000, response_format } = await req.json()
+    const { messages, temperature = 0.7, max_tokens = 2000, response_format } = body
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
       return jsonResponse({ error: 'Invalid messages' }, 400)
     }
@@ -92,14 +139,14 @@ serve(async (req) => {
     const safeMaxTokens = Math.min(Math.max(Number(max_tokens) || 2000, 1), 4096)
     const safeTemperature = Math.min(Math.max(Number(temperature) || 0.7, 0), 2)
 
-    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${resolvedBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${AI_API_KEY}`,
+        Authorization: `Bearer ${resolvedApiKey}`,
       },
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: resolvedModel,
         messages,
         temperature: safeTemperature,
         max_tokens: safeMaxTokens,
@@ -119,15 +166,17 @@ serve(async (req) => {
       Math.max(0, Number(usage.total_tokens) || 0) || promptTokens + completionTokens
     const estimatedCost = estimateCost(usage)
 
-    const { error: recordError } = await admin.rpc('record_ai_proxy_usage', {
-      p_user_id: user.id,
-      p_prompt_tokens: promptTokens,
-      p_completion_tokens: completionTokens,
-      p_total_tokens: totalTokens,
-      p_estimated_cost: estimatedCost,
-    })
-    if (recordError) {
-      return jsonResponse({ error: 'Failed to record AI usage' }, 500)
+    if (!usingUserKey) {
+      const { error: recordError } = await admin.rpc('record_ai_proxy_usage', {
+        p_user_id: user.id,
+        p_prompt_tokens: promptTokens,
+        p_completion_tokens: completionTokens,
+        p_total_tokens: totalTokens,
+        p_estimated_cost: estimatedCost,
+      })
+      if (recordError) {
+        return jsonResponse({ error: 'Failed to record AI usage' }, 500)
+      }
     }
 
     return jsonResponse(data)

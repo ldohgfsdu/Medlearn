@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { generateExamQuestions, calculateScore, type ExamQuestion } from '@/services/exam'
@@ -39,6 +39,7 @@ export function useExamSession(userId: string | undefined) {
   const [loading, setLoading] = useState(false)
   const [completed, setCompleted] = useState(false)
   const queryClient = useQueryClient()
+  const startedAtRef = useRef<number>(Date.now())
 
   const startExam = useCallback(async (nodeIds: string[], count = 10, difficulty = 2) => {
     setLoading(true)
@@ -48,6 +49,7 @@ export function useExamSession(userId: string | undefined) {
       setCurrentIndex(0)
       setAnswers({})
       setCompleted(false)
+      startedAtRef.current = Date.now()
     } finally {
       setLoading(false)
     }
@@ -77,40 +79,47 @@ export function useExamSession(userId: string | undefined) {
 
   const finishExam = useCallback(async () => {
     if (!userId) return null
-    const { totalScore, wrongQuestions: wrongIdxs } = calculateScore(questions, answers)
 
-    // 保存考试会话
-    const { data: session, error } = await supabase
-      .from('exam_sessions')
-      .insert({
+    try {
+      const { totalScore, wrongQuestions: wrongIdxs } = calculateScore(questions, answers)
+      const duration = Math.round((Date.now() - startedAtRef.current) / 1000)
+
+      // 保存考试会话
+      const { data: session, error } = await supabase
+        .from('exam_sessions')
+        .insert({
+          user_id: userId,
+          question_ids: questions.map(q => q.id),
+          score: totalScore,
+          weak_nodes: wrongIdxs
+            .map(i => questions[i]?.related_nodes || [])
+            .flat()
+            .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i),
+          duration,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // 记录学习活动
+      const { error: activityError } = await supabase.from('study_activities').insert({
         user_id: userId,
-        question_ids: questions.map(q => q.id),
+        type: 'exam',
         score: totalScore,
-        weak_nodes: wrongIdxs
-          .map(i => questions[i]?.related_nodes || [])
-          .flat()
-          .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i),
-        duration: 0,
+        session_id: session.id,
       })
-      .select()
-      .single()
+      if (activityError) throw activityError
 
-    if (error) throw error
+      setCompleted(true)
+      queryClient.invalidateQueries({ queryKey: ['examHistory'] })
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] })
 
-    // 记录学习活动
-    const { error: activityError } = await supabase.from('study_activities').insert({
-      user_id: userId,
-      type: 'exam',
-      score: totalScore,
-      session_id: session.id,
-    })
-    if (activityError) throw activityError
-
-    setCompleted(true)
-    queryClient.invalidateQueries({ queryKey: ['examHistory'] })
-    queryClient.invalidateQueries({ queryKey: ['homeStats'] })
-
-    return { totalScore, wrongQuestions: wrongIdxs, sessionId: session.id }
+      return { totalScore, wrongQuestions: wrongIdxs, sessionId: session.id }
+    } catch (error) {
+      console.error('[useExam] finishExam failed:', error)
+      throw error
+    }
   }, [userId, questions, answers, queryClient])
 
   return {

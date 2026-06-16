@@ -27,9 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 获取初始 session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState({ session, user: session?.user ?? null, loading: false })
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setState({ session, user: session?.user ?? null, loading: false })
+      })
+      .catch((error) => {
+        console.warn('[useAuth] getSession failed:', error)
+      })
+      .finally(() => {
+        setState(prev => ({ ...prev, loading: false }))
+      })
 
     // 监听 auth 状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -40,11 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    if (!email?.trim() || !password) {
+      return { error: 'Email and password are required' }
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error: error?.message ?? null }
   }
 
   const signUp = async (email: string, password: string, nickname: string) => {
+    if (!email?.trim() || !password) {
+      return { error: 'Email and password are required' }
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,

@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/hooks/useAuth'
 import { Colors } from '@/constants/theme'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import '../global.css'
 
 const queryClient = new QueryClient({
@@ -43,6 +44,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AuthGuard>
+          <ErrorBoundary>
           <Stack
             screenOptions={{
               headerStyle: { backgroundColor: Colors.background },
@@ -133,6 +135,7 @@ export default function RootLayout() {
               options={{ headerShown: false }}
             />
           </Stack>
+          </ErrorBoundary>
         </AuthGuard>
       </AuthProvider>
     </QueryClientProvider>

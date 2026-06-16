@@ -77,6 +77,39 @@ function flattenHistory(patientWorld: PatientWorld): Array<{
     }))
 }
 
+interface AIOverride {
+  api_key?: string
+  base_url?: string
+  model?: string
+}
+
+function parseAIOverride(raw: unknown): AIOverride | null {
+  if (!raw || typeof raw !== 'object') return null
+  const record = raw as Record<string, unknown>
+  const apiKey = typeof record.api_key === 'string' ? record.api_key.trim() : ''
+  const baseUrl = typeof record.base_url === 'string' ? record.base_url.trim().replace(/\/$/, '') : ''
+  const model = typeof record.model === 'string' ? record.model.trim() : ''
+  if (!apiKey || !baseUrl || !model) return null
+  return { api_key: apiKey, base_url: baseUrl, model }
+}
+
+const ALLOWED_AI_HOSTS = [
+  'api.deepseek.com',
+  'api.openai.com',
+  'api.siliconflow.cn',
+]
+
+function isAllowedBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return false
+    const hostname = parsed.hostname
+    return ALLOWED_AI_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h))
+  } catch {
+    return false
+  }
+}
+
 function estimateCost(usage: AIUsage): number {
   const input = Math.max(0, Number(usage.prompt_tokens) || 0)
   const output = Math.max(0, Number(usage.completion_tokens) || 0)
@@ -140,6 +173,15 @@ serve(async (request) => {
     const payload = await request.json()
     sessionId = typeof payload?.sessionId === 'string' ? payload.sessionId : ''
     const question = typeof payload?.question === 'string' ? payload.question.trim() : ''
+    const aiOverride = parseAIOverride(payload?.ai_override)
+    const resolvedApiKey = aiOverride?.api_key || AI_API_KEY
+    const resolvedBaseUrl = aiOverride?.base_url || AI_BASE_URL
+    const resolvedModel = aiOverride?.model || AI_MODEL
+
+    if (aiOverride?.base_url && !isAllowedBaseUrl(resolvedBaseUrl)) {
+      return jsonResponse({ error: 'AI base_url is not in the allowed list' }, 400)
+    }
+
     if (!sessionId || !question || question.length > 500) {
       return jsonResponse({ error: 'Invalid request' }, 400)
     }
@@ -213,7 +255,7 @@ serve(async (request) => {
       ])
       return jsonResponse({ response: SAFE_FALLBACK })
     }
-    if (!AI_API_KEY) {
+    if (!resolvedApiKey) {
       await Promise.all([
         recordEvent('llm_error', { reason: 'not_configured' }),
         recordEvent('patient_message_received', {
@@ -226,14 +268,14 @@ serve(async (request) => {
     }
 
     const history = flattenHistory(template.patient_world as PatientWorld)
-    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${resolvedBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${AI_API_KEY}`,
+        Authorization: `Bearer ${resolvedApiKey}`,
       },
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: resolvedModel,
         messages: [
           {
             role: 'system',

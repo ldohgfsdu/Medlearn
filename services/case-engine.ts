@@ -209,7 +209,13 @@ export class CaseEngine {
     // C2 fix: 原子递增
     const { error: rpcError } = await supabase.rpc('increment_usage_count', { p_session_id: session.id })
     if (rpcError) {
-      console.error('[case-engine] increment_usage_count failed:', rpcError.message)
+      console.warn('[case-engine] increment_usage_count failed, retrying once:', rpcError.message)
+      const { error: retryError } = await supabase.rpc('increment_usage_count', {
+        p_session_id: session.id,
+      })
+      if (retryError) {
+        console.warn('[case-engine] increment_usage_count retry failed:', retryError.message)
+      }
     }
 
     const state: CaseState = {
@@ -518,7 +524,10 @@ export class CaseEngine {
   }
 
   private handleDiagnosisMention(state: CaseState, _template: CaseTemplate, _intent: Intent): string {
-    if (state.currentPhase !== CasePhase.DIAGNOSIS) {
+    // Only allow diagnosis transition from phases where mention_diagnosis is permitted
+    // (mirrors PHASE_PERMISSIONS.mention_diagnosis: EXAM, TESTS, DIAGNOSIS)
+    const DIAGNOSIS_ALLOWED_PHASES = [CasePhase.EXAM, CasePhase.TESTS, CasePhase.DIAGNOSIS]
+    if (DIAGNOSIS_ALLOWED_PHASES.includes(state.currentPhase)) {
       state.currentPhase = CasePhase.DIAGNOSIS
     }
     return '好的医生，请在诊断页面提交您的正式诊断。'
@@ -527,7 +536,13 @@ export class CaseEngine {
   private async handleUnknownInput(sessionId: string, input: string): Promise<string> {
     try {
       return await requestCasePatientResponse(sessionId, input)
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (/network|fetch|timeout|failed|unavailable|503|502|504/i.test(message)) {
+        console.warn('[case-engine] case-patient unavailable:', message)
+        return '患者暂时无法回应，请稍后重试，或换一种更具体的问法。'
+      }
+      console.warn('[case-engine] case-patient rejected input:', message)
       return '医生，请把问题说得更具体一些，例如询问疼痛时间、性质、伴随症状或既往病史。'
     }
   }
@@ -662,6 +677,7 @@ export class CaseEngine {
 
     if (error) {
       console.error('[case-engine] saveMessage failed:', error.message)
+      throw new Error('消息保存失败，请重试')
     }
   }
 }
