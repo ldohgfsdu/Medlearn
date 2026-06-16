@@ -79,8 +79,8 @@ pip install -r requirements-rag.txt
 
 ```env
 # Supabase配置（已有）
-SUPABASE_URL=https://xbccofxlbpazwtcfjgcr.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_GWNVvnrh9FS1zOLCBdRZTA_4_yjhtrP
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
 
 # OpenAI API配置（需要添加）
 OPENAI_API_KEY=your_openai_api_key_here
