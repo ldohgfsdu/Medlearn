@@ -1,0 +1,50 @@
+{
+  "version": "sft_v2_expanded_104",
+  "frozen": true,
+  "frozen_at": "2026-06-15T11:30:18.388063+00:00",
+  "source_version": "sft_v2_repaired",
+  "generated_at": "2026-06-15T11:30:18.388063+00:00",
+  "training_status": "not_started",
+  "train_eval_overlap_count": 0,
+  "previous_tier_a": 64,
+  "accepted_from_manual_review": 0,
+  "accepted_from_unrepaired": 31,
+  "accepted_from_new_chunks": 40,
+  "incremental_accepted_samples": 40,
+  "total_accepted_samples": 104,
+  "new_candidates_scanned": 191,
+  "rejected_new_samples": 151,
+  "repair_candidates_new_samples": 0,
+  "manual_review_new_samples": 0,
+  "evidence_exact_match_rate": 1.0,
+  "content_equals_evidence_rate": 0.0,
+  "avg_nodes_per_sample": 4.5962,
+  "avg_aspects_per_sample": 4.3654,
+  "ready_for_training": true,
+  "ready_for_training_recommended": false,
+  "decision_gate_minimum": {
+    "ready_for_training": true,
+    "blockers": [],
+    "accepted_samples": 104,
+    "target_accepted_samples": 300
+  },
+  "decision_gate_recommended": {
+    "ready_for_training_minimum": true,
+    "ready_for_training_recommended": false,
+    "blockers": [
+      "accepted_samples=104<120_recommended"
+    ]
+  },
+  "golden_eval_samples": 8,
+  "outputs": {
+    "manual_review_resolved": "F:\\ml\\training\\data\\sft_v2_expanded\\manual_review_resolved.jsonl",
+    "unrepaired_triage": "F:\\ml\\training\\data\\sft_v2_expanded\\unrepaired_triage.jsonl",
+    "new_candidates": "F:\\ml\\training\\data\\sft_v2_expanded\\new_candidates.jsonl",
+    "accepted_new": "F:\\ml\\training\\data\\sft_v2_expanded\\accepted_new.jsonl",
+    "rejected_new": "F:\\ml\\training\\data\\sft_v2_expanded\\rejected_new.jsonl",
+    "repair_candidates_new": "F:\\ml\\training\\data\\sft_v2_expanded\\repair_candidates_new.jsonl",
+    "manual_review_new": "F:\\ml\\training\\data\\sft_v2_expanded\\manual_review_new.jsonl",
+    "train": "F:\\ml\\training\\data\\sft_v2_expanded\\train.jsonl",
+    "eval": "F:\\ml\\training\\data\\sft_v2_expanded\\eval.jsonl"
+  }
+}

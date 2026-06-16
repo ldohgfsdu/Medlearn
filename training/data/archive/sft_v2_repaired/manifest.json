@@ -1,0 +1,37 @@
+{
+  "version": "sft_v2_repaired",
+  "source_version": "sft_v2",
+  "generated_at": "2026-06-15T11:22:02.244729+00:00",
+  "input_repair_candidates": 91,
+  "repaired_samples": 46,
+  "unrepaired_samples": 37,
+  "manual_review_samples": 8,
+  "promoted_to_tier_a": 46,
+  "still_tier_b": 37,
+  "hard_rejected_after_repair": 8,
+  "content_equals_evidence_before": 50,
+  "content_equals_evidence_after": 0,
+  "single_summary_node_before": 38,
+  "single_summary_node_after": 3,
+  "aspect_imbalance_before": 82,
+  "aspect_imbalance_after": 37,
+  "evidence_exact_match_rate_after": 1.0,
+  "avg_nodes_per_sample_after": 4.2174,
+  "avg_aspects_per_sample_after": 4.2174,
+  "base_train_samples": 18,
+  "final_train_samples": 64,
+  "ready_for_training": false,
+  "decision_gate_blockers": [
+    "accepted_samples=64<100"
+  ],
+  "outputs": {
+    "repaired_candidates": "F:\\ml\\training\\data\\sft_v2_repaired\\repaired_candidates.jsonl",
+    "unrepaired_candidates": "F:\\ml\\training\\data\\sft_v2_repaired\\unrepaired_candidates.jsonl",
+    "manual_review": "F:\\ml\\training\\data\\sft_v2_repaired\\manual_review.jsonl",
+    "repair_diff": "F:\\ml\\training\\data\\sft_v2_repaired\\repair_diff.jsonl",
+    "train": "F:\\ml\\training\\data\\sft_v2_repaired\\train.jsonl",
+    "eval": "F:\\ml\\training\\data\\sft_v2_repaired\\eval.jsonl",
+    "rejected": "F:\\ml\\training\\data\\sft_v2_repaired\\rejected.jsonl",
+    "repair_candidates": "F:\\ml\\training\\data\\sft_v2_repaired\\repair_candidates.jsonl"
+  }
+}
