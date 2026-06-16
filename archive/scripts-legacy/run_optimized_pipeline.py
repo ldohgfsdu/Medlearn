@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 """
-Medlearn V4 Optimized Textbook Pipeline
-Uses local medlearn-qwen3:8b + improved reader to process medical PDFs.
-This is the main optimized entry point after full review and enhancement.
+EXPERIMENTAL — not production. Use scripts/ingest_knowledge.py extract.
+V4 batch structurer demo using basic PdfReader (not enhanced Docling reader).
 """
 import sys
 import json
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 from textbook_pipeline.readers.factory import read_file
 from textbook_pipeline.llm_structurer import batch_structure
 
@@ -25,7 +29,7 @@ def main():
     elif "诊断学" in pdf_path:
         book_id = "diagnostics-10"
     
-    out_dir = Path("output_v4") / book_id
+    out_dir = Path("artifacts/pipeline-output") / book_id
     out_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"\n🚀 Starting Medlearn V4 Optimized Pipeline for: {book_id}")

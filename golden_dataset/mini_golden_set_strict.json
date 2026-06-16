@@ -1,0 +1,78 @@
+[
+  {
+    "id": "golden_disease_cap_001",
+    "title": "社区获得性肺炎",
+    "type": "disease",
+    "aliases": ["CAP", "Community Acquired Pneumonia"],
+    "source_chunk": {
+      "raw_text": "社区获得性肺炎是医院外获得的肺炎感染。临床表现包括发热、咳嗽、咳铁锈色痰、胸痛。诊断标准包括症状 + 肺部体征 + 胸片浸润影 + 白细胞升高。治疗以抗生素为主。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 45,
+        "chapter": "呼吸系统疾病"
+      }
+    },
+    "expected_content": {
+      "diagnostic_criteria": "症状（发热、咳嗽、胸痛）+ 体征（肺实变）+ 影像学（胸片浸润影）+ 实验室（白细胞升高）"
+    },
+    "expected_relations": [
+      {
+        "target_name": "呼吸衰竭",
+        "relation_type": "complication",
+        "source_required": true
+      },
+      {
+        "target_name": "肺脓肿",
+        "relation_type": "complication",
+        "source_required": false
+      }
+    ],
+    "must_have_terms": ["胸片浸润影", "白细胞升高", "铁锈色痰", "肺实变体征"],
+    "forbidden_terms": ["病毒性肺炎为主", "首选青霉素", "所有患者都需要住院"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_disease_copd_001",
+    "title": "慢性阻塞性肺疾病",
+    "type": "disease",
+    "aliases": ["COPD", "慢阻肺"],
+    "source_chunk": {
+      "raw_text": "慢性阻塞性肺疾病（COPD）是一种以气流受限为特征的肺部疾病。诊断标准为吸入支气管舒张剂后 FEV1/FVC < 0.70。治疗包括支气管扩张剂和吸入激素。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 67,
+        "chapter": "呼吸系统疾病"
+      }
+    },
+    "expected_content": {
+      "diagnostic_criteria": "吸入支气管舒张剂后 FEV1/FVC < 0.70"
+    },
+    "expected_relations": [
+      {
+        "target_name": "呼吸衰竭",
+        "relation_type": "complication",
+        "source_required": true
+      },
+      {
+        "target_name": "肺心病",
+        "relation_type": "complication",
+        "source_required": true
+      }
+    ],
+    "must_have_terms": ["FEV1/FVC < 0.7", "气流受限"],
+    "forbidden_terms": ["完全可逆", "首选口服激素"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  }
+]

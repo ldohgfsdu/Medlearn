@@ -1,4 +1,5 @@
-"""V4.7.2 Textbook Parser - Single Active Object Mode.
+"""DEMO ONLY — not production. Use scripts/ingest_knowledge.py + pipeline_v3_extract.py.
+V4.7.2 Textbook Parser - Single Active Object Mode.
 Current Active Object: Influenza (流感)
 Strictly follows single active object discipline.
 """
@@ -64,7 +65,9 @@ def main():
             )
             v4_chunks.append(chunk)
     
-    output_path = Path("output_v4") / f"influenza_chunks_v4.7.2.json"
+    output_path = (
+        Path("artifacts/pipeline-output") / f"influenza_chunks_v4.7.2.json"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     with open(output_path, 'w', encoding='utf-8') as f:

@@ -1,4 +1,7 @@
 """
+DEPRECATED — use scripts/ingest_knowledge.py (V3 manifest production path).
+See docs/PIPELINE_INDEX.md.
+
 Medlearn 教材入库脚本（合并最终版）
 合并自：ingest_with_tree.py + extract_knowledge.py
 功能：知识树同步 + 句子感知分块 + 断点续传 + GPU 加速 + 并发写库
@@ -813,9 +816,9 @@ if __name__ == "__main__":
 
     if not args:
         print("用法: python ingest_final.py <PDF路径> [--reset] [--skip-ai]")
-        print("示例: python ingest_final.py G:/ml/textbook/内科学（第10版）.pdf")
-        print("      python ingest_final.py G:/ml/textbook/内科学（第10版）.pdf --reset")
-        print("      python ingest_final.py G:/ml/textbook/内科学（第10版）.pdf --skip-ai")
+        print("示例: python ingest_final.py F:/ml/textbook/内科学（第10版）.pdf")
+        print("      python ingest_final.py F:/ml/textbook/内科学（第10版）.pdf --reset")
+        print("      python ingest_final.py F:/ml/textbook/内科学（第10版）.pdf --skip-ai")
         sys.exit(1)
 
     process_textbook(args[0], reset=reset_flag, skip_ai=skip_ai_flag)
