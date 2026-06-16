@@ -1,0 +1,418 @@
+MedLearn 审查报告（去重 + 严重级别重校准）
+
+分类说明
+
+┌────────────────┬───────────────────────────────────────────────────┐
+│ 标签           │ 含义                                              │
+├────────────────┼───────────────────────────────────────────────────┤
+│ 真实缺陷       │ 代码/测试/配置问题，与计划进度无关，应修复        │
+├────────────────┼───────────────────────────────────────────────────┤
+│ 当前计划任务   │ state/active_object.yaml 中正在做、尚未完成的工作 │
+├────────────────┼───────────────────────────────────────────────────┤
+│ 已知阻塞       │ state/blocked_objects.yaml 已记录且带原因         │
+├────────────────┼───────────────────────────────────────────────────┤
+│ 环境限制       │ 审查环境无法复现，不代表仓库必然错误              │
+├────────────────┼───────────────────────────────────────────────────┤
+│ 待确认产品决策 │ 需产品方拍板，不能单靠工程判定为 bug              │
+└────────────────┴───────────────────────────────────────────────────┘
+
+严重级别（重校准后）
+
+• Critical：主路径医学安全/身份破坏，或 ground truth 实质泄露
+• High：次级入口的真实违背约束，或可被利用的防护缺口
+• Medium：有条件触发的防御缺口、测试/环境维护问题
+• Low：文档/命名/归档噪音
+
+───
+
+四项重点复核
+
+C1（原 Critical → High）智能问答 / 开放式医学回答
+
+分类： 真实缺陷 + 待确认产品决策（是否保留任何形态的 Generic AI Chat）
+
+严重级别理由： 违背 PRD 非目标与 Search 契约，但不在主 Tab、非 P0 主路径；href: null 隐藏；有免责声明。属于次级入口的实现越界，不是主路径 Critical。
+
+可复现证据
+
+1. UI 直接发起无 RAG 的医学问答
+
+const QUICK_QUESTIONS = [
+  { tag: '急症', question: '心肌梗死的典型症状有哪些？' },
+  ...
+]
+...
+const reply = await sendChatMessage([
+  { role: 'user', content: question },
+])
+
+2. 服务层无教材检索，仅 system prompt
+
+/**
+ * 通用医学学习对话（非严格 RAG 评估场景）
+ */
+export async function sendChatMessage(...) {
+  const result = await invokeChatCompletion([
+    { role: 'system', content: '你是 Medlearn 的医学学习助手。...' },
+    ...history,
+  ], { temperature: 0.4, maxTokens: 2000 })
+
+3. 仍可从个人中心进入（Tab 栏已隐藏）
+
+{ icon: 'chatbox-outline', label: '反馈建议', note: '在智能问答中描述问题与操作步骤', route: '/(tabs)/ask' },
+
+<Tabs.Screen name="ask" options={{ href: null, title: '智能问答', ... }} />
+
+4. 与权威文档冲突（静态对照，无需运行）
+
+• docs/MVP_PRD_V2.md L148–149：Explicit Non-goals 含「通用 AI Chat」「开放式 RAG 医学问答」
+• memory/respiratory-knowledge-query-acceptance.md L54：「Search answers the medical question instead of navigating」为硬失败
+• docs/PROJECT_CONSTITUTION.md L102–107：Generic AI Chat 可为实验，但 L113–114 明确「不是 ChatGPT 克隆 / 通用 AI Chat」
+
+5. 无专项回归测试
+
+# F:\ml 下搜索 tests/ — 无 sendChatMessage / ask 路由测试
+
+待确认产品决策
+
+• Profile「反馈建议」是否应导向非医学反馈表单，而非 AskScreen？
+• 若保留实验性 Chat，边界是「仅反馈/非诊疗」还是「带 RAG 的受限问答」？
+
+最小修复方案（按侵入性递增）
+
+┌────────────┬──────────────────────────────────────────────────────────────┬───────────────────────┐
+│ 方案       │ 改动                                                         │ 效果                  │
+├────────────┼──────────────────────────────────────────────────────────────┼───────────────────────┤
+│ A（最小）  │ profile.tsx L20：route 改为应用内反馈表单或 mailto/Issue     │ 切断主入口；保留 dead │
+│            │ 模板，不再指向 /(tabs)/ask                                   │ route                 │
+├────────────┼──────────────────────────────────────────────────────────────┼───────────────────────┤
+│ B          │ ask.tsx：删除 QUICK_QUESTIONS；输入框 placeholder 限制为     │ 保留路由但收敛用途    │
+│            │ 「描述 App 问题/操作步骤」；handleSend                       │                       │
+│            │ 前置校验拒绝诊疗类关键词                                     │                       │
+├────────────┼──────────────────────────────────────────────────────────────┼───────────────────────┤
+│ C（与 PRD  │ 删除或 __DEV__ 门控 ask + ai-chat；sendChatMessage           │ 彻底消除非目标能力    │
+│ 对齐）     │ 仅保留病例/Feynman 内部调用                                  │                       │
+└────────────┴──────────────────────────────────────────────────────────────┴───────────────────────┘
+
+推荐：A + C 的组合（先断入口，再删或门控实验路由）。
+
+───
+
+C6（原 Critical → Medium）无证据时仍展示知识正文
+
+分类： 真实缺陷（防御性 UI 缺口）；非当前计划任务
+
+严重级别理由： 代码路径确实存在「先渲染 content、后判断 evidence」；但呼吸 MVP 金病验收要求每点有证据（memory/...acceptance.md L51），且无自动化测试证明金病数据会触发此路径。属于数据依赖的条件缺陷，不是已验证的主路径 Critical。
+
+可复现证据
+
+1. 正文无条件渲染
+
+{expanded && group.nodes.length === 1 ? (
+  <>
+    <Text style={styles.cardBody}>{knowledgeNodeText(group.nodes[0])}</Text>
+    <EvidenceDisclosure node={group.nodes[0]} />
+  </>
+) : null}
+...
+<Text style={styles.knowledgeItemBody}>{knowledgeNodeItemText(node)}</Text>
+<EvidenceDisclosure node={node} />
+
+2. 证据组件在无 evidence 时静默返回 null（不阻止上层正文）
+
+const evidence = evidenceItems.length ? evidenceItems
+  : source?.evidence?.trim() ? [source.evidence.trim()] : []
+...
+if (!evidence.length) return null
+
+3. 逻辑推演复现（无需 DB）
+
+给定 node = { content: "某治疗要点...", source_span: null }
+→ knowledgeNodeText(node) 渲染可见正文
+→ EvidenceDisclosure 返回 null
+→ 用户看到 organized content，无任何「查看教材原文」入口
+
+4. 与验收硬失败规则一致（静态）
+
+memory/respiratory-knowledge-query-acceptance.md L51：Visible content lacks textbook evidence → hard fail
+
+5. 测试缺口
+
+tests/disease-knowledge.test.js 等无 EvidenceDisclosure / source_span 空值场景测试。
+
+最小修复方案
+
+方案 A（最小，仅 UI，约 10 行）
+
+在 KnowledgeTab 渲染前增加守卫：
+
+function hasEvidence(node: DiseaseKnowledgeNode): boolean {
+  const s = node.source_span
+  const items = s?.evidence_items?.filter((x) => x.trim()) ?? []
+  return items.length > 0 || Boolean(s?.evidence?.trim())
+}
+// 展开时：!hasEvidence(node) → 显示「证据待核对，要点暂不展示」占位，不渲染 knowledgeNodeText
+
+方案 B（更稳，推荐）
+
+• useDiseaseDetail.ts L53：查询后 filter(node => hasEvidence(node)) 供普通用户视图使用
+• 或 DB 视图/RLS 仅返回 source_span 非空的节点
+
+方案 C（测试锁定）
+
+新增 tests/disease-knowledge.test.js 用例：source_span 为空时不应暴露 content 字符串（可测纯函数提取）。
+
+───
+
+H4（原 High → Medium）causal_chains API 层可读到未校验链
+
+分类： 真实缺陷（纵深防御不足）；影响取决于生产数据
+
+严重级别理由： UI 已正确拦截（L193–197）；用户正常使用看不到推导答案。风险在 authenticated 客户端可拿到完整 JSON（React Query 缓存 / 网络面板）。若无 pending/review_required 且含 steps.correct_option_id 的行，则为潜伏风险而非已验证泄露。
+
+可复现证据
+
+1. Hook 主动查询 pending/review_required 且 select('*')
+
+supabase.from('causal_chains').select('*')
+  .eq('disease_id', diseaseId)
+  .in('validation_status', ['valid', 'pending', 'review_required'])
+
+2. 返回对象优先 valid，否则回退第一条（含 pending）
+
+chain: (chainsResult.data ?? []).find((c) => c.validation_status === 'valid')
+  ?? chainsResult.data?.[0] ?? null,
+
+3. RLS 不区分 validation_status
+
+CREATE POLICY "causal_chains_select" ON causal_chains
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+4. UI 层已拦截（用户面向安全）
+
+if (!chain || chain.validation_status === 'pending' || chain.validation_status === 'review_required') {
+  return <Empty ... title="推导训练暂未开放" />
+}
+if (chain.validation_status !== 'valid' || steps.length < 4 || steps.length > 8) {
+  return <Empty ... title="推导链未通过质量门槛" />
+}
+
+5. 静态复现 API 暴露（需远端 Supabase + 登录态）
+
+// 浏览器/客户端在病例详情加载后，React Query 缓存或 Network 面板可见：
+// GET .../causal_chains?disease_id=eq.<id>&validation_status=in.(valid,pending,review_required)
+// 响应体含 steps[].correct_option_id（若 DB 有 pending 链）
+
+⏳ 未完成： 未连远端 DB 统计 validation_status IN ('pending','review_required') 且 steps 非空的行数。
+
+最小修复方案
+
+┌────────────────┬────────────────────────┬─────────────────────────────────────────────────────────┐
+│ 方案           │ 位置                   │ 改动                                                    │
+├────────────────┼────────────────────────┼─────────────────────────────────────────────────────────┤
+│ A（最小，      │ useDiseaseDetail.ts    │ 仅 .eq('validation_status', 'valid')；无 valid 则       │
+│ 客户端）       │ L57–63                 │ chain: null                                             │
+├────────────────┼────────────────────────┼─────────────────────────────────────────────────────────┤
+│ B（推荐，      │ 新 migration           │ RLS：USING (validation_status = 'valid')；              │
+│ 服务端）       │                        │ 或安全视图剔除 steps 直至 valid                         │
+├────────────────┼────────────────────────┼─────────────────────────────────────────────────────────┤
+│ C（测试）      │ 新测试                 │ 断言 client select 不含 pending；或 migration policy    │
+│                │                        │ 存在                                                    │
+└────────────────┴────────────────────────┴─────────────────────────────────────────────────────────┘
+
+推荐：A 立即做 + B 作为正式修复（与病例 ground_truth 服务端保护模式一致）。
+
+───
+
+C5（原 Critical → 拆分为两项）Python 测试失败
+
+C5a：test_project_state 断言过期 — Medium / 真实缺陷
+
+分类： 真实缺陷（测试未随 phase 更新）
+
+可复现命令：
+
+Set-Location F:\ml
+.\.venv-sft\Scripts\python.exe -m unittest tests.test_project_state.ProjectStateTests.test_repository_state_is_valid_and_renderable
+
+实际输出（2026-06-15 审查环境）：
+
+FAIL: ... test_repository_state_is_valid_and_renderable
+AssertionError: 'Phase: `mvp_alpha_readiness`' not found in '... Phase: `respiratory_mvp_validation` ...'
+
+对照： 治理本身正常 —
+
+.\.venv-sft\Scripts\python.exe scripts\validate_project_state.py
+# → Project state is valid: 1 active, 1 blocked/paused, 8 completed/archived, 7 indexed ADRs.
+
+最小修复： tests/test_project_state.py L26 改为断言 respiratory_mvp_validation，或改为读取 state/active_object.yaml 动态断言，避免再次过期。
+
+───
+
+C5b：backfill 测试 ImportError — Medium / 真实缺陷 + 环境限制
+
+分类：
+
+• 环境限制：本机 .venv-sft 未安装 supabase PyPI 包
+• 真实缺陷：scripts/requirements.txt L2 声明依赖，但 venv 未装， onboarding/CI 易失败
+
+可复现命令：
+
+.\.venv-sft\Scripts\pip.exe show supabase          # → Package(s) not found
+.\.venv-sft\Scripts\python.exe -c "import supabase; print(dir(supabase))"
+# → ['__doc__', '__file__', ...] 无 create_client
+.\.venv-sft\Scripts\python.exe -m unittest tests.test_disease_identity_backfill
+# → ImportError: cannot import name 'create_client' from 'supabase'
+
+最小修复：
+
+.\.venv-sft\Scripts\pip.exe install -r scripts\requirements.txt
+# 或显式：pip install supabase>=2.0
+
+并在 README/本地 setup 中注明 pip install -r scripts/requirements.txt 为 Python 测试前置步骤。
+
+与 H1（completed evidence 过时）去重： completed_objects.yaml L27–28 写「70/70 Python tests passed」属于同一 C5 簇的 evidence 陈旧，不是独立 Critical；治理 validate 仍通过。
+
+───
+
+去重后的完整问题清单（重校准）
+
+Critical
+
+（本次复核后无已验证 Critical项）
+
+───
+
+High
+
+┌─────┬──────────────────────────────────┬─────────────────────────┬────────────────────────────────┐
+│ ID  │ 问题                             │ 分类                    │ 说明                           │
+├─────┼──────────────────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ H-  │ 智能问答实现无证据开放式医学回答 │ 真实缺陷 +              │ 见上文 C1；次级入口，非 Tab    │
+│ C1  │                                  │ 待确认产品决策          │ 主路径                         │
+└─────┴──────────────────────────────────┴─────────────────────────┴────────────────────────────────┘
+
+───
+
+Medium
+
+┌────────────┬───────────────────────────────────┬────────────────┬─────────────────────────────────┐
+│ ID         │ 问题                              │ 分类           │ 说明                            │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-C6       │ 无 source_span 时仍展示知识正文   │ 真实缺陷       │ 见上文 C6；金病路径可能不触发   │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-H4       │ causal_chains 客户端可读未校验链  │ 真实缺陷       │ 见上文 H4；UI 已挡，API 未挡    │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-C5a      │ test_project_state phase 断言过期 │ 真实缺陷       │ 治理脚本正常，单测腐烂          │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-C5b      │ venv 缺 supabase 导致 2 个测试    │ 真实缺陷 +     │ requirements 未落地             │
+│            │ ERROR                             │ 环境限制       │                                 │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-evidence │ completed_objects 测试计数        │ 真实缺陷       │ 与 M-C5 合并追踪                │
+│            │ evidence 过时                     │                │                                 │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-ADR010   │ ADR-010 accepted 但 migrations    │ 真实缺陷       │ 治理/实现裂缝；非当前 active    │
+│            │ 无表                              │                │ object                          │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-ingest   │ 原始管线 evidence 命中率 ≈9.4%    │ 真实缺陷       │ data_quality_report.json；      │
+│            │                                   │                │ curated 182 另计                │
+├────────────┼───────────────────────────────────┼────────────────┼─────────────────────────────────┤
+│ M-train-   │ manifest 写 not_started 但        │ 真实缺陷       │ 文档/状态不同步                 │
+│ state      │ checkpoint 目录存在               │                │                                 │
+└────────────┴───────────────────────────────────┴────────────────┴─────────────────────────────────┘
+
+───
+
+当前计划任务（非缺陷）
+
+┌─────────┬────────────────────┬────────────────────────────────────────────────────────────────────┐
+│ ID      │ 任务               │ 证据                                                               │
+├─────────┼────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ T-      │ 真实错题双路径验证 │ state/active_object.yaml L5–24；memory/...acceptance.md L92–106    │
+│ active  │                    │ 表格空白                                                           │
+├─────────┼────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ T-      │ 摄入管线持续推进   │ state/knowledge_ingestion.yaml L18 next_pending_section            │
+│ ingest  │                    │                                                                    │
+└─────────┴────────────────────┴────────────────────────────────────────────────────────────────────┘
+
+───
+
+已知阻塞（非缺陷）
+
+┌─────────┬───────────────────────────┬─────────────────────────────────────────────────────────────┐
+│ ID      │ 阻塞                      │ 证据                                                        │
+├─────────┼───────────────────────────┼─────────────────────────────────────────────────────────────┤
+│ B-      │ iOS/Android 真机 E2E      │ state/blocked_objects.yaml L33；docs/E2E_ACCEPTANCE_        │
+│ remote  │ 未完成                    │ CHECKLIST.md                                                │
+└─────────┴───────────────────────────┴─────────────────────────────────────────────────────────────┘
+
+───
+
+环境限制（非仓库逻辑错误）
+
+┌────────────┬─────────────────────────────────────────────┬──────────────────────────────┐
+│ ID         │ 限制                                        │ 证据                         │
+├────────────┼─────────────────────────────────────────────┼──────────────────────────────┤
+│ E-npm      │ 审查环境无 npm/node，未跑 npm run check     │ Get-Command node 无结果      │
+├────────────┼─────────────────────────────────────────────┼──────────────────────────────┤
+│ E-supabase │ 未连远端 DB 验证 H4 是否有 pending 链含答案 │ 需 validate:cases / SQL 抽样 │
+└────────────┴─────────────────────────────────────────────┴──────────────────────────────┘
+
+───
+
+待确认产品决策
+
+┌──────────────┬────────────────────────────────────────────────────────────────────────────────┐
+│ ID           │ 决策点                                                                         │
+├──────────────┼────────────────────────────────────────────────────────────────────────────────┤
+│ D-C1         │ Generic AI Chat 是否完全移除，或改为非医学反馈 / 带 RAG 受限问答？             │
+├──────────────┼────────────────────────────────────────────────────────────────────────────────┤
+│ D-path       │ 学习路径 locked 节点（services/learning-path.ts L103–118）是否接受为 P1 实验？ │
+├──────────────┼────────────────────────────────────────────────────────────────────────────────┤
+│ D-map-public │ /map 免登录公开（app/_layout.tsx L27）是否为 demo 刻意设计？                   │
+└──────────────┴────────────────────────────────────────────────────────────────────────────────┘
+
+───
+
+Low（去重后保留）
+
+• state/knowledge_ingestion.yaml 嵌套 active_object 键名易误导 Agent（CONTEXT.md L41–43 已澄清）
+• 归档文档 docs/archive/ 含旧 phase / G:/ml 路径
+• exam.tsx、ai-chat 路由存在但非主入口（与 H-C1 部分重叠，不单独升格）
+
+───
+
+与初版报告的主要校准差异
+
+┌────────────────┬────────────────┬─────────────────────────────────────────────────┐
+│ 初版           │ 重校准         │ 原因                                            │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ C1 Critical    │ High           │ 隐藏 Tab + 非 P0 主路径；实验能力边界需产品决策 │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ C6 Critical    │ Medium         │ 代码缺口真实，但金病验收已要求证据；条件触发    │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ H4 High        │ Medium         │ UI 已拦截；API 风险依赖 DB 是否有 pending 链    │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ C5 Critical    │ M-C5a/b Medium │ 治理 validate 通过；失败集中在测试维护与 venv   │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ C2 严重        │ 当前计划任务   │ active object 设计即为未完成工作                │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ C3 严重        │ 已知阻塞       │ YAML 已记录，非新发现                           │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ C4 严重        │ Medium         │ ADR 裂缝真实，但不影响当前呼吸 MVP 主路径       │
+├────────────────┼────────────────┼─────────────────────────────────────────────────┤
+│ H6 合并入 H-C1 │ —              │ 同一问题的入口/路由两面                         │
+└────────────────┴────────────────┴─────────────────────────────────────────────────┘
+
+───
+
+建议执行顺序（最小工作量）
+
+1. C5a：改 test_project_state.py 一行断言
+2. C5b：pip install -r scripts/requirements.txt
+3. H4-A：useDiseaseDetail 仅查 validation_status='valid'
+4. C6-A：KnowledgeTab 无 evidence 不渲染正文
+5. C1-A：profile 反馈改离 ask 路由
+6. （产品决策后）C1-C：移除或门控 ask/ai-chat
+
+如需，我可以仅针对 C1 的产品决策 整理一版「保留实验 / 完全移除 / 改为 RAG 导航」三选一对比表（仍不修改文件）。
