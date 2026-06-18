@@ -9,13 +9,21 @@ from pathlib import Path
 from typing import Any
 
 from textbook_identity import INTERNAL_MEDICINE_10, TextbookIdentity
+from textbook_pipeline.ingestion_contract import DEFAULT_EMBED_MODEL, EMBED_DIMENSION
 from textbook_pipeline.metadata import PIPELINE_VERSION
 
-NODE_BATCH_SIZE = 300
-CHUNK_BATCH_SIZE = 100
-EMBED_BATCH_SIZE = 20
-EMBED_MODEL = os.environ.get("EMBED_MODEL", "BAAI/bge-large-zh-v1.5")
-EMBED_DIMENSION = 1024
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+NODE_BATCH_SIZE = _positive_int_env("NODE_BATCH_SIZE", 300)
+CHUNK_BATCH_SIZE = _positive_int_env("CHUNK_BATCH_SIZE", 100)
+EMBED_BATCH_SIZE = _positive_int_env("EMBED_BATCH_SIZE", 20)
+EMBED_MODEL = os.environ.get("EMBED_MODEL", DEFAULT_EMBED_MODEL)
 
 
 def _resolve_textbook_identity(book_id: str) -> TextbookIdentity | None:
@@ -215,15 +223,48 @@ def _chunk_rows(
     return rows
 
 
-def _embed_rows(rows: list[dict[str, Any]], verbose: bool = False) -> int:
-    api_key = os.environ.get("SILICONFLOW_KEY")
-    if not api_key:
-        if verbose:
-            print("  No SILICONFLOW_KEY; chunks will be uploaded without vectors.")
-        return 0
+def _embed_rows_ollama(rows: list[dict[str, Any]], *, verbose: bool = False) -> int:
+    import math
 
     import requests
 
+    ollama_url = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+    model = os.environ.get("OLLAMA_EMBED_MODEL", DEFAULT_EMBED_MODEL)
+    embedded = 0
+    for start in range(0, len(rows), EMBED_BATCH_SIZE):
+        batch = rows[start : start + EMBED_BATCH_SIZE]
+        response = requests.post(
+            f"{ollama_url}/api/embed",
+            json={"model": model, "input": [row["content"] for row in batch]},
+            timeout=300,
+        )
+        response.raise_for_status()
+        vectors = response.json().get("embeddings", [])
+        if len(vectors) != len(batch):
+            raise RuntimeError(
+                f"Ollama embed returned {len(vectors)} vectors for {len(batch)} inputs"
+            )
+        for row, vector in zip(batch, vectors):
+            if len(vector) != EMBED_DIMENSION:
+                raise RuntimeError(
+                    f"Expected {EMBED_DIMENSION}-dimension embeddings from {model}."
+                )
+            norm = math.sqrt(sum(float(value) ** 2 for value in vector))
+            if not math.isfinite(norm) or norm < 1e-6:
+                raise RuntimeError(f"Invalid embedding norm from Ollama: {norm}")
+            row["embedding"] = vector
+            embedded += 1
+        if verbose:
+            print(f"  Embedded {embedded}/{len(rows)} chunks via Ollama ({model})")
+    return embedded
+
+
+def _embed_rows_siliconflow(rows: list[dict[str, Any]], *, verbose: bool = False) -> int:
+    import requests
+
+    api_key = os.environ.get("SILICONFLOW_KEY")
+    if not api_key:
+        return 0
     embedded = 0
     for start in range(0, len(rows), EMBED_BATCH_SIZE):
         batch = rows[start : start + EMBED_BATCH_SIZE]
@@ -249,8 +290,29 @@ def _embed_rows(rows: list[dict[str, Any]], verbose: bool = False) -> int:
             row["embedding"] = embedding
             embedded += 1
         if verbose:
-            print(f"  Embedded {embedded}/{len(rows)} chunks")
+            print(f"  Embedded {embedded}/{len(rows)} chunks via SiliconFlow ({EMBED_MODEL})")
     return embedded
+
+
+def _embed_rows(rows: list[dict[str, Any]], verbose: bool = False) -> int:
+    provider = os.environ.get("EMBED_PROVIDER", "ollama").strip().lower()
+    if provider == "siliconflow" or (
+        provider != "ollama" and os.environ.get("SILICONFLOW_KEY")
+    ):
+        embedded = _embed_rows_siliconflow(rows, verbose=verbose)
+        if embedded:
+            return embedded
+    try:
+        return _embed_rows_ollama(rows, verbose=verbose)
+    except Exception as exc:
+        if verbose:
+            print(f"  Ollama embed unavailable ({exc}); trying SiliconFlow fallback.")
+        embedded = _embed_rows_siliconflow(rows, verbose=verbose)
+        if embedded:
+            return embedded
+        if verbose:
+            print("  Chunks uploaded without vectors (no embed provider available).")
+        return 0
 
 
 def _upsert_batches(client, table: str, rows: list[dict[str, Any]], batch_size: int) -> int:

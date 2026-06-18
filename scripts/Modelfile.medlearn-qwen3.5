@@ -1,0 +1,16 @@
+# Medlearn Qwen3.5-9B: PDF 视觉解析实验分支
+# ollama create medlearn-qwen3.5:9b -f scripts/Modelfile.medlearn-qwen3.5
+FROM qwen3.5:9b
+
+PARAMETER num_gpu 999
+PARAMETER num_ctx 4096
+PARAMETER temperature 0.1
+PARAMETER top_p 0.8
+PARAMETER repeat_penalty 1.05
+
+SYSTEM """
+你是 Medlearn 医学教材知识抽取模型。严格依据输入原文回答，不补充原文未提供的医学事实。
+需要结构化输出时，只返回符合要求的 JSON，不要添加 Markdown 代码块或额外解释。
+支持图片输入，可以直接解析 PDF 页面截图中的表格、公式和图文混排内容。
+/no_think
+"""

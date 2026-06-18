@@ -135,7 +135,7 @@ class IngestKnowledgeContractTests(unittest.TestCase):
                 {
                     "title": "肺脓肿",
                     "type": "disease",
-                    "chapter": "第一篇 呼吸系统疾病",
+                    "chapter": "第二篇 呼吸系统疾病",
                     "sub_chapter": "第七章 肺脓肿",
                     "content": "肺脓肿是由多种病原微生物引起的肺组织化脓性病变。",
                     "structured_sections": [
@@ -148,7 +148,7 @@ class IngestKnowledgeContractTests(unittest.TestCase):
             ],
             INTERNAL_MEDICINE_10,
         )
-        part = "第一篇 呼吸系统疾病"
+        part = "第二篇 呼吸系统疾病"
         section = "第七章 肺脓肿"
 
         remote_state = {"count": 0, "ids": []}
@@ -161,10 +161,14 @@ class IngestKnowledgeContractTests(unittest.TestCase):
             remote_state["count"] = len(remote_state["ids"])
             return len(upload_rows)
 
+        def fake_artifacts(*_args, **_kwargs):
+            return {"chunks": 1, "embedded": 0, "causal_chains": 0, "node_ids": len(rows)}
+
         with patch.object(ingest, "remote_nodes_for_section", side_effect=fake_remote):
             with patch.object(ingest, "upsert_knowledge_nodes", side_effect=fake_upsert):
-                first = ingest.upload_rows_idempotent(rows, part, section)
-                second = ingest.upload_rows_idempotent(rows, part, section)
+                with patch.object(ingest, "upload_section_artifacts", side_effect=fake_artifacts):
+                    first = ingest.upload_rows_idempotent(rows, part, section)
+                    second = ingest.upload_rows_idempotent(rows, part, section)
 
         self.assertEqual(first["after_count"], len(rows))
         self.assertEqual(second["after_count"], len(rows))
@@ -197,6 +201,22 @@ class IngestKnowledgeContractTests(unittest.TestCase):
                 status = reloaded["parts"][0]["sections"][0]["status"]
                 self.assertEqual(status, "uploaded")
                 self.assertNotEqual(status, "verified")
+
+    def test_record_performance_keeps_bounded_history(self):
+        state = {}
+        for index in range(25):
+            ingest.record_performance(
+                state,
+                part_title="第四篇 消化系统疾病",
+                section_title=f"第{index}章",
+                stage="extract",
+                timings={"total": float(index)},
+            )
+
+        perf = state["performance"]
+        self.assertEqual(perf["last_section"]["section"], "第四篇 消化系统疾病/第24章")
+        self.assertEqual(len(perf["history"]), 20)
+        self.assertEqual(perf["history"][0]["section"], "第四篇 消化系统疾病/第5章")
 
 
 if __name__ == "__main__":

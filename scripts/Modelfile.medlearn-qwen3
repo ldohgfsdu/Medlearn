@@ -1,4 +1,6 @@
-FROM H:/Ollama/modelscope/Qwen3-8B-GGUF/Qwen3-8B-Q4_K_M.gguf
+# Replace FROM with your local Qwen3-8B GGUF path before:
+#   ollama create medlearn-qwen3:8b -f scripts/Modelfile.medlearn-qwen3
+FROM qwen3:8b
 
 PARAMETER num_gpu 999
 PARAMETER num_ctx 4096

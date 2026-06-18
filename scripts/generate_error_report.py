@@ -53,7 +53,7 @@ def generate_error_report(golden_path: Path, structured_path: Path):
         
         report["samples"].append(sample)
     
-    output_path = Path("analysis/error_report_v4.5.json")
+    output_path = Path("artifacts/analysis/error_report_v4.5.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     
@@ -64,5 +64,5 @@ def generate_error_report(golden_path: Path, structured_path: Path):
 if __name__ == "__main__":
     generate_error_report(
         Path("golden_dataset/mini_golden_set.json"),
-        Path("output_v4/test_structured.json")
+        Path("artifacts/pipeline-output/test_structured.json")
     )

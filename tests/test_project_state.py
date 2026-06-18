@@ -23,7 +23,8 @@ class ProjectStateTests(unittest.TestCase):
     def test_repository_state_is_valid_and_renderable(self) -> None:
         validated = validate_repository(ROOT)
         rendered = render_current_state(validated)
-        self.assertIn("Phase: `mvp_alpha_readiness`", rendered)
+        phase = validated["state"]["project"]["phase"]
+        self.assertIn(f"Phase: `{phase}`", rendered)
         self.assertIn("local_demo_recovery", rendered)
         self.assertIn("remote_supabase_validation", rendered)
 
@@ -121,7 +122,7 @@ class ProjectStateTests(unittest.TestCase):
             "state/completed_objects.yaml",
             "state/blocked_objects.yaml",
             "docs/ADR_INDEX.yaml",
-            "scripts/textbook_pipeline/ADR-004-display-graph-separation.md",
+            "docs/adr/ADR-004-display-graph-separation.md",
         ):
             source = ROOT / relative
             destination = target / relative

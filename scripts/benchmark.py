@@ -23,7 +23,10 @@ def load_outputs(path: Path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--golden", default="golden_dataset/mini_golden_set.json")
-    parser.add_argument("--output", default="output_v4/test_structured.json")
+    parser.add_argument(
+        "--output",
+        default="artifacts/pipeline-output/test_structured.json",
+    )
     parser.add_argument("--prompt_version", default="v4.5.1")
     args = parser.parse_args()
 

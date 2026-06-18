@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,12 +16,32 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from textbook_identity import CANONICAL_TEXTBOOK_ID, INTERNAL_MEDICINE_10
+from textbook_pipeline.adaptive_pdf_parser import (
+    AdaptivePdfParser,
+    find_evidence_locators,
+    infer_toc_from_layout,
+    page_window_toc,
+    structure_aware_split,
+)
+from textbook_pipeline.ingestion_contract import (
+    resolve_pdf_parser_mode,
+)
+from textbook_pipeline.node_guardrails import (
+    MAX_NODES_PER_CHUNK,
+    assess_guardrails,
+    build_chunk_source_map,
+    canonicalize_aspect_label,
+    evidence_supported_by_source,
+    extract_section_entity,
+    is_cross_disease_expansion,
+    looks_self_referential_evidence,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = PROJECT_ROOT / "textbook" / "内科学（第10版）.pdf"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "generated" / "pipeline_v3"
-os.environ.setdefault("HF_HOME", str(PROJECT_ROOT / ".cache" / "huggingface"))
+os.environ.setdefault("HF_HOME", str(PROJECT_ROOT / ".models" / "huggingface"))
 ALLOWED_TYPES = {"concept", "mechanism", "disease", "symptom", "treatment", "exam"}
 VINDICATE_TAGS = {"V", "I", "N", "D", "I2", "C", "A", "T", "E"}
 PART_RE = re.compile(r"第[一二三四五六七八九十百零〇\d]+篇")
@@ -57,12 +78,25 @@ ENTITY_ASPECT_SUFFIXES = (
 )
 NON_ENTITY_TERMS = frozenset(ENTITY_ASPECT_SUFFIXES)
 ENTITY_CONFLICT_RE = re.compile(r".{2,}(?:与|和|及|、|/).{2,}")
+EXPLICIT_DISEASE_DEFINITION_RE = re.compile(
+    r"(?P<name>[\u4e00-\u9fffA-Za-z0-9-]{2,30}(?:肺炎|疾病|病|癌|瘤|综合征))"
+    r"\s*[（(][^）)]{1,100}[）)]\s*是"
+)
+UMBRELLA_DISEASE_ENTITIES = frozenset({"肺炎", "细菌性肺炎"})
 
 
 def resolve_book_id(source_path: Path) -> str:
     if source_path.stem in {"内科学（第10版）", CANONICAL_TEXTBOOK_ID}:
         return CANONICAL_TEXTBOOK_ID
     return source_path.stem
+
+
+def recover_explicit_disease_entity(parent_entity: str, source_text: str) -> str:
+    if parent_entity not in UMBRELLA_DISEASE_ENTITIES:
+        return parent_entity
+    matches = list(EXPLICIT_DISEASE_DEFINITION_RE.finditer(source_text or ""))
+    names = list(dict.fromkeys(match.group("name") for match in matches))
+    return names[0] if len(names) == 1 else parent_entity
 
 
 @dataclass
@@ -105,6 +139,36 @@ def resolve_map_hierarchy(headings: list[str]) -> tuple[str, str | None]:
         candidates = [h for h in clean if h != part]
         chapter = candidates[0] if candidates else None
     return part, chapter
+
+
+def resolve_catalog_page_range(
+    units: list[dict[str, Any]],
+    headings: list[str],
+) -> tuple[int | None, int | None]:
+    normalized = [str(value).strip() for value in headings if str(value).strip()]
+    if not normalized:
+        return None, None
+
+    best: dict[str, Any] | None = None
+    best_score = -1
+    for unit in units:
+        unit_headings = [
+            str(value).strip()
+            for value in (unit.get("headings") or [])
+            if str(value).strip()
+        ]
+        score = 0
+        for left, right in zip(reversed(normalized), reversed(unit_headings)):
+            if left != right:
+                break
+            score += 1
+        if score > best_score:
+            best = unit
+            best_score = score
+
+    if not best or best_score <= 0:
+        return None, None
+    return best.get("page_start"), best.get("page_end")
 
 
 def clean_toc_title(title: str) -> str:
@@ -221,30 +285,34 @@ def split_markdown(markdown: str, max_chars: int) -> list[MarkdownChunk]:
 
 
 def split_oversized_section(text: str, max_chars: int) -> list[str]:
-    if len(text) <= max_chars:
-        return [text]
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
-    pieces: list[str] = []
-    current = ""
-    for paragraph in paragraphs:
-        if len(paragraph) > max_chars:
-            if current:
-                pieces.append(current)
-                current = ""
-            pieces.extend(
-                paragraph[start : start + max_chars]
-                for start in range(0, len(paragraph), max_chars)
-            )
+    return structure_aware_split(text, max_chars)
+
+
+def repair_json_text(content: str) -> str:
+    """Best-effort cleanup for common LLM JSON mistakes."""
+    cleaned = content.strip()
+    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
+    cleaned = re.sub(r"//.*", "", cleaned)
+    return cleaned
+
+
+def salvage_nodes_from_json(content: str) -> dict[str, Any]:
+    """Recover node objects when the outer JSON object is malformed."""
+    nodes: list[dict[str, Any]] = []
+    for match in re.finditer(
+        r'\{[^{}]*"title"\s*:\s*"[^"]+?"[^{}]*"content"\s*:\s*"[^"]*?"[^{}]*\}',
+        content,
+        flags=re.DOTALL,
+    ):
+        try:
+            node = json.loads(repair_json_text(match.group(0)))
+        except json.JSONDecodeError:
             continue
-        candidate = f"{current}\n\n{paragraph}".strip()
-        if current and len(candidate) > max_chars:
-            pieces.append(current)
-            current = paragraph
-        else:
-            current = candidate
-    if current:
-        pieces.append(current)
-    return pieces
+        if isinstance(node, dict) and node.get("title"):
+            nodes.append(node)
+    if nodes:
+        return {"nodes": nodes, "edges": []}
+    raise ValueError("Unable to salvage nodes from malformed JSON")
 
 
 def extract_json(content: str) -> dict[str, Any]:
@@ -252,16 +320,25 @@ def extract_json(content: str) -> dict[str, Any]:
     fenced = re.search(r"```(?:json)?\s*(.*?)```", content, flags=re.DOTALL)
     if fenced:
         content = fenced.group(1).strip()
-    try:
-        result = json.loads(content)
-    except json.JSONDecodeError:
-        start, end = content.find("{"), content.rfind("}")
-        if start < 0 or end <= start:
-            raise
-        result = json.loads(content[start : end + 1])
-    if not isinstance(result, dict):
-        raise ValueError("Ollama response must be a JSON object")
-    return result
+    candidates = [content]
+    start, end = content.find("{"), content.rfind("}")
+    if start >= 0 and end > start:
+        candidates.append(content[start : end + 1])
+    last_exc: json.JSONDecodeError | None = None
+    for candidate in candidates:
+        for variant in (candidate, repair_json_text(candidate)):
+            try:
+                result = json.loads(variant)
+                if isinstance(result, dict):
+                    return result
+            except json.JSONDecodeError as exc:
+                last_exc = exc
+    if last_exc is not None:
+        try:
+            return salvage_nodes_from_json(content)
+        except ValueError:
+            raise last_exc
+    raise ValueError("Ollama response must be a JSON object")
 
 
 def make_standalone(text: str, parent_entity: str) -> str:
@@ -351,7 +428,8 @@ class MedlearnPipeline:
         subject: str | None,
         section_limit: int | None,
         section_start: int,
-        pymupdf_only: bool = False,
+        pymupdf_only: bool | None = None,
+        pdf_parser_mode: str | None = None,
     ) -> None:
         self.source_path = source_path.resolve()
         self.output_dir = output_dir.resolve()
@@ -362,7 +440,27 @@ class MedlearnPipeline:
         self.limit = limit
         self.section_limit = section_limit
         self.section_start = section_start
-        self.pymupdf_only = pymupdf_only or os.getenv("MEDLEARN_PDF_PARSER") == "pymupdf"
+        if pdf_parser_mode:
+            self.pdf_parser_mode = pdf_parser_mode
+        elif pymupdf_only is True:
+            self.pdf_parser_mode = "pymupdf"
+        elif pymupdf_only is False:
+            self.pdf_parser_mode = "docling"
+        else:
+            self.pdf_parser_mode = resolve_pdf_parser_mode()
+        self.pymupdf_only = self.pdf_parser_mode == "pymupdf"
+        self.pdf_parser = AdaptivePdfParser(
+            self.source_path,
+            mode=self.pdf_parser_mode,
+            profile_cache_path=(
+                self.output_dir / f"{self.source_path.stem}.parser-profile.json"
+            ),
+            artifact_dir=(
+                self.output_dir
+                / "source-assets"
+                / self.source_path.stem
+            ),
+        ) if self.source_path.suffix.lower() == ".pdf" else None
         self.subject = subject or self.source_path.stem
         self.book_id = resolve_book_id(self.source_path)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -401,6 +499,10 @@ class MedlearnPipeline:
     def parse_report_path(self) -> Path:
         return self.scoped_output_path(".parse-report.json")
 
+    @property
+    def source_artifacts_path(self) -> Path:
+        return self.scoped_output_path(".source-artifacts.json")
+
     def build_catalog(self, force: bool = False) -> list[CatalogUnit]:
         if self.source_path.suffix.lower() == ".md":
             return []
@@ -414,24 +516,83 @@ class MedlearnPipeline:
             import fitz
 
         document = fitz.open(str(self.source_path))
+        catalog_source = "bookmarks"
         try:
             total_pages = document.page_count
             raw_toc = document.get_toc()
+            if not raw_toc:
+                raw_toc = infer_toc_from_layout(document)
+                catalog_source = "layout_inference"
+            if not raw_toc:
+                raw_toc = page_window_toc(total_pages)
+                catalog_source = "page_windows"
         finally:
             document.close()
-        if not raw_toc:
-            raise RuntimeError(
-                "PDF 没有可用书签目录；为避免错分章节，已停止提取。"
-                "需要先增加目录页 OCR 识别。"
-            )
 
         entries, units = build_catalog_units(raw_toc, total_pages)
+        if not units and catalog_source == "page_windows":
+            units = [
+                CatalogUnit(
+                    index=index,
+                    title=str(title),
+                    level=int(level),
+                    page_start=int(page),
+                    page_end=min(
+                        total_pages,
+                        int(raw_toc[index + 1][2]) - 1
+                        if index + 1 < len(raw_toc)
+                        else total_pages,
+                    ),
+                    headings=[str(title)],
+                )
+                for index, (level, title, page) in enumerate(raw_toc)
+            ]
+            entries = [
+                {
+                    "level": unit.level,
+                    "title": unit.title,
+                    "page": unit.page_start,
+                    "headings": unit.headings,
+                    "is_content": True,
+                    "page_is_in_content_range": True,
+                }
+                for unit in units
+            ]
         if not units:
-            raise RuntimeError("书签存在，但未识别到篇、章、节等正文目录项")
+            raw_toc = page_window_toc(total_pages)
+            catalog_source = "page_windows"
+            entries = []
+            units = []
+            for index, (level, title, page) in enumerate(raw_toc):
+                page_end = (
+                    int(raw_toc[index + 1][2]) - 1
+                    if index + 1 < len(raw_toc)
+                    else total_pages
+                )
+                unit = CatalogUnit(
+                    index=index,
+                    title=str(title),
+                    level=int(level),
+                    page_start=int(page),
+                    page_end=page_end,
+                    headings=[str(title)],
+                )
+                units.append(unit)
+                entries.append(
+                    {
+                        "level": unit.level,
+                        "title": unit.title,
+                        "page": unit.page_start,
+                        "headings": unit.headings,
+                        "is_content": True,
+                        "page_is_in_content_range": True,
+                    }
+                )
         payload = {
             "subject": self.subject,
             "source": str(self.source_path),
             "total_pages": total_pages,
+            "catalog_source": catalog_source,
             "toc_entries": entries,
             "units": [
                 {
@@ -459,6 +620,7 @@ class MedlearnPipeline:
             "raw_toc_entries": len(raw_toc),
             "clean_toc_entries": len(entries),
             "content_units": len(units),
+            "catalog_source": catalog_source,
             "discarded_backward_toc_entries": sum(
                 entry["is_content"] and not entry["page_is_in_content_range"]
                 for entry in entries
@@ -503,69 +665,23 @@ class MedlearnPipeline:
         selected = units[self.section_start :]
         if self.section_limit:
             selected = selected[: self.section_limit]
-        converter = None
-        if not self.pymupdf_only:
-            try:
-                from docling.datamodel.base_models import InputFormat
-                from docling.datamodel.pipeline_options import PdfPipelineOptions
-                from docling.document_converter import DocumentConverter
-                from docling.document_converter import PdfFormatOption
-                from docling.pipeline.legacy_standard_pdf_pipeline import (
-                    LegacyStandardPdfPipeline,
-                )
-            except ImportError as exc:
-                raise RuntimeError(
-                    "缺少 docling，请运行: pip install -r scripts/requirements.txt"
-                ) from exc
-            pipeline_options = PdfPipelineOptions(
-                do_ocr=False,
-                do_table_structure=True,
-                layout_batch_size=1,
-                table_batch_size=1,
-                queue_max_size=1,
-            )
-            converter = DocumentConverter(
-                format_options={
-                    InputFormat.PDF: PdfFormatOption(
-                        pipeline_options=pipeline_options,
-                        pipeline_cls=LegacyStandardPdfPipeline,
-                    )
-                }
-            )
         documents: list[str] = []
         parse_units: list[dict[str, Any]] = []
-        parser_mode = "pymupdf" if self.pymupdf_only else "docling"
+        all_locators: list[dict[str, Any]] = []
+        parser_mode = self.pdf_parser_mode
         print(f"[*] {parser_mode} 按目录解析 {len(selected)} 个分页单元")
         for position, unit in enumerate(selected, start=1):
-            parser = parser_mode
-            error: str | None = None
-            if self.pymupdf_only:
-                markdown = self.read_unit_with_pymupdf(unit)
-                if len(markdown) < 40:
-                    raise RuntimeError(
-                        f"目录单元 p{unit.page_start}-{unit.page_end} PyMuPDF 解析过短"
-                    )
-            else:
-                try:
-                    result = converter.convert(
-                        str(self.source_path),
-                        page_range=(unit.page_start, unit.page_end),
-                    )
-                    markdown = result.document.export_to_markdown().strip()
-                    if len(markdown) < 40:
-                        raise RuntimeError("Docling 返回内容过短")
-                except Exception as exc:
-                    parser = "pymupdf_fallback"
-                    error = f"{type(exc).__name__}: {exc}"
-                    markdown = self.read_unit_with_pymupdf(unit)
-                    if len(markdown) < 40:
-                        raise RuntimeError(
-                            f"目录单元 p{unit.page_start}-{unit.page_end} 解析失败: {error}"
-                        ) from exc
-                    print(
-                        f"  [!] Docling 失败，已回退 PyMuPDF: "
-                        f"p{unit.page_start}-{unit.page_end}"
-                    )
+            if self.pdf_parser is None:
+                raise RuntimeError("Adaptive PDF parser is unavailable for a non-PDF source")
+            markdown, unit_report = self.pdf_parser.parse_range(
+                unit.page_start,
+                unit.page_end,
+            )
+            if len(markdown) < 40:
+                raise RuntimeError(
+                    f"目录单元 p{unit.page_start}-{unit.page_end} 解析过短"
+                )
+            all_locators.extend(unit_report.get("locators") or [])
             heading_lines = [
                 f"{'#' * min(index + 1, 3)} {heading}"
                 for index, heading in enumerate(unit.headings[-3:])
@@ -577,9 +693,11 @@ class MedlearnPipeline:
                     "title": unit.title,
                     "page_start": unit.page_start,
                     "page_end": unit.page_end,
-                    "parser": parser,
+                    "parser": parser_mode,
+                    "parser_counts": unit_report.get("parser_counts") or {},
                     "characters": len(markdown),
-                    "error": error,
+                    "blocking_pages": unit_report.get("blocking_pages") or [],
+                    "pages": unit_report.get("pages") or [],
                 }
             )
             print(
@@ -591,58 +709,90 @@ class MedlearnPipeline:
         parse_report = {
             "subject": self.subject,
             "total_units": len(parse_units),
-            "docling_units": sum(
-                unit["parser"] == "docling" for unit in parse_units
+            "parser_mode": parser_mode,
+            "page_parser_counts": dict(
+                sum(
+                    (Counter(unit.get("parser_counts") or {}) for unit in parse_units),
+                    Counter(),
+                )
             ),
-            "fallback_units": sum(
-                unit["parser"] == "pymupdf_fallback" for unit in parse_units
+            "blocking_pages": sorted(
+                {
+                    page
+                    for unit in parse_units
+                    for page in (unit.get("blocking_pages") or [])
+                }
+            ),
+            "artifact_counts": dict(
+                Counter(str(locator.get("kind") or "unknown") for locator in all_locators)
             ),
             "units": parse_units,
             "checks": {
                 "all_units_have_content": all(
                     unit["characters"] >= 40 for unit in parse_units
                 ),
-                "all_units_used_docling": all(
-                    unit["parser"] == "docling" for unit in parse_units
+                "no_blocking_pages": not any(
+                    unit.get("blocking_pages") for unit in parse_units
                 ),
             },
         }
+        parse_report["docling_units"] = sum(
+            bool(
+                {
+                    "docling",
+                    "docling_ocr",
+                }
+                & set((unit.get("parser_counts") or {}).keys())
+            )
+            for unit in parse_units
+        )
+        parse_report["fallback_units"] = sum(
+            "pymupdf_fallback" in (unit.get("parser_counts") or {})
+            for unit in parse_units
+        )
+        parse_report["checks"]["all_units_used_docling"] = bool(parse_units) and all(
+            set((unit.get("parser_counts") or {}).keys())
+            <= {"docling", "docling_ocr"}
+            for unit in parse_units
+        )
         self.parse_report_path.write_text(
             json.dumps(parse_report, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        self.source_artifacts_path.write_text(
+            json.dumps(
+                {
+                    "source": str(self.source_path),
+                    "parser_mode": parser_mode,
+                    "locators": all_locators,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        if not parse_report["checks"]["no_blocking_pages"]:
+            raise RuntimeError(
+                "PDF parsing quality gate failed for pages: "
+                f"{parse_report['blocking_pages']}"
+            )
         return combined
 
     def read_unit_with_pymupdf(self, unit: CatalogUnit) -> str:
-        try:
-            import pymupdf as fitz
-        except ImportError:
-            import fitz
-
-        document = fitz.open(str(self.source_path))
-        pages: list[str] = []
-        try:
-            for page_number in range(unit.page_start - 1, unit.page_end):
-                page = document[page_number]
-                text = page.get_text("text", sort=True).strip()
-                tables_markdown: list[str] = []
-                try:
-                    tables = page.find_tables().tables
-                except Exception:
-                    tables = []
-                for table in tables:
-                    try:
-                        tables_markdown.append(table.to_markdown())
-                    except Exception:
-                        continue
-                page_content = "\n\n".join(
-                    value for value in [text, *tables_markdown] if value
-                )
-                if page_content:
-                    pages.append(f"<!-- PDF page {page_number + 1} -->\n{page_content}")
-        finally:
-            document.close()
-        return "\n\n".join(pages)
+        parser = AdaptivePdfParser(
+            self.source_path,
+            mode="pymupdf",
+            profile_cache_path=(
+                self.output_dir / f"{self.source_path.stem}.parser-profile.json"
+            ),
+            artifact_dir=(
+                self.output_dir
+                / "source-assets"
+                / self.source_path.stem
+            ),
+        )
+        markdown, _ = parser.parse_range(unit.page_start, unit.page_end)
+        return markdown
 
     def read_source(self, force: bool = False) -> str:
         if self.source_path.suffix.lower() in {".md", ".markdown"}:
@@ -662,11 +812,15 @@ class MedlearnPipeline:
 
 要求：
 1. nodes.type 只能是 concept、mechanism、disease、symptom、treatment、exam。
-2. 每个节点必须是一个原子知识块；parent_entity 用具体疾病/药物/机制全称（禁止仅用缩写）。
+2. 每个节点代表 parent_entity 的一个知识面向；疾病章节中 parent_entity 必须是章节疾病或明确疾病亚型。药物、术式、检查项目、治疗步骤不得成为独立 parent_entity，必须作为该疾病“治疗”或“诊断”节点中的枚举子项。
+   原文若明确出现“X肺炎/X疾病是……”等命名疾病定义，parent_entity 必须保留 X 的完整疾病名，禁止上卷成“细菌性肺炎”“肺炎”等总类。
 3. title 建议写“parent_entity + 的 + aspect”；content 首句必须写出 parent_entity 全称，不能用“该病、其、上述”。
-4. aspect 填原文面向；evidence 填最短原文依据；无依据则不生成。
-5. edges.relation 用 causes、characteristic_of、treated_by、complication_of、associated_with。
-6. 只输出合法 JSON，不要输出空 nodes。
+4. aspect 填原文面向；evidence 必须是原文中的连续片段，禁止改写或编造。
+5. 只抽取当前章节主体相关内容，禁止把一种治疗泛化到其他病种（如变应性鼻炎、过敏性结膜炎）。
+6. 同一个 parent_entity + aspect 只能输出一个 node。治疗、诊断、检查中的 1.2.3.、①②③ 等枚举项必须保留在同一 node 的 content 或 key_points 中，禁止拆成并列 nodes。
+7. 最多输出 {MAX_NODES_PER_CHUNK} 个 nodes；优先保留定义、机制、诊断、治疗主干。
+8. edges.relation 用 causes、characteristic_of、treated_by、complication_of、associated_with。
+9. 只输出合法 JSON，不要输出空 nodes。
 
 JSON 格式：
 {{
@@ -692,7 +846,7 @@ JSON 格式：
                 "temperature": 0.1,
                 "num_ctx": min(self.num_ctx, 4096),
                 "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "999")),
-                "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "2048")),
+                "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "1024")),
             },
         }
         response = requests.post(
@@ -723,6 +877,23 @@ JSON 格式：
         except Exception as exc:
             print(f"[!] Ollama 预热失败（继续尝试提取）: {exc}")
 
+    def build_compact_extraction_prompt(self, chunk: MarkdownChunk, content: str) -> str:
+        path = " > ".join(filter(None, chunk.headings)) or "未识别"
+        return f"""你是医学教材原子知识块抽取器。仅根据原文抽取，不补充原文外事实。
+最多输出 6 个 nodes；每个节点必须含 parent_entity、aspect、evidence。
+同一 parent_entity + aspect 只能有一个 node；枚举子项写入同一 content 或 key_points，禁止拆成并列 nodes。
+疾病章节中的药物、术式、检查项目不得成为独立 parent_entity，必须归入章节疾病的治疗或诊断节点。
+原文明确定义命名疾病时，parent_entity 必须使用完整疾病名，不得用章节总类替代。
+content 首句必须写出 parent_entity 全称。只输出合法 JSON。
+
+JSON 格式：
+{{"nodes":[{{"title":"主体的知识面向","type":"disease","parent_entity":"主体名","aspect":"面向","content":"含主体的结论","evidence":"原文片段","tags":[]}}],"edges":[]}}
+
+章节路径：{path}
+教材原文：
+{content}
+/no_think"""
+
     def call_ollama(self, chunk: MarkdownChunk, retries: int = 3) -> dict[str, Any]:
         import requests
 
@@ -749,7 +920,14 @@ JSON 格式：
                     continue
                 if status in {400, 500}:
                     raise RuntimeError(f"Ollama 调用失败: {exc}") from exc
-            except (requests.RequestException, KeyError, json.JSONDecodeError, ValueError) as exc:
+            except (json.JSONDecodeError, ValueError) as exc:
+                last_exc = exc
+                if attempt < retries:
+                    compact = chunk.content[: max(1000, len(content) // 2)]
+                    prompt = self.build_compact_extraction_prompt(chunk, compact)
+                    print(f"  [!] 块 {chunk.index} JSON/空结果，切换紧凑 prompt 重试")
+                    continue
+            except (requests.RequestException, KeyError) as exc:
                 last_exc = exc
             if attempt < retries:
                 time.sleep(attempt * 2)
@@ -763,7 +941,8 @@ JSON 格式：
     ) -> None:
         cache["chunks"][str(chunk.index)] = {
             "headings": chunk.headings,
-            "nodes": data.get("nodes", []),
+            "content": chunk.content,
+            "nodes": (data.get("nodes", []) or [])[:MAX_NODES_PER_CHUNK],
             "edges": data.get("edges", []),
         }
         self.cache_path.write_text(
@@ -777,8 +956,11 @@ JSON 格式：
             cache.setdefault("chunks", {})
 
         selected = chunks[: self.limit] if self.limit else chunks
+        if not selected:
+            print("[*] 无可提取语义块")
+            return cache
         print(f"[*] 共 {len(chunks)} 个语义块，本次处理 {len(selected)} 个")
-        if selected and not cache["chunks"]:
+        if not cache["chunks"] and not os.getenv("OLLAMA_SKIP_WARMUP"):
             self.warmup_ollama()
 
         pending: list[MarkdownChunk] = []
@@ -789,18 +971,55 @@ JSON 格式：
                 continue
             pending.append(chunk)
 
+        concurrency = max(1, int(os.getenv("OLLAMA_CONCURRENCY", "1")))
         failed: list[MarkdownChunk] = []
-        for position, chunk in enumerate(pending, start=1):
-            try:
-                data = self.call_ollama(chunk)
-                self._persist_chunk_result(cache, chunk, data)
-                print(
-                    f"  [+] {len(selected) - len(pending) + position}/{len(selected)} "
-                    f"块 {chunk.index}: {len(data.get('nodes', []))} 个节点"
-                )
-            except RuntimeError as exc:
-                failed.append(chunk)
-                print(f"  [!] 块 {chunk.index} 跳过: {exc}")
+
+        if concurrency <= 1 or len(pending) <= 1:
+            # Serial path (original behavior)
+            for position, chunk in enumerate(pending, start=1):
+                try:
+                    data = self.call_ollama(chunk)
+                    self._persist_chunk_result(cache, chunk, data)
+                    print(
+                        f"  [+] {len(selected) - len(pending) + position}/{len(selected)} "
+                        f"块 {chunk.index}: {len(data.get('nodes', []))} 个节点"
+                    )
+                except RuntimeError as exc:
+                    failed.append(chunk)
+                    print(f"  [!] 块 {chunk.index} 跳过: {exc}")
+        else:
+            # Concurrent Ollama calls, ordered persistence
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            print(f"[*] 并发模式: concurrency={concurrency}, pending={len(pending)}")
+            results: dict[int, dict[str, Any] | Exception] = {}
+            with ThreadPoolExecutor(max_workers=concurrency) as executor:
+                future_to_chunk = {
+                    executor.submit(self.call_ollama, chunk): chunk
+                    for chunk in pending
+                }
+                for future in as_completed(future_to_chunk):
+                    chunk = future_to_chunk[future]
+                    try:
+                        results[chunk.index] = future.result()
+                    except RuntimeError as exc:
+                        results[chunk.index] = exc
+
+            # Main thread: persist in chunk order to keep cache stable
+            for position, chunk in enumerate(pending, start=1):
+                result = results.get(chunk.index)
+                if result is None:
+                    failed.append(chunk)
+                    print(f"  [!] 块 {chunk.index} 跳过: no result")
+                elif isinstance(result, Exception):
+                    failed.append(chunk)
+                    print(f"  [!] 块 {chunk.index} 跳过: {result}")
+                else:
+                    self._persist_chunk_result(cache, chunk, result)
+                    print(
+                        f"  [+] {len(selected) - len(pending) + position}/{len(selected)} "
+                        f"块 {chunk.index}: {len(result.get('nodes', []))} 个节点"
+                    )
 
         if failed:
             print(f"[*] 对 {len(failed)} 个失败块做最终重试")
@@ -826,18 +1045,59 @@ JSON 格式：
         return cache
 
     def build_rows(self, cache: dict[str, Any]) -> list[dict[str, Any]]:
-        merged: dict[tuple[str, str | None, str], dict[str, Any]] = {}
+        merged: dict[tuple[str, str | None, str, str], dict[str, Any]] = {}
+        title_to_key: dict[
+            tuple[str, str | None, str],
+            tuple[str, str | None, str, str],
+        ] = {}
         pending_edges: list[tuple[str, str | None, dict[str, Any]]] = []
+        catalog_units: list[dict[str, Any]] = []
+        source_locators: list[dict[str, Any]] = []
+        if self.catalog_path.exists():
+            catalog_payload = json.loads(self.catalog_path.read_text(encoding="utf-8"))
+            catalog_units = catalog_payload.get("units") or []
+        if self.source_artifacts_path.exists():
+            artifact_payload = json.loads(
+                self.source_artifacts_path.read_text(encoding="utf-8")
+            )
+            source_locators = artifact_payload.get("locators") or []
+        active_explicit_disease: str | None = None
 
         for chunk_index, result in cache.get("chunks", {}).items():
             headings = result.get("headings") or []
             chapter, sub_chapter = resolve_map_hierarchy(headings)
-            for raw in result.get("nodes") or []:
+            page_start, page_end = resolve_catalog_page_range(catalog_units, headings)
+            source_text = str(result.get("content") or "")
+            section_entity = extract_section_entity(sub_chapter or "")
+            for raw in (result.get("nodes") or [])[:MAX_NODES_PER_CHUNK]:
                 title = str(raw.get("title", "")).strip()
                 raw_content = str(raw.get("content", "")).strip()
-                parent_entity = str(raw.get("parent_entity", "")).strip()
-                aspect = str(raw.get("aspect", "")).strip()
+                raw_parent_entity = str(raw.get("parent_entity", "")).strip()
+                parent_entity = (
+                    active_explicit_disease
+                    if raw_parent_entity in UMBRELLA_DISEASE_ENTITIES
+                    and active_explicit_disease
+                    else raw_parent_entity
+                )
+                if parent_entity != raw_parent_entity:
+                    title = title.replace(raw_parent_entity, parent_entity)
+                    raw_content = raw_content.replace(
+                        raw_parent_entity,
+                        parent_entity,
+                    )
+                raw_aspect = str(raw.get("aspect", "")).strip()
+                aspect = canonicalize_aspect_label(raw_aspect)
                 evidence = str(raw.get("evidence", "")).strip()
+                if is_cross_disease_expansion(
+                    title, parent_entity, section_entity=section_entity
+                ):
+                    continue
+                if source_text and not evidence_supported_by_source(evidence, source_text):
+                    continue
+                if not source_text:
+                    continue
+                if looks_self_referential_evidence(evidence, raw_content):
+                    continue
                 node_entity = identify_node_entity(
                     title, raw_content, aspect, evidence
                 )
@@ -853,26 +1113,47 @@ JSON 格式：
                     node_entity.entity,
                 ):
                     continue
-                key = (chapter, sub_chapter, title)
+                key = (chapter, sub_chapter, parent_entity, aspect)
+                matched_locators = find_evidence_locators(
+                    source_locators,
+                    evidence,
+                    page_start=page_start,
+                    page_end=page_end,
+                )
+                group_title = f"{parent_entity}的{aspect}"
+                title_to_key[(chapter, sub_chapter, title)] = key
                 node_type = str(raw.get("type", "concept"))
                 tags = [str(tag) for tag in raw.get("tags", []) if str(tag) in VINDICATE_TAGS]
                 row = merged.setdefault(
                     key,
                     {
-                        "id": stable_id(self.subject, chapter, sub_chapter or "", title),
+                        "id": stable_id(
+                            self.subject,
+                            chapter,
+                            sub_chapter or "",
+                            parent_entity,
+                            aspect,
+                        ),
                         "order_num": len(merged),
                         "level": 3,
                         "type": node_type if node_type in ALLOWED_TYPES else "concept",
-                        "title": title,
+                        "title": group_title,
                         "subject": self.subject,
                         "chapter": chapter,
                         "sub_chapter": sub_chapter,
-                        "knowledge_path": [p for p in [self.subject, chapter, sub_chapter, title] if p],
+                        "knowledge_path": [
+                            p
+                            for p in [
+                                self.subject,
+                                chapter,
+                                sub_chapter,
+                                group_title,
+                            ]
+                            if p
+                        ],
                         "content": content,
                         "key_points": [],
-                        "structured_sections": [
-                            {"title": aspect or "知识要点", "content": content}
-                        ],
+                        "structured_sections": [],
                         "causal_links": [],
                         "related_nodes": [],
                         "tags": [],
@@ -888,11 +1169,30 @@ JSON 格式：
                             "headings": headings,
                             "parent_entity": parent_entity,
                             "aspect": aspect,
+                            "raw_aspect": raw_aspect,
                             "evidence": evidence,
+                            "evidence_items": [],
+                            "source_locators": [],
+                            "page_start": page_start,
+                            "page_end": page_end,
                         },
                         "version": "3.0",
                     },
                 )
+                section = {"title": title, "content": content}
+                if section not in row["structured_sections"]:
+                    row["structured_sections"].append(section)
+                evidence_items = row["source_span"]["evidence_items"]
+                if evidence and evidence not in evidence_items:
+                    evidence_items.append(evidence)
+                row_locators = row["source_span"]["source_locators"]
+                known_artifact_ids = {
+                    locator.get("artifact_id") for locator in row_locators
+                }
+                for locator in matched_locators:
+                    if locator.get("artifact_id") not in known_artifact_ids:
+                        row_locators.append(locator)
+                        known_artifact_ids.add(locator.get("artifact_id"))
                 key_points = [
                     make_standalone(str(value), parent_entity)
                     for value in raw.get("key_points", [])
@@ -904,12 +1204,34 @@ JSON 格式：
                 row["tags"] = list(dict.fromkeys([*row["tags"], *tags]))
             for edge in result.get("edges") or []:
                 pending_edges.append((chapter, sub_chapter, edge))
+            explicit_disease = recover_explicit_disease_entity(
+                "细菌性肺炎",
+                source_text,
+            )
+            if explicit_disease != "细菌性肺炎":
+                active_explicit_disease = explicit_disease
+
+        for row in merged.values():
+            sections = row["structured_sections"]
+            aspect = str((row.get("source_span") or {}).get("aspect") or "知识要点")
+            if len(sections) == 1:
+                row["content"] = sections[0]["content"]
+                row["structured_sections"] = [
+                    {"title": aspect, "content": sections[0]["content"]}
+                ]
+                continue
+            row["content"] = "\n\n".join(
+                f"{index}. {section['title']}\n{section['content']}"
+                for index, section in enumerate(sections, start=1)
+            )
 
         for chapter, sub_chapter, edge in pending_edges:
             source_title = str(edge.get("source", "")).strip()
             target_title = str(edge.get("target", "")).strip()
-            source = merged.get((chapter, sub_chapter, source_title))
-            target = merged.get((chapter, sub_chapter, target_title))
+            source_key = title_to_key.get((chapter, sub_chapter, source_title))
+            target_key = title_to_key.get((chapter, sub_chapter, target_title))
+            source = merged.get(source_key) if source_key else None
+            target = merged.get(target_key) if target_key else None
             if not source or not target or source["id"] == target["id"]:
                 continue
             relation = str(edge.get("relation") or "associated_with")
@@ -999,6 +1321,42 @@ JSON 格式：
             parse_report = json.loads(
                 self.parse_report_path.read_text(encoding="utf-8")
             )
+        cache_payload = (
+            json.loads(self.cache_path.read_text(encoding="utf-8"))
+            if self.cache_path.exists()
+            else None
+        )
+        section_title = ""
+        if rows:
+            section_title = str(rows[0].get("sub_chapter") or "")
+        if not section_title and cache_payload:
+            for result in (cache_payload.get("chunks") or {}).values():
+                headings = result.get("headings") or []
+                chapter_heading = next(
+                    (value for value in reversed(headings) if CHAPTER_RE.search(str(value))),
+                    "",
+                )
+                if chapter_heading:
+                    section_title = str(chapter_heading)
+                    break
+        section_entity = extract_section_entity(section_title)
+        guardrail_report = assess_guardrails(
+            rows,
+            section_entity=section_entity,
+            chunk_source_map=build_chunk_source_map(cache_payload),
+            section_markdown=(
+                self.markdown_path.read_text(encoding="utf-8")
+                if self.markdown_path.exists()
+                else ""
+            ),
+        )
+        nodes_with_source_locators = sum(
+            bool((row.get("source_span") or {}).get("source_locators"))
+            for row in rows
+        )
+        source_locator_coverage_ratio = (
+            nodes_with_source_locators / len(rows) if rows else 0.0
+        )
         quality = {
             "subject": self.subject,
             "total_nodes": len(rows),
@@ -1006,13 +1364,23 @@ JSON 格式：
             "nodes_with_evidence": sum(
                 bool((row.get("source_span") or {}).get("evidence")) for row in rows
             ),
+            "nodes_with_source_locators": nodes_with_source_locators,
+            "source_locator_coverage_ratio": round(
+                source_locator_coverage_ratio,
+                4,
+            ),
             "nodes_with_explicit_relationships": sum(
                 bool(row.get("related_nodes")) for row in rows
             ),
+            "guardrails": guardrail_report,
             "parsing": {
                 "total_units": parse_report.get("total_units"),
                 "docling_units": parse_report.get("docling_units"),
                 "fallback_units": parse_report.get("fallback_units"),
+                "parser_mode": parse_report.get("parser_mode"),
+                "page_parser_counts": parse_report.get("page_parser_counts"),
+                "blocking_pages": parse_report.get("blocking_pages"),
+                "artifact_counts": parse_report.get("artifact_counts"),
                 "all_units_used_docling": (
                     parse_report.get("checks", {}).get("all_units_used_docling")
                     if parse_report
@@ -1026,6 +1394,11 @@ JSON 格式：
                         "all_units_have_content", True
                     )
                 ),
+                "no_blocking_pdf_pages": (
+                    parse_report.get("checks", {}).get(
+                        "no_blocking_pages", True
+                    )
+                ),
                 "all_level_3": all(row.get("level") == 3 for row in rows),
                 "all_have_parent_entity": all(
                     bool((row.get("source_span") or {}).get("parent_entity")) for row in rows
@@ -1036,6 +1409,10 @@ JSON 格式：
                 "all_have_evidence": all(
                     bool((row.get("source_span") or {}).get("evidence")) for row in rows
                 ),
+                "all_evidence_located": all(
+                    bool((row.get("source_span") or {}).get("source_locators"))
+                    for row in rows
+                ),
                 "all_content_names_parent": all(
                     str((row.get("source_span") or {}).get("parent_entity") or "")
                     in str(row.get("content") or "")
@@ -1045,14 +1422,27 @@ JSON 格式：
                     not CONTEXT_DEPENDENT_RE.match(str(row.get("content") or ""))
                     for row in rows
                 ),
+                "guardrails_passed": guardrail_report.get("passed", False),
             },
         }
         quality_path.write_text(
             json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+        if rows and not guardrail_report.get("passed", False):
+            reasons = ", ".join(guardrail_report.get("reasons") or ["guardrails"])
+            raise RuntimeError(
+                f"Quality guardrails failed ({reasons}); "
+                f"metrics={guardrail_report.get('metrics')}"
+            )
         return nodes_path, preview_path, quality_path
 
-    def upload(self, rows: list[dict[str, Any]], batch_size: int = 100) -> None:
+    def upload(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        replace_section: bool = False,
+        batch_size: int = 100,
+    ) -> None:
         from supabase import create_client
 
         from textbook_pipeline.knowledge_node_adapter import finalize_knowledge_rows
@@ -1076,11 +1466,57 @@ JSON 格式：
                 rows[start : start + batch_size], on_conflict="id"
             ).execute()
             print(f"  [+] 已写入 {min(start + batch_size, len(rows))}/{len(rows)}")
+        if replace_section:
+            current_ids = {str(row["id"]) for row in rows}
+            sub_chapters = {
+                str(row.get("sub_chapter") or "").strip()
+                for row in rows
+                if str(row.get("sub_chapter") or "").strip()
+            }
+            if len(sub_chapters) != 1:
+                raise RuntimeError("--replace-section 要求本次输出只包含一个章节")
+            sub_chapter = next(iter(sub_chapters))
+            response = (
+                client.table("knowledge_nodes")
+                .select("id")
+                .eq("book_id", self.book_id)
+                .eq("sub_chapter", sub_chapter)
+                .eq("source", "pipeline_v3")
+                .execute()
+            )
+            stale_ids = [
+                str(item["id"])
+                for item in (response.data or [])
+                if str(item["id"]) not in current_ids
+            ]
+            for start in range(0, len(stale_ids), batch_size):
+                batch = stale_ids[start : start + batch_size]
+                (
+                    client.table("knowledge_nodes")
+                    .update({"content_class": "invalid", "disease_id": None})
+                    .in_("id", batch)
+                    .execute()
+                )
+            print(f"  [+] 已将同章节旧 pipeline_v3 节点标 invalid: {len(stale_ids)}")
+
+    def enrich_cache_with_source(self, cache: dict[str, Any]) -> dict[str, Any]:
+        if not self.markdown_path.exists():
+            return cache
+        markdown = self.markdown_path.read_text(encoding="utf-8")
+        chunks = split_markdown(markdown, self.max_chars)
+        content_by_index = {str(chunk.index): chunk.content for chunk in chunks}
+        for key, result in (cache.get("chunks") or {}).items():
+            if not isinstance(result, dict):
+                continue
+            if not str(result.get("content") or "").strip():
+                result["content"] = content_by_index.get(str(key), "")
+        return cache
 
     def rebuild_from_cache(self) -> list[dict[str, Any]]:
         if not self.cache_path.exists():
             raise FileNotFoundError(f"未找到提取缓存: {self.cache_path}")
         cache = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        cache = self.enrich_cache_with_source(cache)
         rows = self.build_rows(cache)
         nodes_path, preview_path, quality_path = self.write_outputs(rows)
         raw_nodes = sum(
@@ -1101,6 +1537,7 @@ JSON 格式：
         no_resume: bool,
         catalog_only: bool,
         rebuild_only: bool = False,
+        replace_section: bool = False,
     ) -> None:
         if not self.source_path.exists():
             raise FileNotFoundError(f"输入文件不存在: {self.source_path}")
@@ -1113,6 +1550,7 @@ JSON 格式：
             return
         if rebuild_only:
             rows = self.rebuild_from_cache()
+            quality_path = self.scoped_output_path(".quality-report.json")
         else:
             markdown = self.read_source(force=force_parse)
             chunks = split_markdown(markdown, self.max_chars)
@@ -1137,7 +1575,7 @@ JSON 格式：
                 raise RuntimeError(
                     "质量门禁未通过，拒绝上传: " + ", ".join(failed_checks)
                 )
-            self.upload(rows)
+            self.upload(rows, replace_section=replace_section)
             print("[+] Supabase 同步完成，知识地图可直接读取")
         else:
             print("[*] 未上传数据库；确认结果后添加 --upload")
@@ -1162,6 +1600,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--section-start", type=int, default=0, help="从第 N 个目录分页单元开始")
     parser.add_argument("--catalog-only", action="store_true", help="仅识别并校验 PDF 目录")
     parser.add_argument("--upload", action="store_true", help="写入 Supabase knowledge_nodes")
+    parser.add_argument(
+        "--replace-section",
+        action="store_true",
+        help="上传后将同教材同章节的旧 pipeline_v3 节点标记为 invalid",
+    )
     parser.add_argument("--force-parse", action="store_true", help="重新解析 PDF")
     parser.add_argument("--no-resume", action="store_true", help="忽略已有 LLM 抽取缓存")
     parser.add_argument(
@@ -1170,9 +1613,14 @@ def parse_args() -> argparse.Namespace:
         help="仅从 .extraction.json 重建 nodes/quality，不调用 Ollama",
     )
     parser.add_argument(
-        "--pymupdf-only",
+        "--use-docling",
         action="store_true",
-        help="跳过 Docling，仅用 PyMuPDF 解析（低内存环境推荐）",
+        help="强制使用 Docling 解析；默认按页面自动路由",
+    )
+    parser.add_argument(
+        "--pdf-parser",
+        choices=("auto", "pymupdf", "docling"),
+        help="覆盖 PDF 解析模式；默认使用生产契约 auto",
     )
     return parser.parse_args()
 
@@ -1196,7 +1644,10 @@ def main() -> None:
         subject=args.subject,
         section_limit=args.section_limit,
         section_start=args.section_start,
-        pymupdf_only=args.pymupdf_only,
+        pdf_parser_mode=(
+            args.pdf_parser
+            or resolve_pdf_parser_mode(cli_use_docling=args.use_docling)
+        ),
     )
     pipeline.run(
         args.upload,
@@ -1204,6 +1655,7 @@ def main() -> None:
         args.no_resume,
         args.catalog_only,
         args.rebuild_only,
+        args.replace_section,
     )
 
 
