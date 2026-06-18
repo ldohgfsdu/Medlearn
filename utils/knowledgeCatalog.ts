@@ -98,14 +98,51 @@ export function buildSubjectCatalog(
     .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
 }
 
-export function getChapterSortWeight(name: string): number {
-  const match = name.match(/第([一二三四五六七八九十]+)篇/u)
-  if (!match) return 999
+/** 解析中文数字（含 十一、二十、二十三 等） */
+export function parseChineseNumber(value: string): number | null {
+  const trimmed = value.trim()
+  if (/^\d+$/u.test(trimmed)) return Number.parseInt(trimmed, 10)
 
-  const numStr = match[1]
-  if (numStr.length === 1) return CHINESE_NUM_MAP[numStr] ?? 999
-  if (numStr.startsWith('十')) return 10 + (CHINESE_NUM_MAP[numStr[1]] ?? 0)
-  return 999
+  let total = 0
+  let current = 0
+
+  for (const char of trimmed) {
+    if (char === '十') {
+      const multiplier = current === 0 ? 1 : current
+      total += multiplier * 10
+      current = 0
+      continue
+    }
+    if (char === '百') {
+      const multiplier = current === 0 ? 1 : current
+      total += multiplier * 100
+      current = 0
+      continue
+    }
+    if (char === '零' || char === '〇') continue
+
+    const digit = CHINESE_NUM_MAP[char]
+    if (digit == null) return null
+    current = digit
+  }
+
+  return total + current
+}
+
+/** 按教材「第X篇 / 第X章」提取排序权重，无序号则排到最后 */
+export function getTextbookSortWeight(name: string, unit: '篇' | '章' = '篇'): number {
+  const match = name.match(new RegExp(`第([一二三四五六七八九十百零〇\\d]+)${unit}`))
+  if (!match) return 9999
+  return parseChineseNumber(match[1]) ?? 9999
+}
+
+export function compareTextbookOrder(a: string, b: string, unit: '篇' | '章' = '篇'): number {
+  const diff = getTextbookSortWeight(a, unit) - getTextbookSortWeight(b, unit)
+  return diff !== 0 ? diff : a.localeCompare(b, 'zh-CN')
+}
+
+export function getChapterSortWeight(name: string): number {
+  return getTextbookSortWeight(name, '篇')
 }
 
 export function displayNodeTitle(title: string, subChapter?: string | null): string {

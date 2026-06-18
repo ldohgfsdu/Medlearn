@@ -202,7 +202,7 @@ export function useSearchNodes(query: string, subject?: string) {
       if (subject) {
         const { data, error } = await supabase
           .from('knowledge_nodes')
-          .select('id, title, type, subject, chapter, sub_chapter')
+          .select('id, title, type, subject, chapter, sub_chapter, content_class, content_status, disease_id, chapter_section_id')
           .or(buildSubjectOrFilter(subject))
           .limit(1000)
 
@@ -217,10 +217,10 @@ export function useSearchNodes(query: string, subject?: string) {
       }
 
       const { data, error } = await supabase
-        .from('knowledge_nodes')
-        .select('id, title, type, subject, chapter, sub_chapter')
-        .or(`title.ilike.%${escaped}%,sub_chapter.ilike.%${escaped}%`)
-        .limit(30)
+          .from('knowledge_nodes')
+          .select('id, title, type, subject, chapter, sub_chapter, content_class, content_status, disease_id, chapter_section_id')
+          .or(`title.ilike.%${escaped}%,sub_chapter.ilike.%${escaped}%`)
+          .limit(30)
 
       if (error) throw error
       return data ?? []
