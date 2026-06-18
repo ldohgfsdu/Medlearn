@@ -78,8 +78,6 @@ test_script.py
 medlearn-*-review.png
 
 # Consolidated generated outputs
-artifacts/
-!artifacts/
 artifacts/*
 !artifacts/README.md
 
