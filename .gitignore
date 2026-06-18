@@ -154,3 +154,4 @@ scripts/start_android_studio_local_llm_proxy.ps1
 scripts/switch-ollama-warmup.ps1
 scripts/ollama_no_think_proxy.py
 scripts/check_local_ml_layout.py
+archive/
