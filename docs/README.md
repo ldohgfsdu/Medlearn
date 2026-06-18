@@ -22,14 +22,20 @@ Code describes what exists. It does not change product identity or priority by i
 
 ## Maintained References
 
+- [`../AGENTS.md`](../AGENTS.md) - agent startup, routing and completion contract.
+- [`../context/TASK_ROUTER.yaml`](../context/TASK_ROUTER.yaml) - machine-readable
+  task-to-skill and validation routing.
+- [`../checklists/`](../checklists/) - reusable acceptance and no-regression gates.
 - [`API.md`](API.md) - backend and Edge Function interfaces.
 - [`DESIGN_CONTEXT.md`](DESIGN_CONTEXT.md) - current visual and interaction principles.
 - [`E2E_ACCEPTANCE_CHECKLIST.md`](E2E_ACCEPTANCE_CHECKLIST.md) - device and remote acceptance.
 - [`LEARNING_DESIGN_PRINCIPLES.md`](LEARNING_DESIGN_PRINCIPLES.md) - learning-loop principles.
 - [`PDF_EXTRACTION_GUIDE.md`](PDF_EXTRACTION_GUIDE.md) - textbook extraction workflow.
+- [`PDF_PARSER_ARCHITECTURE.md`](PDF_PARSER_ARCHITECTURE.md) - adaptive parsing, OCR, quality gates, and source artifacts.
 - [`RAG_SETUP_GUIDE.md`](RAG_SETUP_GUIDE.md) - retrieval configuration.
 - [`REMOTE_DEPLOYMENT_GUIDE.md`](REMOTE_DEPLOYMENT_GUIDE.md) - Supabase deployment.
 - [`TECHNICAL_ARCHITECTURE.md`](TECHNICAL_ARCHITECTURE.md) - architecture reference; sections marked historical are not authoritative.
+- [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) - repository layout, generated-output locations, and cleanup rules.
 
 ## Archive
 

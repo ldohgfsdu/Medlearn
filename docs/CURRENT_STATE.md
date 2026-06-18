@@ -6,37 +6,35 @@
 ## Project
 
 - Name: `MedLearn`
-- Phase: `mvp_alpha_readiness`
+- Phase: `respiratory_mvp_validation`
 
 ## Active Object
 
-### `local_demo_recovery`: Restore a locally runnable demo
+### `respiratory_mvp_real_question_validation`: Validate the respiratory MVP with one real wrong question
 
-Restore a locally runnable demo proving the project can deliver one complete Knowledge flow and one complete Case flow.
+Compare one real respiratory wrong-question lookup in the paper textbook and the accepted MVP to identify the single highest-friction product step.
 
 
 **Scope**
 
-- `app/knowledge`
-- `app/search.tsx`
-- `app/lib/knowledge.ts`
-- `app/case`
-- `services/case-engine.ts`
-- `supabase/functions`
-- `npm run check`
+- `memory/respiratory-knowledge-query-acceptance.md`
+- `one real respiratory wrong question`
+- `paper textbook lookup timing`
+- `MVP lookup timing`
 
 **Acceptance Criteria**
 
-- npm run check passes on Node 22.13.1
-- Knowledge search and detail pages load against knowledge_nodes
-- One approved case can complete end to end locally
-- validate_project_state.py passes
+- One real wrong-question lookup is completed with the paper textbook.
+- The same lookup is completed through the MVP.
+- Both paths record elapsed time and navigation steps.
+- The MVP result reaches the correct aspect, textbook evidence, and page reference.
+- The highest-friction step is classified as search, catalog, detail, or evidence.
 
 ## Blocked
 
 | ID | Title | Status | Blocked Reason |
 |---|---|---|---|
-| remote_supabase_validation | Validate the deployed Supabase environment | blocked | Deployment credentials, an initialized remote schema, and device validation are still required. |
+| remote_supabase_validation | Validate the deployed Supabase environment | blocked | Remote API E2E passed (npm run e2e:remote); iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md. |
 
 ## Paused
 
@@ -50,7 +48,9 @@ No paused objects.
 | alpha_case_library | Build the medically approved Alpha case library | completed | 2026-06-13 |
 | knowledge_data_model_alignment | Align the knowledge data model | completed | 2026-06-13 |
 | knowledge_v5_integration | Integrate experimental V5 knowledge pages | completed | 2026-06-13 |
+| local_demo_recovery | Restore a locally runnable demo | completed | 2026-06-14 |
 | project_governance_bootstrap | Project governance bootstrap | completed | 2026-06-13 |
+| respiratory_knowledge_query_mvp | Respiratory trustworthy knowledge lookup MVP | completed | 2026-06-14 |
 | server_case_approval_enforcement | Enforce approved case status inside service-role functions | completed | 2026-06-13 |
 
 ## Archived

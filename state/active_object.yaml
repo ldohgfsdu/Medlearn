@@ -1,98 +1,35 @@
 schema_version: 1
 project:
   name: MedLearn
-  phase: mvp_alpha_readiness
+  phase: respiratory_mvp_validation
 active_object:
-  id: local_demo_recovery
-  title: Restore a locally runnable demo
+  id: respiratory_mvp_real_question_validation
+  title: Validate the respiratory MVP with one real wrong question
   objective: >
-    Restore a locally runnable demo proving the project can deliver
-    one complete Knowledge flow and one complete Case flow.
+    Compare one real respiratory wrong-question lookup in the paper textbook
+    and the accepted MVP to identify the single highest-friction product step.
   status: active
-  activated_at: "2026-06-13"
+  activated_at: "2026-06-14"
   frozen: false
   scope:
-    - app/knowledge
-    - app/search.tsx
-    - app/lib/knowledge.ts
-    - app/case
-    - services/case-engine.ts
-    - supabase/functions
-    - npm run check
+    - memory/respiratory-knowledge-query-acceptance.md
+    - one real respiratory wrong question
+    - paper textbook lookup timing
+    - MVP lookup timing
   acceptance_criteria:
-    - npm run check passes on Node 22.13.1
-    - Knowledge search and detail pages load against knowledge_nodes
-    - One approved case can complete end to end locally
-    - validate_project_state.py passes
-  dependencies: []
+    - One real wrong-question lookup is completed with the paper textbook.
+    - The same lookup is completed through the MVP.
+    - Both paths record elapsed time and navigation steps.
+    - The MVP result reaches the correct aspect, textbook evidence, and page reference.
+    - The highest-friction step is classified as search, catalog, detail, or evidence.
+  dependencies:
+    - respiratory_knowledge_query_mvp
   evidence:
-    - npm run check
-    - python scripts/validate_project_state.py
-
-  current_task: continue_local_demo_validation_on_node22
-
-  runtime_decision:
-    selected_path: Node 22.13.1 on Windows via isolated toolchain
-    reason: >
-      Windows + Node 24.16.0 + Expo SDK 56 caused JavaScript heap out of memory
-      even with a clean Expo 56 project. An isolated Node 22.13.1 runtime at
-      G:\\tools\\node-v22.13.1-win-x64 successfully exports both the minimal app
-      and restored real app, so Demo recovery should continue on Node 22.13.1.
-
-  completed_tasks:
-    - task: resolve_web_export_module_errors
-      result: completed
-      resolved_errors:
-        - app/lib/supabase.ts imported app.json
-        - app/search.tsx imported lib/knowledge
-        - app/knowledge/[id].tsx imported missing @/services/knowledge
-        - app/knowledge/[id].tsx imported lucide-react-native
-
-    - task: diagnose_framework_dependency_oom
-      result: completed
-      conclusion: >
-        Web export OOM appears to be environment-level rather than project-route-level.
-        Minimal app, minimal app.json, isolated assets, and a clean Expo 56 probe project
-        all failed with JavaScript heap out of memory under Windows + Node 24.16.0
-        + Expo SDK 56 / Metro web export.
-
-    - task: switch_to_node22_and_restore_real_app
-      result: completed
-      evidence:
-        - "isolated Node 22.13.1 installed at G:\\tools\\node-v22.13.1-win-x64"
-        - "minimal app exported successfully with npx expo export --platform web"
-        - "restored real app from app_full_backup and app.full.backup.json"
-        - "fixed knowledge access exports/null guards required by restored routes"
-        - "real app exported successfully with npx expo export --platform web --clear"
-        - "npm run check completed successfully on Node 22.13.1"
-
-  known_environment_issue:
-    id: windows_node24_expo56_web_export_oom
-    status: confirmed_in_current_environment
-    evidence:
-      - business routes minimized and export still OOM
-      - app.json minimized and export still OOM
-      - textbook/generated/.expo removed or isolated and export still OOM
-      - clean Expo 56 probe project also export OOM
-    impact:
-      - Do not use `npx expo export --platform web` as the primary demo validation path in this environment.
-
-  next_options:
-    - Continue local demo validation using Node 22.13.1
-    - Restore textbook/generated only if the next active task explicitly requires them
-    - Use WSL2/Linux/macOS only if Node 22.13.1 starts reproducing environment-level export OOM
-
+    - memory/respiratory-knowledge-query-acceptance.md
+    - user-recorded paper and MVP timings
   non_goals:
-    - solving Expo/Metro Windows export internals
-    - continuing Node 24 web export debugging
-    - restoring textbook/generated before a concrete demo validation need
-    - adding new features before local demo validation
-
-  state_preservation:
-    app_status: real_app_restored
-    app_full_backup: exists
-    minimal_app_backup: app_minimal_verified_node22_20260613_192131
-    textbook: moved_out
-    generated: moved_out
-    app.json: real_version_restored
-    original_app.json: backed_up_as_app.full.backup.json
+    - adding diseases
+    - case training
+    - Feynman training
+    - line-level evidence
+    - general-purpose RAG
