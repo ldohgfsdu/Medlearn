@@ -1,0 +1,237 @@
+[
+  {
+    "id": "golden_disease_pneumonia_001",
+    "title": "社区获得性肺炎",
+    "type": "disease",
+    "aliases": ["CAP", "Community Acquired Pneumonia"],
+    "source_chunk": {
+      "raw_text": "社区获得性肺炎是医院外获得的肺炎感染。临床表现包括发热、咳嗽、咳铁锈色痰、胸痛。诊断标准包括症状 + 肺部体征 + 胸片浸润影 + 白细胞升高。治疗以抗生素为主。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 45,
+        "chapter": "肺部感染性疾病"
+      }
+    },
+    "expected_content": {
+      "definition": "医院外获得的肺炎感染",
+      "clinical_manifestations": "发热、咳嗽、咳铁锈色痰、胸痛",
+      "diagnostic_criteria": "症状 + 肺部体征 + 胸片浸润影 + 白细胞升高",
+      "treatment_principles": "以抗生素为主"
+    },
+    "expected_relations": [
+      {"target_name": "呼吸衰竭", "relation_type": "complication", "source_required": true}
+    ],
+    "must_have_terms": ["胸片浸润影", "白细胞升高", "铁锈色痰"],
+    "forbidden_terms": ["病毒为主", "首选青霉素"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_disease_copd_001",
+    "title": "慢性阻塞性肺疾病",
+    "type": "disease",
+    "aliases": ["COPD", "慢阻肺"],
+    "source_chunk": {
+      "raw_text": "COPD 是一种以气流受限为特征的疾病，气流受限不完全可逆。肺功能检查 FEV1/FVC < 0.70。临床表现为慢性咳嗽、咳痰、呼吸困难。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 67,
+        "chapter": "慢性支气管炎和慢性阻塞性肺疾病"
+      }
+    },
+    "expected_content": {
+      "definition": "以气流受限为特征的疾病，气流受限不完全可逆",
+      "clinical_manifestations": "慢性咳嗽、咳痰、呼吸困难",
+      "diagnostic_criteria": "FEV1/FVC < 0.70"
+    },
+    "expected_relations": [
+      {"target_name": "呼吸衰竭", "relation_type": "complication", "source_required": true}
+    ],
+    "must_have_terms": ["FEV1/FVC < 0.70", "气流受限"],
+    "forbidden_terms": ["完全可逆"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_disease_diabetes_001",
+    "title": "2型糖尿病",
+    "type": "disease",
+    "aliases": ["T2DM"],
+    "source_chunk": {
+      "raw_text": "2型糖尿病以胰岛素抵抗和胰岛素分泌缺陷为特征。临床表现为多饮多尿多食体重下降。诊断标准为空腹血糖≥7.0mmol/L或糖化血红蛋白≥6.5%。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 789,
+        "chapter": "糖尿病"
+      }
+    },
+    "expected_content": {
+      "definition": "以胰岛素抵抗和胰岛素分泌缺陷为特征",
+      "clinical_manifestations": "多饮多尿多食体重下降",
+      "diagnostic_criteria": "空腹血糖≥7.0mmol/L或糖化血红蛋白≥6.5%"
+    },
+    "expected_relations": [
+      {"target_name": "心血管疾病", "relation_type": "complication", "source_required": true}
+    ],
+    "must_have_terms": ["胰岛素抵抗", "糖化血红蛋白≥6.5%"],
+    "forbidden_terms": ["1型糖尿病为主"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_drug_aspirin_001",
+    "title": "阿司匹林",
+    "type": "drug",
+    "aliases": ["ASA"],
+    "source_chunk": {
+      "raw_text": "阿司匹林通过抑制环氧合酶减少血小板聚集，用于预防心血管事件。不良反应包括胃肠道出血。",
+      "source": {
+        "book": "药理学",
+        "edition": "第9版",
+        "page": 234
+      }
+    },
+    "expected_content": {
+      "mechanism_of_action": "抑制环氧合酶减少血小板聚集",
+      "indications": "预防心血管事件",
+      "adverse_reactions": "胃肠道出血"
+    },
+    "expected_relations": [],
+    "must_have_terms": ["环氧合酶", "血小板聚集"],
+    "forbidden_terms": ["抗凝"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_test_blood_routine_001",
+    "title": "血常规",
+    "type": "test",
+    "aliases": ["CBC"],
+    "source_chunk": {
+      "raw_text": "血常规检查包括白细胞计数、分类、血红蛋白、血小板。白细胞升高提示感染，降低提示骨髓抑制。",
+      "source": {
+        "book": "诊断学",
+        "edition": "第10版",
+        "page": 12
+      }
+    },
+    "expected_content": {
+      "definition": "包括白细胞计数、分类、血红蛋白、血小板",
+      "clinical_significance": "白细胞升高提示感染，降低提示骨髓抑制",
+      "normal_range": "WBC 4-10×10^9/L"
+    },
+    "expected_relations": [],
+    "must_have_terms": ["白细胞升高提示感染"],
+    "forbidden_terms": ["血糖"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_concept_cardiac_output_001",
+    "title": "心输出量",
+    "type": "concept",
+    "aliases": ["CO"],
+    "source_chunk": {
+      "raw_text": "心输出量 = 心率 × 每搏输出量。正常值 4-8 L/min。心输出量降低见于心力衰竭。",
+      "source": {
+        "book": "生理学",
+        "edition": "第10版",
+        "page": 89
+      }
+    },
+    "expected_content": {
+      "definition": "心输出量 = 心率 × 每搏输出量",
+      "clinical_relevance": "心输出量降低见于心力衰竭"
+    },
+    "expected_relations": [
+      {"target_name": "心力衰竭", "relation_type": "related", "source_required": true}
+    ],
+    "must_have_terms": ["心率 × 每搏输出量"],
+    "forbidden_terms": ["血压"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_concept_negative_feedback_001",
+    "title": "负反馈",
+    "type": "concept",
+    "aliases": ["negative feedback"],
+    "source_chunk": {
+      "raw_text": "负反馈是维持内环境稳态的主要机制。当某一变量偏离正常值时，负反馈机制使它回到正常范围。",
+      "source": {
+        "book": "生理学",
+        "edition": "第10版",
+        "page": 12
+      }
+    },
+    "expected_content": {
+      "definition": "当某一变量偏离正常值时，负反馈机制使它回到正常范围",
+      "clinical_relevance": "维持内环境稳态"
+    },
+    "expected_relations": [],
+    "must_have_terms": ["回到正常范围"],
+    "forbidden_terms": ["正反馈"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_concept_ventilation_001",
+    "title": "肺通气",
+    "type": "concept",
+    "aliases": ["pulmonary ventilation"],
+    "source_chunk": {
+      "raw_text": "肺通气是指肺与外界环境之间的气体交换。包括吸气和呼气两个过程。",
+      "source": {
+        "book": "生理学",
+        "edition": "第10版",
+        "page": 156
+      }
+    },
+    "expected_content": {
+      "definition": "肺与外界环境之间的气体交换",
+      "clinical_relevance": "包括吸气和呼气两个过程"
+    },
+    "expected_relations": [
+      {"target_name": "肺换气", "relation_type": "related", "source_required": true}
+    ],
+    "must_have_terms": ["肺与外界环境之间的气体交换"],
+    "forbidden_terms": ["气体扩散"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  }
+]

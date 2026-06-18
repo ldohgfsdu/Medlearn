@@ -1,0 +1,253 @@
+[
+  {
+    "id": "golden_disease_cap_001",
+    "title": "社区获得性肺炎",
+    "type": "disease",
+    "aliases": ["CAP", "Community Acquired Pneumonia"],
+    "source_chunk": {
+      "raw_text": "社区获得性肺炎是医院外获得的肺炎感染，包括在社区中发生的肺炎。临床表现主要为发热、咳嗽、咳痰（部分患者咳铁锈色痰）、胸痛、呼吸困难。体征可有肺实变体征（叩诊浊音、语颤增强、支气管呼吸音）。实验室检查可见白细胞升高、中性粒细胞比例增加。胸部X线检查可见肺部浸润影。诊断标准包括：①症状和体征；②影像学证据（胸片或CT显示浸润影）；③实验室证据（白细胞升高）。治疗以经验性抗生素为主，常用β-内酰胺类联合大环内酯类。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 45,
+        "chapter": "呼吸系统疾病"
+      }
+    },
+    "expected_content": {
+      "definition": "医院外获得的肺炎感染",
+      "clinical_manifestations": "发热、咳嗽、咳铁锈色痰、胸痛、呼吸困难、肺实变体征",
+      "diagnostic_criteria": "症状和体征 + 影像学证据（胸片或CT显示浸润影） + 实验室证据（白细胞升高）",
+      "treatment_principles": "经验性抗生素为主，β-内酰胺类联合大环内酯类"
+    },
+    "expected_relations": [
+      {"target_name": "呼吸衰竭", "relation_type": "complication"},
+      {"target_name": "肺脓肿", "relation_type": "complication"}
+    ],
+    "must_have_terms": ["胸片浸润影", "白细胞升高", "铁锈色痰", "肺实变体征"],
+    "forbidden_terms": ["病毒性肺炎为主", "首选青霉素", "所有患者都需要住院"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_disease_copd_001",
+    "title": "慢性阻塞性肺疾病",
+    "type": "disease",
+    "aliases": ["COPD", "慢阻肺"],
+    "source_chunk": {
+      "raw_text": "慢性阻塞性肺疾病（COPD）是一种以气流受限为特征的疾病，通常呈进行性发展。吸入支气管舒张剂后 FEV1/FVC < 0.70。临床表现为慢性咳嗽、咳痰、进行性气促。治疗包括长期氧疗、支气管舒张剂、吸入激素。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 67,
+        "chapter": "呼吸系统疾病"
+      }
+    },
+    "expected_content": {
+      "definition": "以气流受限为特征的疾病",
+      "clinical_manifestations": "慢性咳嗽、咳痰、进行性气促",
+      "diagnostic_criteria": "吸入支气管舒张剂后 FEV1/FVC < 0.70",
+      "treatment_principles": "长期氧疗、支气管舒张剂、吸入激素"
+    },
+    "expected_relations": [
+      {"target_name": "呼吸衰竭", "relation_type": "complication"},
+      {"target_name": "肺心病", "relation_type": "complication"}
+    ],
+    "must_have_terms": ["FEV1/FVC < 0.70", "长期氧疗"],
+    "forbidden_terms": ["完全可逆", "首选抗生素"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_disease_diabetes_001",
+    "title": "2型糖尿病",
+    "type": "disease",
+    "aliases": ["T2DM", "2型糖尿病"],
+    "source_chunk": {
+      "raw_text": "2型糖尿病是胰岛素抵抗伴胰岛素分泌不足。临床表现为多饮、多尿、多食、体重下降。诊断标准为空腹血糖≥7.0mmol/L或餐后2h血糖≥11.1mmol/L。治疗包括生活方式干预、口服降糖药、胰岛素。",
+      "source": {
+        "book": "内科学",
+        "edition": "第10版",
+        "page": 312,
+        "chapter": "内分泌系统疾病"
+      }
+    },
+    "expected_content": {
+      "definition": "胰岛素抵抗伴胰岛素分泌不足",
+      "clinical_manifestations": "多饮、多尿、多食、体重下降",
+      "diagnostic_criteria": "空腹血糖≥7.0mmol/L或餐后2h血糖≥11.1mmol/L",
+      "treatment_principles": "生活方式干预、口服降糖药、胰岛素"
+    },
+    "expected_relations": [
+      {"target_name": "心血管疾病", "relation_type": "complication"},
+      {"target_name": "糖尿病肾病", "relation_type": "complication"}
+    ],
+    "must_have_terms": ["多饮多尿多食", "空腹血糖≥7.0mmol/L"],
+    "forbidden_terms": ["1型糖尿病为主", "首选胰岛素泵"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_drug_aspirin_001",
+    "title": "阿司匹林",
+    "type": "drug",
+    "aliases": ["Aspirin", "ASA"],
+    "source_chunk": {
+      "raw_text": "阿司匹林是一种非甾体抗炎药，具有解热镇痛抗炎作用，同时抑制血小板聚集。临床用于心血管疾病一级预防和二级预防。禁忌症包括活动性消化性溃疡、出血倾向。",
+      "source": {
+        "book": "药理学",
+        "edition": "第9版",
+        "page": 128,
+        "chapter": "抗血小板药物"
+      }
+    },
+    "expected_content": {
+      "definition": "非甾体抗炎药，具有解热镇痛抗炎作用，同时抑制血小板聚集",
+      "indications": "心血管疾病一级预防和二级预防",
+      "adverse_reactions": "消化道出血"
+    },
+    "expected_relations": [
+      {"target_name": "心肌梗死", "relation_type": "treatment"}
+    ],
+    "must_have_terms": ["抑制血小板聚集", "消化道出血"],
+    "forbidden_terms": ["显著抗凝作用", "首选溶栓"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_test_blood_routine_001",
+    "title": "血常规",
+    "type": "test",
+    "aliases": ["CBC", "Complete Blood Count"],
+    "source_chunk": {
+      "raw_text": "血常规是临床最常用的实验室检查。白细胞升高提示感染，中性粒细胞比例增加提示细菌感染。血红蛋白降低提示贫血。血小板减少提示出血倾向。",
+      "source": {
+        "book": "诊断学",
+        "edition": "第10版",
+        "page": 89,
+        "chapter": "实验室检查"
+      }
+    },
+    "expected_content": {
+      "definition": "临床最常用的实验室检查",
+      "clinical_significance": "白细胞升高提示感染，中性粒细胞比例增加提示细菌感染",
+      "normal_range": "白细胞 4-10×10^9/L"
+    },
+    "expected_relations": [
+      {"target_name": "肺炎", "relation_type": "related_test"}
+    ],
+    "must_have_terms": ["白细胞升高", "中性粒细胞比例增加"],
+    "forbidden_terms": ["特异性诊断"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_concept_cardiac_output_001",
+    "title": "心输出量",
+    "type": "concept",
+    "aliases": ["CO", "Cardiac Output"],
+    "source_chunk": {
+      "raw_text": "心输出量 = 心率 × 每搏输出量。正常成人静息状态下心输出量约 5L/min。心输出量是反映心脏泵血功能的重要指标。",
+      "source": {
+        "book": "生理学",
+        "edition": "第10版",
+        "page": 67,
+        "chapter": "循环生理"
+      }
+    },
+    "expected_content": {
+      "definition": "心率 × 每搏输出量",
+      "clinical_relevance": "反映心脏泵血功能的重要指标"
+    },
+    "expected_relations": [
+      {"target_name": "心力衰竭", "relation_type": "related_concept"}
+    ],
+    "must_have_terms": ["心率 × 每搏输出量", "5L/min"],
+    "forbidden_terms": ["正常值 4.0L/min"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_concept_negative_feedback_001",
+    "title": "负反馈",
+    "type": "concept",
+    "aliases": ["Negative Feedback"],
+    "source_chunk": {
+      "raw_text": "负反馈是维持稳态的主要机制。例如血糖升高后胰岛素分泌增加使血糖降低。负反馈使系统回到设定点。",
+      "source": {
+        "book": "生理学",
+        "edition": "第10版",
+        "page": 12,
+        "chapter": "稳态"
+      }
+    },
+    "expected_content": {
+      "definition": "维持稳态的主要机制",
+      "clinical_relevance": "血糖调节、血压调节、体温调节"
+    },
+    "expected_relations": [
+      {"target_name": "正反馈", "relation_type": "contrast"}
+    ],
+    "must_have_terms": ["血糖升高后胰岛素分泌增加", "使血糖降低"],
+    "forbidden_terms": ["正反馈是主要机制"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  },
+  {
+    "id": "golden_concept_pulmonary_ventilation_001",
+    "title": "肺通气",
+    "type": "concept",
+    "aliases": ["Pulmonary Ventilation"],
+    "source_chunk": {
+      "raw_text": "肺通气是指肺与外界环境之间的气体交换。包括吸气和呼气。肺通气动力来自呼吸肌收缩。肺通气量 = 潮气量 × 呼吸频率。",
+      "source": {
+        "book": "生理学",
+        "edition": "第10版",
+        "page": 89,
+        "chapter": "呼吸生理"
+      }
+    },
+    "expected_content": {
+      "definition": "肺与外界环境之间的气体交换",
+      "clinical_relevance": "肺通气量 = 潮气量 × 呼吸频率"
+    },
+    "expected_relations": [
+      {"target_name": "肺换气", "relation_type": "contrast"}
+    ],
+    "must_have_terms": ["肺通气量 = 潮气量 × 呼吸频率"],
+    "forbidden_terms": ["肺换气 = 肺通气"],
+    "scoring_weights": {
+      "completeness": 0.35,
+      "hallucination": 0.30,
+      "schema_compliance": 0.20,
+      "relation_quality": 0.15
+    }
+  }
+]
