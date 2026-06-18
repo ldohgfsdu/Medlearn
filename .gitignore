@@ -108,7 +108,7 @@ training/*_report.json
 
 # Generated textbook artifacts and local source PDFs
 generated/
-textbook/
+/textbook/
 
 # Large binary files (unrelated to project)
 *.zip
@@ -122,3 +122,37 @@ coverage/
 
 expo-env.d.ts
 # @end expo-cli
+
+# ==========================================
+# 自动生成的临时文件与运行时缓存 (Auto-generated & Temp)
+# ==========================================
+.tmp-*/
+memory/
+diagnostics/
+
+# ==========================================
+# 归档与历史备份 (Archives & Backups)
+# ==========================================
+archive/backups/
+archive/installers/
+archive/manifests/
+state/archive/
+training/archive/e-ml-train/
+
+# ==========================================
+# 报告与临时生成物 (Reports & Artifacts)
+# ==========================================
+reports/*.json
+reports/*.md
+!reports/README.md
+design-demos/
+
+# ==========================================
+# 本地工具与一次性脚本 (Local Tools & One-off Scripts)
+# ==========================================
+scripts/diagnostics/
+scripts/serve-spa.mjs
+scripts/start_android_studio_local_llm_proxy.ps1
+scripts/switch-ollama-warmup.ps1
+scripts/ollama_no_think_proxy.py
+scripts/check_local_ml_layout.py
