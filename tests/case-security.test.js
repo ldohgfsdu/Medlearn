@@ -77,7 +77,7 @@ test('ai proxy enforces per-user quota and records usage', () => {
 })
 
 test('knowledge access layer uses knowledge_nodes schema', () => {
-  const source = read('app/lib/knowledge.ts')
+  const source = read('hooks/useKnowledge.ts')
   assert.match(source, /knowledge_nodes/)
   assert.doesNotMatch(source, /knowledge_points/)
 })
