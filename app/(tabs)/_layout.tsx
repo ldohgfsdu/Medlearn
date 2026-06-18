@@ -92,6 +92,8 @@ export default function TabsLayout() {
         name="ask"
         options={{
           href: null,
+          title: '智能问答',
+          headerTitle: '智能问答',
         }}
       />
       <Tabs.Screen

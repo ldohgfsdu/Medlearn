@@ -14,13 +14,54 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
-import { useCaseSession } from '@/hooks/useCaseSession'
+import { resolveCaseTemplate, useCaseSession } from '@/hooks/useCaseSession'
 import { supabase } from '@/lib/supabase'
-import { caseEngine, type CaseState, type CaseMessage } from '@/services/case-engine'
+import {
+  caseEngine,
+  type CaseState,
+  type CaseMessage,
+  type RevealedState,
+} from '@/services/case-engine'
+import { isIntentType } from '@/services/intent-parser'
 import { abandonCase } from '@/services/case-abandon'
-import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
 import { CasePhase, PHASE_LABELS, EXAM_REGIONS, LAB_TESTS } from '@/constants/vindicate'
 import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
+
+export const options = { headerTitle: '病例模拟' }
+
+const WORKFLOW_PHASES = [
+  CasePhase.INTRO,
+  CasePhase.HISTORY,
+  CasePhase.EXAM,
+  CasePhase.TESTS,
+  CasePhase.DIAGNOSIS,
+] as const
+
+const CHIEF_COMPLAINT_LABELS: Record<string, string> = {
+  chest_pain: '胸痛',
+  abdominal_pain: '腹痛',
+  headache: '头痛',
+  fever: '发热',
+  dyspnea: '呼吸困难',
+}
+
+function getPhaseHint(phase: CasePhase): string {
+  switch (phase) {
+    case CasePhase.INTRO:
+      return '先问候患者，再自由提问；没有预设回答时会由 AI 患者回复。'
+    case CasePhase.HISTORY:
+      return '继续问诊，或点「查体」「开检查」进入下一步。'
+    case CasePhase.EXAM:
+      return '完成查体后可开检查，或提交诊断。'
+    case CasePhase.TESTS:
+      return '查看检查结果后，可提交诊断。'
+    case CasePhase.DIAGNOSIS:
+      return '请在诊断页提交正式诊断与治疗。'
+    default:
+      return ''
+  }
+}
 
 let localMessageSequence = 0
 
@@ -43,55 +84,82 @@ export default function CaseChatScreen() {
   const [showTestSheet, setShowTestSheet] = useState(false)
   const [ending, setEnding] = useState(false)
   const scrollViewRef = useRef<ScrollView>(null)
-  const sessionLoadedRef = useRef(false)
+  const initializedSessionRef = useRef<string | null>(null)
+
+  function mapDbMessages(
+    rows: Array<{
+      id: string
+      role: string
+      content: string
+      turn_number: number
+      intent_type?: string | null
+      intent_target?: string | null
+      created_at: string
+    }>,
+  ): CaseMessage[] {
+    return rows.map((m) => ({
+      id: m.id,
+      role: m.role as CaseMessage['role'],
+      content: m.content,
+      turnNumber: m.turn_number,
+      intentType: isIntentType(m.intent_type) ? m.intent_type : undefined,
+      intentTarget: m.intent_target ?? undefined,
+      createdAt: m.created_at,
+    }))
+  }
 
   // 初始化：从 React Query 缓存加载会话状态
   useEffect(() => {
-    if (sessionData && !sessionLoadedRef.current) {
-      sessionLoadedRef.current = true
+    if (!sessionData || !sessionId) return
+
+    let cancelled = false
+
+    if (initializedSessionRef.current !== sessionId) {
+      initializedSessionRef.current = sessionId
+      setMessages([])
+      const defaultRevealed: RevealedState = {
+        historyFields: [],
+        examPerformed: [],
+        testsOrdered: [],
+        testsResultsReleased: [],
+      }
       setState({
         caseId: sessionData.case_id,
         sessionId: sessionData.id,
-        currentPhase: sessionData.current_phase,
-        revealed: sessionData.revealed || {
-          historyFields: [],
-          examPerformed: [],
-          testsOrdered: [],
-          testsResultsReleased: [],
-        },
+        currentPhase: sessionData.current_phase as CasePhase,
+        revealed: (sessionData.revealed as RevealedState | null) ?? defaultRevealed,
         turnCount: sessionData.turn_count || 0,
         hintsUsed: sessionData.hints_used || 0,
         maxHints: sessionData.max_hints || 3,
         startedAt: sessionData.started_at,
       })
+    }
 
-      // 加载历史消息
-      const loadMessages = async () => {
-        try {
-          const { data: msgs } = await supabase
-            .from('case_messages')
-            .select('*')
-            .eq('session_id', sessionId!)
-            .order('turn_number', { ascending: true })
+    const loadMessages = async () => {
+      try {
+        const { data: msgs } = await supabase
+          .from('case_messages')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('turn_number', { ascending: true })
+          .order('created_at', { ascending: true })
 
-          if (msgs) {
-            setMessages(
-              msgs.map((m) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                turnNumber: m.turn_number,
-                intentType: m.intent_type,
-                intentTarget: m.intent_target,
-                createdAt: m.created_at,
-              }))
-            )
-          }
-        } catch (e) {
-          console.error('加载消息失败:', e)
-        }
+        if (cancelled || !msgs) return
+
+        setMessages((current) => {
+          // 避免慢速初始加载覆盖用户已发送的本地消息
+          if (current.length > 0) return current
+          return mapDbMessages(msgs)
+        })
+      } catch (e) {
+        console.error('加载消息失败:', e)
       }
-      loadMessages()
+    }
+
+    void loadMessages()
+
+    return () => {
+      cancelled = true
     }
   }, [sessionData, sessionId])
 
@@ -102,12 +170,14 @@ export default function CaseChatScreen() {
     setInputText('')
     setLoading(true)
 
+    const nextTurn = (state?.turnCount ?? 0) + 1
+
     // 立即显示用户消息
     const tempUserMsg: CaseMessage = {
       id: createLocalMessageId('temp'),
       role: 'user',
       content: userMessage,
-      turnNumber: messages.length + 1,
+      turnNumber: nextTurn,
       createdAt: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, tempUserMsg])
@@ -126,7 +196,7 @@ export default function CaseChatScreen() {
         id: createLocalMessageId('assistant'),
         role: 'assistant',
         content: response,
-        turnNumber: messages.length + 1,
+        turnNumber: newState.turnCount,
         intentType: intent.type,
         intentTarget: intent.target,
         createdAt: new Date().toISOString(),
@@ -163,11 +233,12 @@ export default function CaseChatScreen() {
     if (!user || !sessionId || loading) return
     setLoading(true)
 
+    const nextTurn = (state?.turnCount ?? 0) + 1
     const tempUserMsg: CaseMessage = {
       id: createLocalMessageId('temp'),
       role: 'user',
       content: message,
-      turnNumber: messages.length + 1,
+      turnNumber: nextTurn,
       createdAt: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, tempUserMsg])
@@ -180,7 +251,7 @@ export default function CaseChatScreen() {
         id: createLocalMessageId('assistant'),
         role: 'assistant',
         content: response,
-        turnNumber: messages.length + 1,
+        turnNumber: newState.turnCount,
         createdAt: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, assistantMsg])
@@ -279,11 +350,10 @@ export default function CaseChatScreen() {
     }
   }
 
-  const currentPhaseIndex = state
-    ? [CasePhase.INTRO, CasePhase.HISTORY, CasePhase.EXAM, CasePhase.TESTS, CasePhase.DIAGNOSIS].indexOf(
-        state.currentPhase
-      )
-    : 0
+  const currentPhaseIndex = state ? WORKFLOW_PHASES.indexOf(state.currentPhase as (typeof WORKFLOW_PHASES)[number]) : 0
+  const caseTemplate = resolveCaseTemplate(sessionData?.case_templates)
+  const caseTitle = caseTemplate?.title
+  const chiefComplaint = caseTemplate?.chief_complaint
 
   return (
     <KeyboardAvoidingView
@@ -291,30 +361,76 @@ export default function CaseChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
+      {caseTitle && (
+        <View style={styles.caseHeader}>
+          <View style={styles.caseHeaderMain}>
+            <Text style={styles.caseTitle} numberOfLines={1}>
+              {caseTitle}
+            </Text>
+            {state && (
+              <View style={styles.turnBadge}>
+                <Text style={styles.turnBadgeText}>第 {state.turnCount} 轮</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.caseMetaRow}>
+            {chiefComplaint && (
+              <Text style={styles.caseMeta}>
+                主诉 · {CHIEF_COMPLAINT_LABELS[chiefComplaint] ?? chiefComplaint}
+              </Text>
+            )}
+            {caseTemplate?.specialty && (
+              <Text style={styles.caseSpecialty}>{caseTemplate.specialty}</Text>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* Phase 指示器 */}
       {state && (
         <View style={styles.phaseBar}>
-          {[CasePhase.HISTORY, CasePhase.EXAM, CasePhase.TESTS, CasePhase.DIAGNOSIS].map((phase, i) => {
+          {WORKFLOW_PHASES.map((phase, i) => {
             const isActive = state.currentPhase === phase
-            const isPast = currentPhaseIndex > i + 1
+            const isPast = currentPhaseIndex > i
+            const showConnector = i < WORKFLOW_PHASES.length - 1
             return (
               <View key={phase} style={styles.phaseItem}>
-                <View
-                  style={[
-                    styles.phaseDot,
-                    isActive && styles.phaseDotActive,
-                    isPast && styles.phaseDotPast,
-                  ]}
-                >
-                  <Text
+                <View style={styles.phaseTrack}>
+                  {i > 0 && (
+                    <View
+                      style={[
+                        styles.phaseConnector,
+                        styles.phaseConnectorLeft,
+                        (isPast || isActive) && styles.phaseConnectorDone,
+                      ]}
+                    />
+                  )}
+                  <View
                     style={[
-                      styles.phaseDotText,
-                      isActive && styles.phaseDotTextActive,
-                      isPast && styles.phaseDotTextPast,
+                      styles.phaseDot,
+                      isActive && styles.phaseDotActive,
+                      isPast && styles.phaseDotPast,
                     ]}
                   >
-                    {isPast ? '✓' : i + 1}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.phaseDotText,
+                        isActive && styles.phaseDotTextActive,
+                        isPast && styles.phaseDotTextPast,
+                      ]}
+                    >
+                      {isPast ? '✓' : i + 1}
+                    </Text>
+                  </View>
+                  {showConnector && (
+                    <View
+                      style={[
+                        styles.phaseConnector,
+                        styles.phaseConnectorRight,
+                        isPast && styles.phaseConnectorDone,
+                      ]}
+                    />
+                  )}
                 </View>
                 <Text style={[styles.phaseLabel, isActive && styles.phaseLabelActive]}>
                   {PHASE_LABELS[phase]}
@@ -324,6 +440,13 @@ export default function CaseChatScreen() {
           })}
         </View>
       )}
+
+      {state && getPhaseHint(state.currentPhase) ? (
+        <View style={styles.phaseHint}>
+          <Ionicons name="information-circle-outline" size={16} color={Colors.primary[600]} />
+          <Text style={styles.phaseHintText}>{getPhaseHint(state.currentPhase)}</Text>
+        </View>
+      ) : null}
 
       {focus && (
         <View style={styles.focusBanner}>
@@ -343,24 +466,46 @@ export default function CaseChatScreen() {
         {/* 系统消息 */}
         {messages.length === 0 && (
           <View style={styles.systemBubble}>
+            <Text style={styles.systemEyebrow}>教学提示</Text>
             <Text style={styles.systemText}>
-              {'开始你的问诊吧！试着问患者"你今天怎么不舒服？"'}
+              先问候患者，再自由提问。例如：「你好，请问哪里不舒服？」「胸痛是怎么开始的？」
             </Text>
           </View>
         )}
 
         {messages.map((msg) => (
           <View key={msg.id}>
-            {msg.role === 'user' ? (
+            {msg.role === 'system' ? (
+              <View style={styles.hintBubble}>
+                <Ionicons name="bulb-outline" size={16} color={Colors.warning} />
+                <Text style={styles.hintText}>{msg.content}</Text>
+              </View>
+            ) : msg.role === 'user' ? (
               <View style={styles.userBubbleContainer}>
-                <View style={styles.userBubble}>
-                  <Text style={styles.userText}>{msg.content}</Text>
+                <View style={styles.messageRow}>
+                  <View style={styles.userAvatar}>
+                    <Ionicons name="medkit" size={14} color={Colors.primary[600]} />
+                  </View>
+                  <View style={styles.userBubbleWrap}>
+                    <Text style={styles.messageLabel}>你</Text>
+                    <View style={styles.userBubble}>
+                      <Text style={styles.userText}>{msg.content}</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             ) : (
               <View style={styles.assistantBubbleContainer}>
-                <View style={styles.assistantBubble}>
-                  <Text style={styles.assistantText}>{msg.content}</Text>
+                <View style={styles.messageRow}>
+                  <View style={styles.patientAvatar}>
+                    <Ionicons name="person" size={14} color={Colors.textSecondary} />
+                  </View>
+                  <View style={styles.assistantBubbleWrap}>
+                    <Text style={styles.messageLabel}>患者</Text>
+                    <View style={styles.assistantBubble}>
+                      <Text style={styles.assistantText}>{msg.content}</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             )}
@@ -369,11 +514,20 @@ export default function CaseChatScreen() {
 
         {loading && (
           <View style={styles.assistantBubbleContainer}>
-            <View style={styles.assistantBubble}>
-              <View style={styles.typingIndicator}>
-                <View style={[styles.typingDot, styles.typingDot1]} />
-                <View style={[styles.typingDot, styles.typingDot2]} />
-                <View style={[styles.typingDot, styles.typingDot3]} />
+            <View style={styles.messageRow}>
+              <View style={styles.patientAvatar}>
+                <Ionicons name="person" size={14} color={Colors.textSecondary} />
+              </View>
+              <View style={styles.assistantBubbleWrap}>
+                <Text style={styles.messageLabel}>患者</Text>
+                <View style={styles.assistantBubble}>
+                  <Text style={styles.typingLabel}>正在组织回答…</Text>
+                  <View style={styles.typingIndicator}>
+                    <View style={[styles.typingDot, styles.typingDot1]} />
+                    <View style={[styles.typingDot, styles.typingDot2]} />
+                    <View style={[styles.typingDot, styles.typingDot3]} />
+                  </View>
+                </View>
               </View>
             </View>
           </View>
@@ -449,6 +603,7 @@ export default function CaseChatScreen() {
             onPress={() => setShowExamSheet(false)}
           />
           <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>选择查体区域</Text>
               <TouchableOpacity onPress={() => setShowExamSheet(false)}>
@@ -488,6 +643,7 @@ export default function CaseChatScreen() {
             onPress={() => setShowTestSheet(false)}
           />
           <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>选择检查项目</Text>
               <TouchableOpacity onPress={() => setShowTestSheet(false)}>
@@ -531,6 +687,80 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  caseHeader: {
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+    ...Shadows.level1,
+  },
+  caseHeaderMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  caseTitle: {
+    ...Typography.titleSmall,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    flex: 1,
+  },
+  turnBadge: {
+    backgroundColor: Colors.primary[50],
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.primary[100],
+  },
+  turnBadgeText: {
+    ...Typography.labelSmall,
+    color: Colors.primary[700],
+    fontWeight: '600',
+  },
+  caseMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: Spacing.sm,
+  },
+  caseMeta: {
+    ...Typography.labelSmall,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  caseSpecialty: {
+    ...Typography.labelSmall,
+    color: Colors.primary[700],
+    backgroundColor: Colors.primary[50],
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    overflow: 'hidden',
+  },
+  phaseHint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.primary[50],
+    borderWidth: 1,
+    borderColor: Colors.primary[100],
+  },
+  phaseHintText: {
+    ...Typography.bodySmall,
+    color: Colors.primary[800],
+    flex: 1,
+    lineHeight: 18,
+  },
   focusBanner: {
     marginHorizontal: Spacing.base,
     marginTop: Spacing.sm,
@@ -563,12 +793,34 @@ const styles = StyleSheet.create({
   },
   phaseItem: {
     alignItems: 'center',
-    minWidth: 44,
+    flex: 1,
+    minWidth: 0,
+  },
+  phaseTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  phaseConnector: {
+    flex: 1,
+    height: 2,
+    backgroundColor: Colors.neutral[200],
+    maxWidth: 28,
+  },
+  phaseConnectorLeft: {
+    marginRight: 4,
+  },
+  phaseConnectorRight: {
+    marginLeft: 4,
+  },
+  phaseConnectorDone: {
+    backgroundColor: Colors.primary[200],
   },
   phaseDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Colors.neutral[200],
     alignItems: 'center',
     justifyContent: 'center',
@@ -607,22 +859,88 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   systemBubble: {
-    backgroundColor: Colors.neutral[100],
+    backgroundColor: Colors.surface,
     padding: Spacing.md,
     borderRadius: BorderRadius.xl,
-    alignSelf: 'center',
+    alignSelf: 'stretch',
     marginVertical: Spacing.lg,
-    maxWidth: '80%',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.level1,
+  },
+  systemEyebrow: {
+    ...Typography.labelSmall,
+    color: Colors.primary[700],
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   systemText: {
     ...Typography.bodySmall,
     color: Colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.sm,
+    maxWidth: '100%',
+  },
+  messageLabel: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    marginBottom: 4,
+    marginLeft: 2,
+  },
+  userAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  patientAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.neutral[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  userBubbleWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  assistantBubbleWrap: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  hintBubble: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    backgroundColor: '#FFF8ED',
+    borderWidth: 1,
+    borderColor: '#F5DFB8',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    marginHorizontal: Spacing.xs,
+  },
+  hintText: {
+    ...Typography.bodySmall,
+    color: Colors.textPrimary,
+    flex: 1,
+    lineHeight: 20,
   },
   userBubbleContainer: {
     alignItems: 'flex-end',
-    marginBottom: Spacing.sm,
-    marginLeft: 60,
+    marginBottom: Spacing.md,
+    marginLeft: 24,
   },
   userBubble: {
     backgroundColor: Colors.primary[500],
@@ -631,6 +949,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderBottomRightRadius: 4,
     maxWidth: '100%',
+    ...Shadows.level1,
   },
   userText: {
     ...Typography.bodyMedium,
@@ -638,8 +957,8 @@ const styles = StyleSheet.create({
   },
   assistantBubbleContainer: {
     alignItems: 'flex-start',
-    marginBottom: Spacing.sm,
-    marginRight: 60,
+    marginBottom: Spacing.md,
+    marginRight: 24,
   },
   assistantBubble: {
     backgroundColor: Colors.surface,
@@ -650,16 +969,22 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
     maxWidth: '100%',
+    ...Shadows.level1,
   },
   assistantText: {
     ...Typography.bodyMedium,
     color: Colors.textPrimary,
     lineHeight: 22,
   },
+  typingLabel: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    marginBottom: 6,
+  },
   typingIndicator: {
     flexDirection: 'row',
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   typingDot: {
     width: 8,
@@ -711,6 +1036,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.border,
     gap: Spacing.sm,
+    ...Shadows.level1,
   },
   endButton: {
     width: 36,
@@ -764,11 +1090,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BorderRadius['2xl'],
     maxHeight: '60%',
     zIndex: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 8,
+    ...Shadows.sheet,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.neutral[300],
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   sheetHeader: {
     flexDirection: 'row',

@@ -25,7 +25,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (loading) return
 
     const inAuthGroup = segments[0] === '(auth)'
-    const isPublicRoute = segments[0] === 'map'
+    const isPublicRoute = segments[0] === 'map' || segments[0] === 'textbook'
 
     if (!user && !inAuthGroup && !isPublicRoute) {
       // 未登录，跳转登录页
@@ -89,6 +89,20 @@ export default function RootLayout() {
               options={{
                 headerTitle: '知识搜索',
                 headerBackTitle: '返回',
+              }}
+            />
+            <Stack.Screen
+              name="textbook/index"
+              options={{
+                headerTitle: '电子教材',
+                headerBackTitle: '返回',
+              }}
+            />
+            <Stack.Screen
+              name="textbook/[sectionId]"
+              options={{
+                headerTitle: '章节详情',
+                headerBackTitle: '电子教材',
               }}
             />
             <Stack.Screen

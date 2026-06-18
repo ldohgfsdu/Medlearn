@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react'
+
+export const options = { headerTitle: '考试' }
 import {
   View,
   Text,
@@ -14,9 +16,13 @@ import { useExamSession } from '@/hooks/useExam'
 import { useAuth } from '@/hooks/useAuth'
 import { calculateScore } from '@/services/exam'
 import { Colors, Typography, Spacing, BorderRadius, Shadows, getGrade } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
+import { pageStyles } from '@/constants/pageStyles'
 import { FeedbackLoopCard } from '@/components/FeedbackLoopCard'
 import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
 import { uniqueWeakNodeIds } from '@/utils/learningFeedback'
+import { supabase } from '@/lib/supabase'
+import { resolveTarget } from '@/utils/routeBuilders'
 
 /** 多选题位掩码工具 */
 function toggleBit(mask: number, bit: number): number {
@@ -53,6 +59,20 @@ export default function ExamScreen() {
     wrongQuestions: number[]
     sessionId: string
   } | null>(null)
+
+  const openReviewTarget = async (nodeId: string) => {
+    const { data, error } = await supabase
+      .from('knowledge_nodes')
+      .select('disease_id, chapter_section_id, content_class')
+      .eq('id', nodeId)
+      .maybeSingle()
+    if (error) {
+      Alert.alert('无法打开', '知识目标读取失败，请稍后重试。')
+      return
+    }
+    const target = data ? resolveTarget(data) : null
+    if (target) router.push(target)
+  }
 
   const {
     questions,
@@ -115,31 +135,18 @@ export default function ExamScreen() {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.setupContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.setupHero}>
-            <View style={styles.setupHeroTop}>
-              <Text style={styles.setupEyebrow}>KNOWLEDGE CHECK / 01</Text>
-              <View style={styles.setupHeroMark}>
-                <Ionicons name="reader-outline" size={22} color="#FFFDF9" />
-              </View>
-            </View>
-            <Text style={styles.setupTitle}>{nodeTitle}</Text>
-            <Text style={styles.setupSubtitle}>
+          <View style={pageStyles.pageIntro}>
+            <Text style={pageStyles.pageIntroTitle}>{nodeTitle}</Text>
+            <Text style={pageStyles.pageIntroText}>
               {nodeIds.length > 0
                 ? `围绕 ${nodeIds.length} 个知识点生成一轮短测。先作答，再根据错题决定下一步。`
                 : '请从知识点页面选择范围后进入考试。'}
             </Text>
-            <View style={styles.setupScope}>
-              <Text style={styles.setupScopeValue}>
-                {String(nodeIds.length).padStart(2, '0')}
-              </Text>
-              <Text style={styles.setupScopeLabel}>知识点范围</Text>
-            </View>
           </View>
 
           <View style={styles.configPanel}>
             <View style={styles.configSection}>
               <View style={styles.configHeading}>
-                <Text style={styles.configIndex}>01</Text>
                 <View>
                   <Text style={styles.configLabel}>题目数量</Text>
                   <Text style={styles.configHint}>短测优先，完成后可围绕盲点再来一轮</Text>
@@ -162,7 +169,6 @@ export default function ExamScreen() {
 
             <View style={[styles.configSection, styles.configSectionLast]}>
               <View style={styles.configHeading}>
-                <Text style={styles.configIndex}>02</Text>
                 <View>
                   <Text style={styles.configLabel}>难度级别</Text>
                   <Text style={styles.configHint}>中等适合第一次检查理解</Text>
@@ -227,7 +233,6 @@ export default function ExamScreen() {
         <ScrollView contentContainerStyle={styles.resultContent}>
           {/* 分数展示 */}
           <View style={styles.scoreCard}>
-            <Text style={styles.scoreEyebrow}>ASSESSMENT RESULT</Text>
             <Text style={styles.scoreLabel}>这一轮的理解完成度</Text>
             <Text style={[styles.scoreValue, { color: grade.color }]}>
               {examResult.totalScore}
@@ -323,7 +328,7 @@ export default function ExamScreen() {
                 <TouchableOpacity
                   key={nodeId}
                   style={styles.weakItem}
-                  onPress={() => router.push(`/node/${nodeId}` as any)}
+                  onPress={() => void openReviewTarget(nodeId)}
                 >
                   <View style={styles.weakItemIcon}>
                     <Ionicons name="book-outline" size={17} color={Colors.primary[700]} />
@@ -506,68 +511,8 @@ const styles = StyleSheet.create({
 
   // ---- 未开始状态 ----
   setupContent: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Layout.screenPaddingX,
     paddingBottom: Spacing['4xl'],
-  },
-  setupHero: {
-    minHeight: 270,
-    backgroundColor: Colors.ink,
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
-    ...Shadows.level2,
-  },
-  setupHeroTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  setupEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: '#9DC8B9',
-  },
-  setupHeroMark: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 253, 249, 0.12)',
-  },
-  setupTitle: {
-    fontSize: 29,
-    lineHeight: 37,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-    color: '#FFFDF9',
-    marginTop: Spacing.lg,
-  },
-  setupSubtitle: {
-    ...Typography.bodyMedium,
-    color: 'rgba(255, 253, 249, 0.64)',
-    lineHeight: 22,
-    marginTop: Spacing.sm,
-    maxWidth: 330,
-  },
-  setupScope: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing.sm,
-    marginTop: 'auto',
-    paddingTop: Spacing.xl,
-  },
-  setupScopeValue: {
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '300',
-    color: '#E7DCC9',
-  },
-  setupScopeLabel: {
-    ...Typography.labelSmall,
-    color: 'rgba(255, 253, 249, 0.5)',
   },
   configPanel: {
     backgroundColor: Colors.surface,
@@ -591,13 +536,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.md,
   },
-  configIndex: {
-    width: 24,
-    fontSize: 10,
-    lineHeight: 18,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-  },
+
   configLabel: {
     ...Typography.titleSmall,
     color: Colors.textPrimary,
@@ -878,14 +817,6 @@ const styles = StyleSheet.create({
     ...Typography.labelMedium,
     color: 'rgba(255, 253, 249, 0.62)',
     marginBottom: Spacing.xs,
-  },
-  scoreEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: '#9DC8B9',
-    marginBottom: Spacing.md,
   },
   scoreValue: {
     ...Typography.displayLarge,

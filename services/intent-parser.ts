@@ -24,6 +24,23 @@ export type IntentType =
   | 'empty'
   | 'unknown'
 
+const INTENT_TYPES = new Set<IntentType>([
+  'ask_history',
+  'physical_exam',
+  'order_test',
+  'mention_diagnosis',
+  'mention_treatment',
+  'phase_transition',
+  'off_topic',
+  'greeting',
+  'empty',
+  'unknown',
+])
+
+export function isIntentType(value: string | null | undefined): value is IntentType {
+  return typeof value === 'string' && INTENT_TYPES.has(value as IntentType)
+}
+
 export interface Intent {
   type: IntentType
   target?: string

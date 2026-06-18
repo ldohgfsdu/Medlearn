@@ -71,7 +71,13 @@ scripts/                Textbook ingestion and validation
 tests/                  Node and Python regression tests
 state/                  Machine-readable execution state
 docs/                   Current documentation and archive
+training/               Local model datasets, evaluation and checkpoints
+artifacts/              Generated reports, benchmarks and QA output (ignored)
+archive/                Historical backups; never imported by production code
+design-demos/           Standalone UI prototypes
 ```
+
+完整目录规则见 [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md)。
 
 ## Local Setup
 

@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
-import { useRouter } from 'expo-router'
+import { type Href, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
 import { useHomeStats, useKnowledgeLibraryStats, useRecentSessions } from '@/hooks/useKnowledge'
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -27,30 +28,26 @@ function getGreeting(): string {
 }
 
 const KNOWLEDGE_ITEM = {
-  index: '01',
-  title: '知识地图',
-  subtitle: '按教材目录浏览疾病、概念与结构化要点',
+  title: '电子教材',
+  subtitle: '按教材目录进入章节，查看知识点、证据和页码范围',
   icon: 'book-outline' as const,
-  route: '/(tabs)/learn' as const,
+  route: '/textbook' as Href,
 }
 
 const TRAIN_ITEMS = [
   {
-    index: '02',
     title: '开始病例',
     subtitle: '从主诉进入问诊、查体、检查和决策',
     icon: 'pulse-outline' as const,
     route: '/(tabs)/cases' as const,
   },
   {
-    index: '03',
     title: '病例复盘',
     subtitle: '查看已完成病例的评分与优先改进项',
     icon: 'document-text-outline' as const,
     route: { pathname: '/(tabs)/cases', params: { section: 'history' } } as const,
   },
   {
-    index: '04',
     title: '学习报告',
     subtitle: '查看累计病例、活跃学习日与表现概览',
     icon: 'analytics-outline' as const,
@@ -68,8 +65,6 @@ export default function HomeScreen() {
   const { data: recentSessions } = useRecentSessions(user?.id)
 
   const completedToday = stats?.completedToday ?? 0
-  const learningDays = stats?.learningDays ?? 0
-  const completedCases = stats?.completedCases ?? 0
   const dailyMinimumMet = completedToday > 0
 
   return (
@@ -80,8 +75,7 @@ export default function HomeScreen() {
     >
       <View style={styles.brandRow}>
         <View>
-          <Text style={styles.brand}>MEDLEARN</Text>
-          <Text style={styles.brandCaption}>Clinical Learning Studio</Text>
+          <Text style={styles.brand}>MedLearn</Text>
         </View>
         <TouchableOpacity style={styles.avatarButton} onPress={() => router.push('/(tabs)/profile')}>
           <Text style={styles.avatarText}>{nickname.slice(0, 1)}</Text>
@@ -117,7 +111,9 @@ export default function HomeScreen() {
             <View style={styles.heroLabelDot} />
             <Text style={styles.heroLabelText}>{dailyMinimumMet ? '今日已完成' : '今日下限'}</Text>
           </View>
-          <Text style={styles.heroNumber}>{dailyMinimumMet ? '✓' : '01'}</Text>
+          {dailyMinimumMet ? (
+            <Ionicons name="checkmark-circle" size={28} color="rgba(216, 235, 224, 0.35)" />
+          ) : null}
         </View>
         <Text style={styles.heroTitle}>
           {dailyMinimumMet ? <>今天已经完成。{'\n'}继续练，是额外收获</> : <>只做一个病例，{'\n'}先让学习开始</>}
@@ -137,12 +133,9 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionEyebrow}>KNOWLEDGE LIBRARY</Text>
-          <Text style={styles.sectionTitle}>知识库</Text>
-        </View>
+        <Text style={styles.sectionTitle}>知识库</Text>
         <Text style={styles.sectionCount}>
-          {String(libraryStats?.totalNodes ?? 0).padStart(2, '0')}
+          {libraryStats?.totalNodes ?? 0} 个知识点
         </Text>
       </View>
 
@@ -152,7 +145,6 @@ export default function HomeScreen() {
           activeOpacity={0.65}
           onPress={() => router.push(KNOWLEDGE_ITEM.route)}
         >
-          <Text style={styles.toolIndex}>{KNOWLEDGE_ITEM.index}</Text>
           <View style={styles.toolIcon}>
             <Ionicons name={KNOWLEDGE_ITEM.icon} size={21} color={Colors.primary[700]} />
           </View>
@@ -173,7 +165,6 @@ export default function HomeScreen() {
             activeOpacity={0.65}
             onPress={() => router.push(item.route)}
           >
-            <Text style={styles.toolIndex}>{item.index}</Text>
             <View style={styles.toolIcon}>
               <Ionicons name={item.icon} size={21} color={Colors.primary[700]} />
             </View>
@@ -186,30 +177,10 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      <View style={styles.dataStrip}>
-        <TouchableOpacity style={styles.dataItem} onPress={() => router.push('/(tabs)/cases')}>
-          <Text style={styles.dataValue}>{completedToday}</Text>
-          <Text style={styles.dataLabel}>今日记录</Text>
-        </TouchableOpacity>
-        <View style={styles.dataDivider} />
-        <TouchableOpacity style={styles.dataItem} onPress={() => router.push('/(tabs)/cases')}>
-          <Text style={styles.dataValue}>{completedCases}</Text>
-          <Text style={styles.dataLabel}>累计病例</Text>
-        </TouchableOpacity>
-        <View style={styles.dataDivider} />
-        <TouchableOpacity style={styles.dataItem} onPress={() => router.push('/(tabs)/analytics')}>
-          <Text style={styles.dataValue}>{learningDays}</Text>
-          <Text style={styles.dataLabel}>学习日</Text>
-        </TouchableOpacity>
-      </View>
-
       {recentSessions && recentSessions.length > 0 && (
         <>
           <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionEyebrow}>RECENT REVIEW</Text>
-              <Text style={styles.sectionTitle}>最近复盘</Text>
-            </View>
+            <Text style={styles.sectionTitle}>最近复盘</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/cases')}>
               <Text style={styles.seeAll}>全部记录</Text>
             </TouchableOpacity>
@@ -245,14 +216,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing['4xl'],
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingBottom: Layout.screenPaddingBottom,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing['2xl'],
+    marginBottom: Layout.sectionGap,
   },
   brand: {
     fontSize: 12,
@@ -260,12 +231,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2.2,
     color: Colors.primary[700],
-  },
-  brandCaption: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
-    marginTop: 2,
-    letterSpacing: 0.5,
   },
   avatarButton: {
     width: 44,
@@ -290,10 +255,10 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.base,
   },
   greeting: {
-    fontSize: 28,
-    lineHeight: 35,
+    fontSize: 24,
+    lineHeight: 30,
     fontWeight: '800',
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
     color: Colors.textPrimary,
   },
   greetingSub: {
@@ -327,31 +292,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   hero: {
-    minHeight: 292,
     overflow: 'hidden',
     backgroundColor: Colors.ink,
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
-    marginBottom: Spacing['2xl'],
-    ...Shadows.level2,
+    borderRadius: Layout.cardRadius,
+    padding: Layout.heroPadding,
+    marginBottom: Layout.sectionGap,
+    ...Shadows.level1,
   },
   heroOrbLarge: {
     position: 'absolute',
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    right: -80,
-    top: -65,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    right: -50,
+    top: -45,
     borderWidth: 1,
     borderColor: 'rgba(216, 235, 224, 0.16)',
   },
   heroOrbSmall: {
     position: 'absolute',
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    right: 28,
-    bottom: -54,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    right: 16,
+    bottom: -36,
     backgroundColor: 'rgba(226, 122, 87, 0.14)',
   },
   heroTopRow: {
@@ -375,33 +339,26 @@ const styles = StyleSheet.create({
     color: '#D8EBE0',
     letterSpacing: 0.8,
   },
-  heroNumber: {
-    fontSize: 44,
-    lineHeight: 48,
-    fontWeight: '300',
-    color: 'rgba(216, 235, 224, 0.2)',
-  },
   heroTitle: {
-    fontSize: 27,
-    lineHeight: 36,
+    fontSize: 22,
+    lineHeight: 29,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
     color: '#FFFDF9',
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
   },
   heroSubtitle: {
-    ...Typography.bodyMedium,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
     color: 'rgba(255, 253, 249, 0.66)',
-    maxWidth: 300,
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
   },
   heroActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 'auto',
-    paddingTop: Spacing.xl,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
   },
   heroButton: {
     flexDirection: 'row',
@@ -423,17 +380,9 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
-  },
-  sectionEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    color: Colors.textTertiary,
-    marginBottom: 3,
   },
   sectionTitle: {
     ...Typography.titleLarge,
@@ -448,12 +397,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.xl,
-    paddingHorizontal: Spacing.base,
-    marginBottom: Spacing.base,
+    borderRadius: Layout.cardRadius,
+    paddingHorizontal: Layout.cardPadding,
+    marginBottom: Spacing.sm,
   },
   toolRow: {
-    minHeight: 82,
+    minHeight: Layout.listRowHeight,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -461,16 +410,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
   },
-  toolIndex: {
-    width: 28,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-  },
   toolIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.lg,
+    width: Layout.iconWrap,
+    height: Layout.iconWrap,
+    borderRadius: Layout.iconWrap / 2,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary[50],
@@ -488,57 +431,31 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     marginTop: 2,
   },
-  dataStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-    marginBottom: Spacing['2xl'],
-  },
-  dataItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  dataDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 32,
-    backgroundColor: Colors.border,
-  },
-  dataValue: {
-    fontSize: 23,
-    lineHeight: 28,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-  },
-  dataLabel: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
-    marginTop: 3,
-  },
   seeAll: {
     ...Typography.labelMedium,
     color: Colors.primary[700],
   },
   recentList: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: Layout.cardRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Layout.cardPadding,
   },
   reviewItem: {
-    minHeight: 68,
+    minHeight: Layout.listRowHeightCompact,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   reviewItemBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
   },
   reviewMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: Layout.iconWrapSm,
+    height: Layout.iconWrapSm,
+    borderRadius: Layout.iconWrapSm / 2,
     backgroundColor: Colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',

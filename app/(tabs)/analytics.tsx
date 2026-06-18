@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useAnalyticsStats } from '@/hooks/useAnalyticsStats'
 import { BorderRadius, Colors, Spacing, Typography, getMasteryColor } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
 
 export default function AnalyticsScreen() {
   const router = useRouter()
@@ -142,8 +143,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing['4xl'],
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingBottom: Layout.screenPaddingBottom,
   },
   loadingContainer: {
     flex: 1,
@@ -160,9 +161,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing['2xl'],
+    borderRadius: Layout.cardRadius,
+    padding: Layout.cardPadding,
+    marginBottom: Layout.sectionGap,
   },
   summaryTitle: {
     ...Typography.titleLarge,
@@ -177,8 +178,8 @@ const styles = StyleSheet.create({
   summaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.lg,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.border,
   },
@@ -192,8 +193,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   summaryValue: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: '800',
     color: Colors.textPrimary,
   },
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   section: {
-    marginBottom: Spacing['2xl'],
+    marginBottom: Layout.sectionGap,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
   subjectRow: {
-    minHeight: 78,
+    minHeight: Layout.listRowHeight,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
   metricRow: {
-    minHeight: 68,
+    minHeight: Layout.listRowHeightCompact,
     flexDirection: 'row',
     alignItems: 'center',
   },

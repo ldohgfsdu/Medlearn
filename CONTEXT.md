@@ -1,17 +1,92 @@
-# MedLearn Domain Glossary
+# MedLearn Canonical Context
 
-## Knowledge
+This file defines shared language and durable interpretation. It does not track
+current execution status. Read `docs/CURRENT_STATE.md` for status.
 
-供学习者建立和复习医学理论基础的结构化知识。Knowledge 是独立的学习能力，不是进入 Case Simulator 的前置步骤。
+## Product
 
-## Case Simulator
+**MedLearn** is an educational system that uses structured medical knowledge to
+train clinical reasoning.
 
-学习者在临床情境中应用医学知识、收集证据并作出判断的训练能力。Case Simulator 是从理论理解跨越到临床应用的场所，可以独立进入和完成。
+> 书是基础。框架是核心。推理是终点。
 
-## Knowledge Application
+The product has two independent core capabilities:
 
-学习者把已经掌握的理论知识迁移到具体临床情境，并用于解释证据、形成诊断和作出处理判断的过程。Case Simulator 训练 Knowledge Application，但不要求学习者先在 MedLearn 内完成对应 Knowledge。
+- **Knowledge**: search, catalog browsing, textbook-grounded detail, and review.
+- **Case Simulator**: clinical information gathering, diagnosis, treatment
+  decisions, scoring, feedback, and retry.
 
-## Relationship Between Knowledge And Case Simulator
+Knowledge is not a prerequisite that unlocks cases. Cases may link back to
+relevant Knowledge after feedback, but must not create a forced funnel.
 
-Knowledge 与 Case Simulator 是平级、完全独立的产品能力。二者可以共享医学主题并相互提供可选关联，但不存在强制顺序、解锁关系或完成依赖。
+## Canonical Terms
+
+- **Textbook Version**: the ownership boundary for catalog structure, content,
+  evidence, and page references. Editions never silently share these records.
+- **Catalog Node**: a position in one textbook version's display hierarchy.
+- **Knowledge Detail Instance**: the detail content for one catalog object in
+  one textbook version.
+- **Source Aspect**: a heading or section owned by the textbook. Product labels
+  may help retrieval but must not rewrite the source structure.
+- **Knowledge Item**: a learner-facing organized statement derived from local
+  evidence.
+- **Evidence Artifact**: independently preserved source material such as text,
+  table, figure, caption, row, or cell.
+- **Source Scope Manifest**: the approved boundary describing which source
+  regions belong to a Knowledge Detail Instance.
+- **Verification Decision**: an immutable, auditable decision controlling
+  publication or review state.
+- **Active Object**: the single project-level execution priority recorded in
+  `state/active_object.yaml`.
+- **Pipeline Operational State**: subsystem progress such as
+  `state/knowledge_ingestion.yaml`; it does not create a second project-level
+  Active Object.
+
+## Medical Boundary
+
+- Intended users are medical students and junior residents.
+- The system is for education only.
+- Never accept identifiable real-patient data.
+- Never present generated text as textbook evidence.
+- Never publish unsupported or conflicting organized conclusions.
+- Dosage, contraindication, indication, first-choice treatment, treatment
+  priority, critical values, and procedural steps are high risk by default.
+- Automated checks support but do not replace qualified medical review.
+
+## Knowledge Display
+
+Keep display hierarchy and semantic relationships separate:
+
+```text
+Display: textbook -> system -> chapter/category -> disease -> source aspect
+Semantic: disease, symptom, mechanism, test, treatment, complication, relation
+```
+
+Search should navigate:
+
+```text
+query -> correct catalog object -> correct source aspect -> evidence -> page
+```
+
+Search must not become open-ended medical answer generation.
+
+## Current Technology
+
+- Expo Router, React Native, React, and TypeScript for the client.
+- Supabase Auth, PostgreSQL, RLS, and Edge Functions for backend services.
+- PostgreSQL full-text search and pgvector for retrieval.
+- Python ingestion and local model-training workflows.
+
+Treat `docs/TECHNICAL_ARCHITECTURE.md` cautiously where it is marked historical.
+Use current code, `package.json`, migrations, and tests for implementation facts.
+
+## Authority Map
+
+| Question | Source |
+|---|---|
+| What is MedLearn? | `docs/PROJECT_CONSTITUTION.md` |
+| What is in the MVP? | `docs/MVP_PRD_V2.md` |
+| What is active now? | `docs/CURRENT_STATE.md`, `state/*.yaml` |
+| Why was an architecture choice made? | accepted entries in `docs/ADR_INDEX.yaml` |
+| What exists in code? | code, migrations, tests, reproducible runtime evidence |
+| How should a task be routed? | `context/TASK_ROUTER.yaml` |

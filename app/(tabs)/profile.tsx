@@ -5,17 +5,19 @@ import Constants from 'expo-constants'
 import { useAuth } from '@/hooks/useAuth'
 import { useProfileStats } from '@/hooks/useProfileStats'
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
 
 const MENU_ITEMS: {
   icon: keyof typeof Ionicons.glyphMap
   label: string
   note: string
-  route?: '/(tabs)/analytics' | '/(tabs)/ask'
-  action?: 'about'
+  route?: '/(tabs)/analytics' | '/settings/ai'
+  action?: 'about' | 'feedback'
 }[] = [
   { icon: 'analytics-outline', label: '学习报告', note: '查看能力维度与进步趋势', route: '/(tabs)/analytics' },
   { icon: 'ribbon-outline', label: '学习成就', note: '里程碑与真实学习记录', route: '/(tabs)/analytics' },
-  { icon: 'chatbox-outline', label: '反馈建议', note: '在智能问答中描述问题与操作步骤', route: '/(tabs)/ask' },
+  { icon: 'sparkles-outline', label: 'AI 设置', note: '配置对话模型、API Key 与 Embedding', route: '/settings/ai' },
+  { icon: 'chatbox-outline', label: '反馈建议', note: '描述 App 问题、页面与操作步骤', action: 'feedback' },
   { icon: 'information-circle-outline', label: '关于 Medlearn', note: '版本、隐私与使用说明', action: 'about' },
 ]
 
@@ -31,6 +33,14 @@ export default function ProfileScreen() {
   const handleMenuPress = (item: (typeof MENU_ITEMS)[number]) => {
     if (item.route) {
       router.push(item.route)
+      return
+    }
+
+    if (item.action === 'feedback') {
+      Alert.alert(
+        '反馈建议',
+        '请描述你遇到的问题、所在页面和操作步骤，便于我们复现。\n\n本入口仅用于产品反馈，不提供医学问答或诊疗咨询。',
+      )
       return
     }
 
@@ -129,16 +139,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingBottom: Layout.screenPaddingBottom,
   },
   profileCard: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: Layout.cardRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.lg,
-    marginBottom: Spacing['2xl'],
+    padding: Layout.cardPadding,
+    marginBottom: Layout.sectionGap,
   },
   profileTop: {
     flexDirection: 'row',
@@ -146,15 +156,15 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: Colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 25,
+    fontSize: 20,
     fontWeight: '800',
     color: Colors.primary[700],
   },
@@ -180,8 +190,8 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.lg,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.border,
   },
@@ -190,8 +200,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: '800',
     color: Colors.textPrimary,
   },
@@ -222,14 +232,14 @@ const styles = StyleSheet.create({
   },
   menuGroup: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
+    borderRadius: Layout.cardRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: Spacing.base,
-    marginBottom: Spacing.lg,
+    paddingHorizontal: Layout.cardPadding,
+    marginBottom: Spacing.md,
   },
   menuItem: {
-    minHeight: 76,
+    minHeight: Layout.listRowHeight,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -238,9 +248,9 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   menuIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: Layout.iconWrap,
+    height: Layout.iconWrap,
+    borderRadius: Layout.iconWrap / 2,
     backgroundColor: Colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',

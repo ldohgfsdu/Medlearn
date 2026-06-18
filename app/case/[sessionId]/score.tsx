@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+
+export const options = { headerTitle: '评分报告' }
 import {
   View,
   Text,
@@ -17,7 +19,6 @@ import { useCaseSession } from '@/hooks/useCaseSession'
 import { supabase } from '@/lib/supabase'
 import { trackCaseEvent } from '@/services/analytics'
 import { caseEngine } from '@/services/case-engine'
-import type { ScoreReport } from '@/services/scoring-engine'
 import { FeedbackLoopCard } from '@/components/FeedbackLoopCard'
 import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
 import { getCaseFeedbackFocus } from '@/utils/learningFeedback'
@@ -45,7 +46,7 @@ export default function ScoreScreen() {
   const [issueType, setIssueType] = useState<'medical_content' | 'scoring'>('medical_content')
   const [submittingIssue, setSubmittingIssue] = useState(false)
   const [retrying, setRetrying] = useState(false)
-  const report = sessionData?.score as unknown as ScoreReport | null
+  const report = sessionData?.score ?? null
 
   useEffect(() => {
     if (sessionData?.score) {
@@ -56,7 +57,7 @@ export default function ScoreScreen() {
           sessionId,
           caseId: sessionData.case_id,
           properties: {
-            totalScore: (sessionData.score as any).totalScore,
+            totalScore: sessionData.score.totalScore,
           },
         })
       }

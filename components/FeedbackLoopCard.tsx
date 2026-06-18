@@ -10,7 +10,7 @@ interface FeedbackLoopCardProps {
 }
 
 export function FeedbackLoopCard({
-  eyebrow = 'NEXT ITERATION',
+  eyebrow,
   title,
   summary,
   action,
@@ -21,7 +21,7 @@ export function FeedbackLoopCard({
         <View style={styles.icon}>
           <Ionicons name="refresh-outline" size={18} color={Colors.primary[700]} />
         </View>
-        <Text style={styles.eyebrow}>{eyebrow}</Text>
+        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.summary}>{summary}</Text>
@@ -57,10 +57,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   eyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    ...Typography.labelSmall,
+    fontWeight: '700',
     color: Colors.primary[700],
   },
   title: {
