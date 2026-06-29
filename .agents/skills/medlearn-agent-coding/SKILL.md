@@ -28,6 +28,8 @@ description: Implement, debug, refactor, or document MedLearn repository changes
 ## Validate
 
 Apply `checklists/no-regression-rules.md`, then run the narrowest relevant tests.
+Before claiming a change is production ready, also apply
+`checklists/production-acceptance.md`.
 For broad client changes:
 
 ```powershell

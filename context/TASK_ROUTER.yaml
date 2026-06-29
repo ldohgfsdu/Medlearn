@@ -34,6 +34,47 @@ routes:
       - checklists/evidence-copy-eval.md
       - checklists/app-integration-gate.md
 
+  phase1_golden_path:
+    triggers:
+      - document tree
+      - golden path
+      - reading experience
+      - textbook hierarchy
+      - classification tree
+    skill: medlearn-review-ui
+    read:
+      - docs/architecture/phase1_phase2_gate.md
+      - state/active_object.yaml
+      - state/knowledge_ingestion.yaml
+      - CONTEXT.md
+    adr_tags: [catalog_node, knowledge_detail, evidence_artifact, detail_page]
+    checks:
+      - checklists/phase1-golden-path-acceptance.md
+      - checklists/app-integration-gate.md
+
+  phase1_visual_evidence:
+    triggers:
+      - pageviewer
+      - page image
+      - 页图
+      - 教材原文
+      - phase1 visual
+      - bbox
+      - source locator
+      - return path
+    skill: medlearn-phase1-visual-evidence
+    read:
+      - docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md
+      - docs/PIPELINE_INDEX.md
+      - docs/PDF_PARSER_ARCHITECTURE.md
+      - docs/adr/ADR-009-multimodal-evidence-artifacts.md
+      - state/active_object.yaml
+      - state/knowledge_ingestion.yaml
+    adr_tags: [evidence_artifact, knowledge_detail, detail_page]
+    checks:
+      - checklists/phase1-golden-path-acceptance.md
+      - checklists/app-integration-gate.md
+
   medical_content:
     triggers: [medical_claim, evidence, page_reference, treatment, dosage, contraindication, case_content]
     skill: medlearn-validate-medical-content
@@ -65,3 +106,12 @@ routes:
       - checklists/production-acceptance.md
       - checklists/no-regression-rules.md
 
+  documentation:
+    triggers: [documentation, docs, vitepress, obsidian, site, changelog, faq, handoff]
+    skill: medlearn-agent-coding
+    read:
+      - docs/OBSIDIAN_VAULT.md
+      - site/.vitepress/config.mts
+      - site/dev/development.md
+    checks:
+      - checklists/no-regression-rules.md

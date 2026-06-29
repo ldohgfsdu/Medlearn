@@ -48,3 +48,6 @@ metrics, failed gates, sampled error patterns, reproducibility details, and the
 next permitted action. Do not recommend broader training when the failing gate
 is data quality or evaluation integrity.
 
+A `pass` here is an experiment-stage gate only. Promoting the adapter to a
+production-facing artifact also requires `checklists/production-acceptance.md`.
+

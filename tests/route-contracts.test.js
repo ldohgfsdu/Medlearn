@@ -53,3 +53,47 @@ test('database migration defines identity constraints and reasoning gate', () =>
   assert.match(source, /invalid_medical_logic/)
   assert.match(source, /resolution_status <> 'rejected'/)
 })
+
+test('wrong-question routes preserve target textbook item identity', () => {
+  const homeSource = fs.readFileSync(path.join(root, 'app/(tabs)/index.tsx'), 'utf8')
+  const queueSource = fs.readFileSync(path.join(root, 'app/wrong-questions.tsx'), 'utf8')
+  const unitSource = fs.readFileSync(
+    path.join(root, 'app/textbook/[sectionId]/unit/[unitId].tsx'),
+    'utf8',
+  )
+
+  assert.match(homeSource, /targetItemId: candidate\.itemId/)
+  assert.match(queueSource, /targetItemId: record\.candidate\.itemId/)
+  assert.match(unitSource, /targetItemId/)
+  assert.match(unitSource, /findTargetItem/)
+  assert.match(homeSource, /home-wrong-question-input/)
+  assert.match(homeSource, /home-wrong-question-locate-button/)
+  assert.match(homeSource, /wrong-question-save-candidate-button/)
+  assert.match(homeSource, /wrong-question-open-candidate-button/)
+  assert.match(queueSource, /wrong-question-record/)
+  assert.match(queueSource, /-reason-\$\{reason\.id\}/)
+  assert.match(queueSource, /-open-textbook/)
+  assert.match(queueSource, /-toggle-reviewed/)
+  assert.match(queueSource, /wrong-question-reviewed-segment/)
+  assert.match(unitSource, /wrong-question-target-card/)
+  assert.match(unitSource, /wrong-question-target-evidence/)
+  assert.match(unitSource, /错题定位目标/)
+  assert.match(unitSource, /expandedGroups/)
+  assert.match(unitSource, /targetGroupIds/)
+  assert.match(unitSource, /accessibilityState=\{\{ expanded \}\}/)
+  assert.match(unitSource, /<Text style=\{styles\.itemPage\} numberOfLines=\{1\}>/)
+  assert.match(unitSource, /minWidth: 54/)
+  assert.match(unitSource, /flexShrink: 0/)
+})
+
+test('case training UI exposes current mode boundaries and VINDICATE guide', () => {
+  const casesSource = fs.readFileSync(path.join(root, 'app/(tabs)/cases.tsx'), 'utf8')
+  const diagnoseSource = fs.readFileSync(path.join(root, 'app/case/[sessionId]/diagnose.tsx'), 'utf8')
+
+  assert.match(casesSource, /case-mode-clinical/)
+  assert.match(casesSource, /case-mode-exam/)
+  assert.match(casesSource, /case-exam-mode-placeholder/)
+  assert.match(casesSource, /不生成模拟真题/)
+  assert.match(diagnoseSource, /diagnosis-vindicate-guide/)
+  assert.match(diagnoseSource, /VINDICATE_CATEGORIES/)
+})
