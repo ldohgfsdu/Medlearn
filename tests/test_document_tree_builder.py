@@ -23,7 +23,9 @@ from textbook_pipeline.document_tree import (  # noqa: E402
     ContentBlock,
     DocumentNode,
     DocumentTree,
+    GOLDEN_SCOPE_PROFILE,
     HeadingAnchor,
+    PendingReviewRecord,
     SourceAnchor,
 )
 from textbook_pipeline.document_tree_builder import (  # noqa: E402
@@ -526,3 +528,166 @@ class TestPDFManifestIntegration:
                 build_from_manifest(PDF, manifest_path)
         finally:
             manifest_path.unlink()
+
+
+# ---------------------------------------------------------------------------
+# Core: depth derivation (depth = parent.depth + 1)
+# ---------------------------------------------------------------------------
+
+class TestDepthDerivation:
+    def test_root_depth_zero(self):
+        root = _make_node(nid="root", depth=0, source_order=0, sibling_order=0)
+        tree = DocumentTree(
+            contract_version="document_tree.v1",
+            textbook_version_id="v", scope_id="s", catalog_path=[],
+            nodes=[root], content_blocks=[],
+        )
+        verify_invariants(tree)  # root with depth 0 passes
+
+    def test_root_nonzero_depth_raises(self):
+        root = _make_node(nid="root", depth=1, source_order=0, sibling_order=0)
+        tree = DocumentTree(
+            contract_version="document_tree.v1",
+            textbook_version_id="v", scope_id="s", catalog_path=[],
+            nodes=[root], content_blocks=[],
+        )
+        with pytest.raises(InvariantViolation, match="root.*depth"):
+            verify_invariants(tree)
+
+    def test_child_depth_not_parent_plus_one_raises(self):
+        root = _make_node(nid="root", depth=0, source_order=0, sibling_order=0)
+        child = _make_node(
+            nid="child", parent_id="root", depth=2, marker="bracket",
+            source_order=1, sibling_order=0,
+        )
+        tree = DocumentTree(
+            contract_version="document_tree.v1",
+            textbook_version_id="v", scope_id="s", catalog_path=[],
+            nodes=[root, child], content_blocks=[],
+        )
+        with pytest.raises(InvariantViolation, match="depth.*parent"):
+            verify_invariants(tree)
+
+
+# ---------------------------------------------------------------------------
+# Core: transition profile
+# ---------------------------------------------------------------------------
+
+class TestTransitionProfile:
+    def test_find_parent_returns_lower_level(self):
+        root = _make_node(nid="root", marker="chapter")
+        bracket = _make_node(nid="b", parent_id="root", depth=1, marker="bracket")
+        stack = [root, bracket]
+        parent = GOLDEN_SCOPE_PROFILE.find_parent(stack, 3)  # arabic_dot level
+        assert parent.id == "b"
+
+    def test_find_parent_skips_same_level(self):
+        root = _make_node(nid="root", marker="chapter")
+        bracket = _make_node(nid="b", parent_id="root", depth=1, marker="bracket")
+        arabic1 = _make_node(nid="a1", parent_id="b", depth=2, marker="arabic_dot")
+        stack = [root, bracket, arabic1]
+        # New arabic_dot: parent should be bracket, not arabic1 (same level)
+        parent = GOLDEN_SCOPE_PROFILE.find_parent(stack, 3)
+        assert parent.id == "b"
+
+    def test_find_parent_returns_none_for_chapter(self):
+        root = _make_node(nid="root", marker="chapter")
+        stack = [root]
+        # New chapter: no parent (level 0, nothing below)
+        parent = GOLDEN_SCOPE_PROFILE.find_parent(stack, 0)
+        assert parent is None
+
+
+# ---------------------------------------------------------------------------
+# PDF: depth integrity, pending reviews, source_title_raw
+# ---------------------------------------------------------------------------
+
+@pytestmark_pdf
+class TestPDFDepthIntegrity:
+    def test_all_nodes_depth_equals_parent_plus_one(self):
+        for scope in [ASTHMA_SCOPE, TB_SCOPE]:
+            tree = build_scope_tree(PDF, scope)
+            node_map = {n.id: n for n in tree.nodes}
+            for n in tree.nodes:
+                if n.parent_id is None:
+                    assert n.depth == 0, (
+                        f"{scope['scope_id']}: root {n.source_title} depth={n.depth}"
+                    )
+                else:
+                    parent = node_map[n.parent_id]
+                    assert n.depth == parent.depth + 1, (
+                        f"{scope['scope_id']}: {n.source_title} depth={n.depth} "
+                        f"!= parent {parent.source_title} depth+1={parent.depth + 1}"
+                    )
+
+    def test_consecutive_arabic_dot_are_siblings(self):
+        """Consecutive arabic_dot nodes must share the same parent."""
+        for scope in [ASTHMA_SCOPE, TB_SCOPE]:
+            tree = build_scope_tree(PDF, scope)
+            arabic_nodes = [n for n in tree.nodes if n.marker_kind == "arabic_dot"]
+            # Group consecutive arabic_dot nodes and check they share parent
+            for i in range(1, len(arabic_nodes)):
+                if arabic_nodes[i].source_order == arabic_nodes[i - 1].source_order + 1:
+                    # Consecutive: could be siblings (same parent) — at minimum,
+                    # neither should be parent of the other
+                    assert arabic_nodes[i].parent_id != arabic_nodes[i - 1].id, (
+                        f"{scope['scope_id']}: arabic_dot {arabic_nodes[i].source_title} "
+                        f"nested under previous arabic_dot"
+                    )
+
+
+@pytestmark_pdf
+class TestPDFPendingReviews:
+    def test_asthma_has_pending_reviews(self):
+        tree = build_scope_tree(PDF, ASTHMA_SCOPE)
+        assert len(tree.pending_reviews) > 0, "expected ambiguous blocks in asthma"
+
+    def test_tb_has_pending_reviews(self):
+        tree = build_scope_tree(PDF, TB_SCOPE)
+        assert len(tree.pending_reviews) > 0, "expected ambiguous blocks in tb"
+
+    def test_pending_reviews_preserve_source_text(self):
+        tree = build_scope_tree(PDF, ASTHMA_SCOPE)
+        for pr in tree.pending_reviews:
+            assert pr.line_text, f"pending review {pr.raw_anchor} has empty line_text"
+            assert pr.reason, f"pending review {pr.raw_anchor} has empty reason"
+
+    def test_pending_reviews_not_in_nodes(self):
+        """Pending review raw_anchors must not appear as node IDs."""
+        for scope in [ASTHMA_SCOPE, TB_SCOPE]:
+            tree = build_scope_tree(PDF, scope)
+            node_anchors = {n.heading_anchor.raw_anchor for n in tree.nodes}
+            for pr in tree.pending_reviews:
+                assert pr.raw_anchor not in node_anchors, (
+                    f"pending review {pr.raw_anchor} also became a node"
+                )
+
+
+@pytestmark_pdf
+class TestPDFSourceTitleRaw:
+    def test_source_title_raw_has_no_body_text(self):
+        """source_title_raw must not contain explanatory body text."""
+        for scope in [ASTHMA_SCOPE, TB_SCOPE]:
+            tree = build_scope_tree(PDF, scope)
+            for n in tree.nodes:
+                # Body punctuation in source_title_raw indicates body text leaked in
+                # (headings may contain 、 or ， but not ：；。 which mark body)
+                assert "。" not in n.source_title_raw, (
+                    f"{scope['scope_id']}: {n.source_title} has 。 in source_title_raw"
+                )
+                # For split headings, source_title_raw should equal source_title
+                assert n.source_title_raw == n.source_title or n.merged_from_lines, (
+                    f"{scope['scope_id']}: source_title_raw != source_title for {n.source_title}"
+                )
+
+    def test_bracket_source_title_raw_is_heading_only(self):
+        tree = build_scope_tree(PDF, ASTHMA_SCOPE)
+        epi = [n for n in tree.nodes if "流行病学" in n.source_title]
+        assert epi, "expected 【流行病学】 node"
+        # source_title_raw should be just the heading, not heading + body
+        assert "】" in epi[0].source_title_raw
+        # No body sentence after 】
+        after_bracket = epi[0].source_title_raw.split("】", 1)[-1] if "】" in epi[0].source_title_raw else ""
+        assert len(after_bracket.strip()) == 0 or len(after_bracket.strip()) < 10, (
+            f"source_title_raw has body after 】: {epi[0].source_title_raw!r}"
+        )

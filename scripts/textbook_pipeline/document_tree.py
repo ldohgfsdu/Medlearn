@@ -104,6 +104,39 @@ class ContentBlock:
 
 
 @dataclass
+class PendingReviewRecord:
+    """An ambiguous source line pending human review.
+
+    Body-font heading candidates and other ambiguous blocks are persisted
+    here instead of being silently promoted to DocumentNode or discarded.
+    The source text is preserved so no content is lost.
+    """
+
+    raw_anchor: str
+    pdf_page: int
+    raw_block_index: int
+    raw_line_index: int | str
+    line_text: str
+    marker: str | None
+    font_bucket: str | None
+    first_font: str | None
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "raw_anchor": self.raw_anchor,
+            "pdf_page": self.pdf_page,
+            "raw_block_index": self.raw_block_index,
+            "raw_line_index": self.raw_line_index,
+            "line_text": self.line_text,
+            "marker": self.marker,
+            "font_bucket": self.font_bucket,
+            "first_font": self.first_font,
+            "reason": self.reason,
+        }
+
+
+@dataclass
 class DocumentTree:
     """A document tree for a single scope."""
 
@@ -113,6 +146,7 @@ class DocumentTree:
     catalog_path: list[str]
     nodes: list[DocumentNode]
     content_blocks: list[ContentBlock]
+    pending_reviews: list[PendingReviewRecord] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,20 +156,55 @@ class DocumentTree:
             "catalog_path": self.catalog_path,
             "nodes": [n.to_dict() for n in self.nodes],
             "content_blocks": [b.to_dict() for b in self.content_blocks],
+            "pending_reviews": [p.to_dict() for p in self.pending_reviews],
         }
 
 
-# Marker kind to depth mapping (verified for asthma + tuberculosis scopes only).
-# Other scopes require per-scope Transition Rule Table approved by human review.
-MARKER_DEPTH: dict[str, int] = {
-    "chapter": 0,
-    "bracket": 1,
-    "chinese_parenthetical": 2,
-    "arabic_dot": 3,
-}
+# ---------------------------------------------------------------------------
+# Per-scope transition profile
+# ---------------------------------------------------------------------------
 
-# Markers that produce DocumentNode entries (enter the heading stack).
-STACK_MARKERS = frozenset(MARKER_DEPTH.keys())
+@dataclass
+class ScopeTransitionProfile:
+    """Defines marker hierarchy levels for a specific scope.
+
+    The level is used to find the parent node (the nearest stack node
+    with a strictly lower level). Depth is always derived as
+    parent.depth + 1, never hardcoded from the level.
+
+    This profile is verified only for the asthma and tuberculosis golden
+    scopes. Other scopes require a human-approved transition table.
+    """
+
+    marker_levels: dict[str, int]
+
+    def level_of(self, marker: str | None) -> int | None:
+        if marker is None:
+            return None
+        return self.marker_levels.get(marker)
+
+    def find_parent(self, stack: list["DocumentNode"], new_level: int) -> "DocumentNode | None":
+        """Find the nearest stack node with level strictly below new_level."""
+        for node in reversed(stack):
+            node_level = self.marker_levels.get(node.marker_kind)
+            if node_level is not None and node_level < new_level:
+                return node
+        return None
+
+
+# Verified transition profile for asthma + tuberculosis golden scopes.
+GOLDEN_SCOPE_PROFILE = ScopeTransitionProfile(
+    marker_levels={
+        "chapter": 0,
+        "bracket": 1,
+        "chinese_parenthetical": 2,
+        "arabic_dot": 3,
+        "appendix": 1,
+    }
+)
+
+# Markers that can produce DocumentNode entries when paired with heading font.
+STACK_MARKERS = frozenset(GOLDEN_SCOPE_PROFILE.marker_levels.keys())
 
 # Markers that are numbered body and never produce nodes.
 BODY_ONLY_MARKERS = frozenset({

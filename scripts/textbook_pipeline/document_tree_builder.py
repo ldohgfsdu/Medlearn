@@ -18,9 +18,11 @@ from .document_tree import (
     ContentBlock,
     DocumentNode,
     DocumentTree,
+    GOLDEN_SCOPE_PROFILE,
     HeadingAnchor,
-    MARKER_DEPTH,
+    PendingReviewRecord,
     STACK_MARKERS,
+    ScopeTransitionProfile,
     SourceAnchor,
 )
 from .heading_signal_auditor import (
@@ -117,33 +119,62 @@ def build_scope_tree(
     for c in classified:
         c.pop("_spans", None)
 
-    # 4. Build heading stack → DocumentNode + ContentBlock
+    # 4. Build heading stack → DocumentNode + ContentBlock + PendingReview
     nodes: list[DocumentNode] = []
     content_blocks: list[ContentBlock] = []
+    pending_reviews: list[PendingReviewRecord] = []
     stack: list[DocumentNode] = []
     source_order = 0
     block_order = 0
     sibling_counters: dict[str | None, int] = {}
+    profile = GOLDEN_SCOPE_PROFILE
+
+    def _emit_content_block(node: DocumentNode, text: str, c: dict[str, Any]) -> None:
+        nonlocal block_order
+        if not text:
+            return
+        cb_id = f"cb:{TEXTBOOK_VERSION_ID}:{scope_id}:{block_order}"
+        rli = c["raw_line_index"]
+        cb = ContentBlock(
+            id=cb_id,
+            document_node_id=node.id,
+            block_type="text_block",
+            raw_text=text,
+            source_order=block_order,
+            source_anchor=SourceAnchor(
+                pdf_page_number_1based=c["pdf_page"],
+                raw_block_index=c["raw_block_index"],
+                raw_line_index=rli if isinstance(rli, int) else 0,
+            ),
+        )
+        content_blocks.append(cb)
+        node.content_block_ids.append(cb_id)
+        block_order += 1
 
     for c in classified:
         classification = c["classification"]
         marker = c["marker"]
+        font_bucket = c.get("font_bucket")
 
         # Page headers never produce nodes or content
         if classification == "page_header":
             continue
 
-        # Heading candidate with a stack marker → new DocumentNode
+        # Confirmed heading: heading font + stack marker → DocumentNode
         if (
             classification == "heading_candidate"
             and marker in STACK_MARKERS
+            and font_bucket == "heading"
         ):
-            depth = MARKER_DEPTH[marker]
-            # Pop stack to current depth
-            while len(stack) > depth:
-                stack.pop()
-            parent = stack[-1] if stack else None
+            new_level = profile.marker_levels[marker]
+            parent = profile.find_parent(stack, new_level)
             parent_id = parent.id if parent else None
+            depth = (parent.depth + 1) if parent else 0
+
+            # Pop stack: remove nodes at or below new level (siblings and
+            # descendants), keep ancestors
+            while stack and profile.marker_levels.get(stack[-1].marker_kind, -1) >= new_level:
+                stack.pop()
 
             sibling_key = parent_id
             sibling_order = sibling_counters.get(sibling_key, 0)
@@ -160,8 +191,10 @@ def build_scope_tree(
                 raw_anchor=c["raw_anchor"],
             )
 
-            # source_title_raw: preserve original line text
-            source_title_raw = c["line_text"]
+            # source_title_raw: heading fragment only, never body text.
+            # For split headings, heading_text is already the heading slice.
+            # For chapter merges, heading_text is the merged title.
+            source_title_raw = heading_text
 
             node = DocumentNode(
                 id=c["anchor_id"],
@@ -176,61 +209,42 @@ def build_scope_tree(
                 heading_anchor=anchor,
                 merged_from_lines=merged_from,
             )
+            node.content_block_ids = []
             nodes.append(node)
             stack.append(node)
-            node.content_block_ids = []  # will fill below
             source_order += 1
 
             # If the heading line also has body text, emit a content block
-            body_text = c.get("body_text", "")
-            if body_text:
-                cb_id = f"cb:{TEXTBOOK_VERSION_ID}:{scope_id}:{block_order}"
-                cb = ContentBlock(
-                    id=cb_id,
-                    document_node_id=node.id,
-                    block_type="text_block",
-                    raw_text=body_text,
-                    source_order=block_order,
-                    source_anchor=SourceAnchor(
-                        pdf_page_number_1based=c["pdf_page"],
-                        raw_block_index=c["raw_block_index"],
-                        raw_line_index=raw_line_index if isinstance(raw_line_index, int) else (merged_from[0] if merged_from else 0),
-                    ),
-                )
-                content_blocks.append(cb)
-                node.content_block_ids.append(cb_id)
-                block_order += 1
+            _emit_content_block(node, c.get("body_text", ""), c)
+            continue
+
+        # Ambiguous heading_candidate (body/unknown font, or non-stack marker)
+        # → persist as PendingReviewRecord, preserve source text as content
+        # under the current stack top. Never silently drop or promote.
+        if classification == "heading_candidate":
+            pending_reviews.append(PendingReviewRecord(
+                raw_anchor=c["raw_anchor"],
+                pdf_page=c["pdf_page"],
+                raw_block_index=c["raw_block_index"],
+                raw_line_index=c["raw_line_index"],
+                line_text=c["line_text"],
+                marker=marker,
+                font_bucket=font_bucket,
+                first_font=c.get("first_font"),
+                reason=f"heading_candidate with {font_bucket} font; needs human review",
+            ))
+            # Preserve source text as content under current stack top
+            if stack:
+                _emit_content_block(stack[-1], c["line_text"], c)
             continue
 
         # Body lines → content block under current stack top
-        if classification == "body" and stack:
+        if classification == "body":
             raw_text = c["line_text"]
-            if not raw_text:
+            if not raw_text or not stack:
                 continue
-            # Skip body lines that are continuation fragments already merged
-            # (merge_chapter_continuations removes them, but guard anyway)
-            current_node = stack[-1]
-            cb_id = f"cb:{TEXTBOOK_VERSION_ID}:{scope_id}:{block_order}"
-            cb = ContentBlock(
-                id=cb_id,
-                document_node_id=current_node.id,
-                block_type="text_block",
-                raw_text=raw_text,
-                source_order=block_order,
-                source_anchor=SourceAnchor(
-                    pdf_page_number_1based=c["pdf_page"],
-                    raw_block_index=c["raw_block_index"],
-                    raw_line_index=c["raw_line_index"] if isinstance(c["raw_line_index"], int) else 0,
-                ),
-            )
-            content_blocks.append(cb)
-            current_node.content_block_ids.append(cb_id)
-            block_order += 1
+            _emit_content_block(stack[-1], raw_text, c)
             continue
-
-        # Ambiguous heading_candidate with body/unknown font → pending_review
-        # (does not enter the stack; recorded for human review)
-        # These are intentionally skipped from the tree per spec §5.2.
 
     tree = DocumentTree(
         contract_version=CONTRACT_VERSION,
@@ -239,6 +253,7 @@ def build_scope_tree(
         catalog_path=list(catalog_path),
         nodes=nodes,
         content_blocks=content_blocks,
+        pending_reviews=pending_reviews,
     )
 
     # 5. Verify invariants
@@ -248,9 +263,23 @@ def build_scope_tree(
 
 
 def verify_invariants(tree: DocumentTree) -> None:
-    """Verify structural invariants INV1-INV10 on the tree.
+    """Verify structural invariants on the tree.
 
-    Raises InvariantViolation on failure.
+    Checked here (code-enforceable):
+      INV1: every content block belongs to an existing node
+      INV2: parent_id is null or points to an earlier node; no cycles
+      INV3: origin, source_title_raw, heading_anchor present and valid
+      INV6: source_order strictly increasing; sibling_order per parent increasing
+      INV9: every node and block has a SourceAnchor with page
+
+    Not checked here (require external/human verification):
+      INV4: combined headings preserved as-is — requires golden-fixture assertions
+      INV5: missing headings stay missing — requires scope-completeness audit
+      INV7: PDF page and printed page identity stored separately — PageIdentity
+            contract not yet implemented; checked when that layer lands
+      INV8: UI cannot alter titles or parentage — UI-layer concern
+      INV10: tree carries no medical publication state — requires schema-level
+             assertion that no verification fields exist on tree objects
     """
     node_ids = {n.id for n in tree.nodes}
     node_order = {n.id: n.source_order for n in tree.nodes}
@@ -262,9 +291,14 @@ def verify_invariants(tree: DocumentTree) -> None:
                 f"INV1: content block {cb.id} references missing node {cb.document_node_id}"
             )
 
-    # INV2: parent_id is null or points to an earlier node; no cycles
+    # INV2: parent_id is null or points to an earlier node; no cycles;
+    #       depth must equal parent.depth + 1
     for n in tree.nodes:
         if n.parent_id is None:
+            if n.depth != 0:
+                raise InvariantViolation(
+                    f"INV2: root node {n.id} has depth {n.depth} != 0"
+                )
             continue
         if n.parent_id not in node_ids:
             raise InvariantViolation(
@@ -275,8 +309,14 @@ def verify_invariants(tree: DocumentTree) -> None:
                 f"INV2: node {n.id} (order {node_order[n.id]}) has parent "
                 f"{n.parent_id} (order {node_order[n.parent_id]}) that appears later"
             )
+        parent = next(p for p in tree.nodes if p.id == n.parent_id)
+        if n.depth != parent.depth + 1:
+            raise InvariantViolation(
+                f"INV2: node {n.id} depth {n.depth} != parent.depth+1 "
+                f"({parent.depth}+1={parent.depth + 1})"
+            )
 
-    # INV3: origin, source_title_raw, heading_anchor present
+    # INV3: origin, source_title_raw, heading_anchor present and valid
     for n in tree.nodes:
         if n.origin not in ALLOWED_ORIGINS:
             raise InvariantViolation(
@@ -307,7 +347,7 @@ def verify_invariants(tree: DocumentTree) -> None:
             )
         sibling_seen[key] += 1
 
-    # INV9: every node and block has a SourceAnchor
+    # INV9: every node and block has a SourceAnchor with page
     for n in tree.nodes:
         if n.heading_anchor.pdf_page_number_1based <= 0:
             raise InvariantViolation(f"INV9: node {n.id} missing page in anchor")
@@ -315,7 +355,7 @@ def verify_invariants(tree: DocumentTree) -> None:
         if cb.source_anchor.pdf_page_number_1based <= 0:
             raise InvariantViolation(f"INV9: block {cb.id} missing page in anchor")
 
-    # INV-content_block_ids: node.content_block_ids must reference existing blocks
+    # content_block_ids must reference existing blocks
     block_ids = {cb.id for cb in tree.content_blocks}
     for n in tree.nodes:
         for bid in n.content_block_ids:

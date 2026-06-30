@@ -6,35 +6,47 @@
 ## Project
 
 - Name: `MedLearn`
-- Phase: `respiratory_mvp_validation`
+- Phase: `phase1_document_tree_golden_path`
 
 ## Active Object
 
-### `respiratory_mvp_real_question_validation`: Validate the respiratory MVP with one real wrong question
+### `phase1_document_tree_golden_path_validation`: Validate Document Tree golden-path reading experience in App
 
-Compare one real respiratory wrong-question lookup in the paper textbook and the accepted MVP to identify the single highest-friction product step.
+Validate that locally accepted EV1 textbook knowledge can be consumed as a structured electronic textbook in the App—not merely queried from the database. Use asthma and pulmonary tuberculosis as golden-path sections only. Prove Document Tree → section → evidence/node → page-image return path before any full remote EV1 upload. Current work is reading-experience validation, not pipeline expansion or concept-graph construction.
 
 
 **Scope**
 
-- `memory/respiratory-knowledge-query-acceptance.md`
-- `one real respiratory wrong question`
-- `paper textbook lookup timing`
-- `MVP lookup timing`
+- `docs/architecture/phase1_phase2_gate.md`
+- `docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md`
+- `CONTEXT.md`
+- `app/textbook/`
+- `services/textbookService.ts`
+- `constants/ev1DisplayContracts.ts`
+- `generated/knowledge_nodes/internal-medicine-10/第二篇_呼吸系统疾病__第四章_支气管哮喘.normalized.json`
+- `generated/knowledge_nodes/internal-medicine-10/第二篇_呼吸系统疾病__第八章_肺结核.normalized.json`
+- `generated/display_contracts/internal-medicine-10`
+- `scripts/export_phase1_evidence_lineage.py`
+- `scripts/export_phase1_page_assets.py`
+- `state/knowledge_ingestion.yaml`
+- `docs/CURRENT_STATE.md`
 
 **Acceptance Criteria**
 
-- One real wrong-question lookup is completed with the paper textbook.
-- The same lookup is completed through the MVP.
-- Both paths record elapsed time and navigation steps.
-- The MVP result reaches the correct aspect, textbook evidence, and page reference.
-- The highest-friction step is classified as search, catalog, detail, or evidence.
+- Document Tree terminology is mapped to Catalog Node / section model in CONTEXT.md and is used consistently in docs and acceptance checks.
+- Asthma section (第二篇 呼吸系统疾病 / 第四章 支气管哮喘) renders as structured textbook content in the App with stable hierarchy—not a flat knowledge card list.
+- Pulmonary tuberculosis section (第二篇 呼吸系统疾病 / 第八章 肺结核) renders as structured textbook content with stable hierarchy including classification-tree cases.
+- Each user-visible node in golden sections has traceable textbook evidence (page label and/or artifact linkage per ADR-009).
+- In both golden sections, sampled evidence can return to a page image or equivalent original textbook context (Phase 1 visual evidence rules; no LLM-invented bbox); validate the pulmonary-tuberculosis structure tree before extending its page-image bundle.
+- No concept graph, relation edges, or new disease-scope ingestion expansion is required to pass this object.
+- Full remote EV1 upload, production Supabase writes, and unrelated Case Simulator changes remain out of scope until this object completes.
 
 ## Blocked
 
 | ID | Title | Status | Blocked Reason |
 |---|---|---|---|
-| remote_supabase_validation | Validate the deployed Supabase environment | blocked | Remote API E2E passed (npm run e2e:remote); iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md. |
+| knowledge_remote_upload_validation | Validate EV1 knowledge remote upload readiness | blocked | Read-only preflight passed; full remote upload is blocked until phase1_document_tree_golden_path_validation proves App reading experience (Document Tree, evidence, page-image return) on asthma and tuberculosis golden sections. Then use staged/canary upload—not immediate 1544→19961 full sync.<br> |
+| remote_supabase_validation | Validate the deployed Supabase environment | blocked | Case Simulator: remote API E2E passed (npm run e2e:remote); full iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md. Not the current Active Object—freeze case scope while phase1_document_tree_golden_path_validation is active.<br> |
 
 ## Paused
 
@@ -46,12 +58,20 @@ No paused objects.
 |---|---|---|---|
 | ai_proxy_cost_controls | Add user-level AI proxy cost controls | completed | 2026-06-13 |
 | alpha_case_library | Build the medically approved Alpha case library | completed | 2026-06-13 |
+| first_mobile_test_package | Package the first mobile test build | completed | 2026-06-21 |
 | knowledge_data_model_alignment | Align the knowledge data model | completed | 2026-06-13 |
+| knowledge_ingestion_convergence | Converge EV1 local knowledge quality before upload | completed | 2026-06-25 |
 | knowledge_v5_integration | Integrate experimental V5 knowledge pages | completed | 2026-06-13 |
 | local_demo_recovery | Restore a locally runnable demo | completed | 2026-06-14 |
+| mobile_ui_feedback_repair | Repair first mobile feedback issues | completed | 2026-06-21 |
 | project_governance_bootstrap | Project governance bootstrap | completed | 2026-06-13 |
 | respiratory_knowledge_query_mvp | Respiratory trustworthy knowledge lookup MVP | completed | 2026-06-14 |
+| respiratory_mvp_real_question_validation | Validate the respiratory MVP with one real wrong question | completed | 2026-06-20 |
 | server_case_approval_enforcement | Enforce approved case status inside service-role functions | completed | 2026-06-13 |
+| wrong_question_case_003_viral_pneumonia | Add the viral pneumonia IgM wrong-question evidence case | completed | 2026-06-21 |
+| wrong_question_review_card_enrichment | Enrich wrong-question review cards | completed | 2026-06-21 |
+| wrong_question_review_queue_closure | Close the wrong-question review queue loop | completed | 2026-06-21 |
+| wrong_question_search_friction_reduction | Reduce wrong-question search friction for short noisy stems | completed | 2026-06-21 |
 
 ## Archived
 
@@ -59,7 +79,12 @@ No archived objects.
 
 ## Applicable Accepted ADRs
 
-No accepted ADR is indexed for the current Active Object.
+- [ADR-005: Textbook Versions Own Their Catalog And Evidence](../docs/adr/ADR-005-textbook-version-boundaries.md)
+- [ADR-006: Textbooks Own Knowledge Aspect Structure](../docs/adr/ADR-006-textbook-owned-knowledge-aspects.md)
+- [ADR-007: Separate Catalog Position, Content Identity, And Detail Page](../docs/adr/ADR-007-separate-catalog-content-and-detail.md)
+- [ADR-008: Reuse Medical Concepts, Isolate Knowledge Detail Instances](../docs/adr/ADR-008-concept-reuse-detail-isolation.md)
+- [ADR-009: Preserve Text, Tables, Figures, And Captions As Evidence Artifacts](../docs/adr/ADR-009-multimodal-evidence-artifacts.md)
+- [ADR-011: Document Tree v1 As The Structural Source Of Truth](../docs/adr/ADR-011-document-tree-v1.md)
 
 ## State Sources
 
