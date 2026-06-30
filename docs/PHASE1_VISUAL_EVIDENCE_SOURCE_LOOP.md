@@ -32,9 +32,9 @@ PDF（不进 APK）
 
 | 字段 | 含义 |
 |------|------|
-| `pdfPageIndex` | PDF 文件真实页（0/1-based 全项目固定一种） |
-| `pageLabel` | 教材印刷页码，给用户看（如 `"64"`） |
-| `pageAssetId` | 页图资产 id（如 `page_im10_64`） |
+| `pdfPageIndex` | PDF 文件真实页（0-based PyMuPDF，全项目固定） |
+| `pageLabel` | 教材印刷页码，给用户看（如 `"33"`） |
+| `pageAssetId` | 页图资产 id（如 `page_internal_medicine_10_33`） |
 
 ### 2. bbox 坐标系
 
@@ -44,7 +44,7 @@ Phase 1 同时存：
 - `bboxNorm`: `[x0, y0, x1, y1]`（相对页宽高的 0–1）
 - `pageWidth` / `pageHeight`（导出 webp 的像素尺寸）
 
-App **优先用 `bboxNorm`**。导出 webp 时必须做 **PDF 原点（常左下）→ 图像原点（左上）** 的 Y 轴翻转，并在 export 脚本中单测一条已知块。
+App **优先用 `bboxNorm`**。坐标变换已于 Phase 6A 在哮喘 scope 冻结为 **top-left 原点、不翻转 Y 轴**：`bboxNorm = [x0/w, y0/h, x1/w, y1/h]`（PyMuPDF 的 bbox 即左上原点）。export 脚本中通过 BDT 已知块单测覆盖。
 
 ### 3. SourceLocator 显式映射
 
@@ -114,8 +114,8 @@ Phase 1 构建时生成 manifest，例如：
 
 ```ts
 export const pageAssets: Record<string, number> = {
-  im10_page_62: require('../assets/textbooks/im10/pages/62.webp'),
-  // ...
+  im10_page_31: require('../assets/textbooks/im10/pages/31.webp'),
+  // ... keys are im10_page_{printedPageLabel}
 }
 ```
 
@@ -129,7 +129,7 @@ export const pageAssets: Record<string, number> = {
 | 2 | `export-source-locators` | `display_contract` + 声明的显式 lineage 源 + `page_assets` | `source_locators.json` |
 | 3 | `merge-locators-into-display-contract` | locators | `evidence_items.sourceLocatorIds`（或内联 locator ref） |
 | 4 | `PageViewer` 屏 | page manifest + locators | 页图 + `bboxNorm` 高亮 |
-| 5 | APK 验收 | 真机 | 点「支气管舒张试验」→ **教材 p.64** 页图 → 黄框对齐段落 |
+| 5 | APK 验收 | 真机 | 点「支气管舒张试验」→ **教材 p.33** 页图 → 黄框对齐段落 |
 
 ## 与现有 App bundle 路径的关系
 
@@ -154,4 +154,4 @@ export const pageAssets: Record<string, number> = {
 - Static PageViewer wiring: PASS via `python scripts/validate_phase1_pageviewer.py`.
 - Metro export asset check: PASS via `python scripts/validate_phase1_pageviewer.py --check-export`; Android export metadata contains 9 bundled `.webp` page assets.
 - Release APK build in this agent run: NOT DONE. `JAVA_HOME` is not set on this host, so device/APK acceptance remains a manual follow-up.
-- Manual APK check: build locally, install the APK, then open bronchial asthma -> source evidence -> textbook source P64 and verify the highlighter aligns with the source paragraph.
+- Manual APK check: build locally, install the APK, then open bronchial asthma -> source evidence -> textbook source P33 (printed pageLabel) and verify the highlighter aligns with the source paragraph.

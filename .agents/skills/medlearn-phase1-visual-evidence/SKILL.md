@@ -181,8 +181,9 @@ Must include for clickable 原文:
 At least one declared explicit lineage path must be present; never synthesize
 one identifier type from the other.
 
-App rendering: prefer **`bboxNorm`** on rendered image size. Export must apply
-**PDF Y-axis (often bottom-left) → image top-left** when computing `bboxNorm`.
+App rendering: prefer **`bboxNorm`** on rendered image size. Phase 6A confirmed
+asthma-scope bbox is **top-left origin, no Y-flip**: `bboxNorm = [x0/w, y0/h, x1/w, y1/h]`
+(PyMuPDF bbox already uses top-left origin). Do not apply a bottom-left → top-left flip.
 
 ## Implementation steps
 
@@ -198,10 +199,13 @@ Do not proceed with LLM or text matching.
 
 ### Step 0.5 — Lineage export (before page assets)
 
-- `pageLabel` ↔ `pdfPageIndex` map (0-based PyMuPDF for this book: `pdfPageIndex = int(pageLabel) - 1`, verified p.64 BDT).
-- `SourceLocator` v0 JSON (currently 238 unique locators covering 275 asthma
-  display evidence references).
-- Coordinate calibration (`phase1_visual_evidence_coordinate_check/`); freeze **bboxNorm** rule after visual + span check.
+- `pageLabel` ↔ `pdfPageIndex` map (asthma pilot: `pdfPageNumber1Based` 62–70,
+  `pdfPageIndex` 0-based 61–69, printed `pageLabel` "31"–"39", `page_delta=31`;
+  verified p.64 BDT = printed p.33). Never assume `pdfPageIndex = int(pageLabel) - 1`.
+- `SourceLocator` v0 JSON (currently 276 unique locators covering 281 asthma
+  display evidence references; 5 are deduplicated repeats).
+- Coordinate calibration (`phase1_visual_evidence_coordinate_check/`); **bboxNorm**
+  frozen as top-left/no-flip (Phase 6A confirmed).
 
 ### Step 1 — Export page assets
 

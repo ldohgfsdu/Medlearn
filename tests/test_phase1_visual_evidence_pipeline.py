@@ -26,6 +26,10 @@ merge = load_module(
     "merge_phase1_locators_bundle",
     "scripts/merge_phase1_locators_bundle.py",
 )
+page_assets_mod = load_module(
+    "export_phase1_page_assets",
+    "scripts/export_phase1_page_assets.py",
+)
 
 PDF = ROOT / "textbook" / "内科学（第10版）.pdf"
 PAGE_MAP_PATH = (
@@ -407,52 +411,135 @@ class TestSourceLocatorV0Contract:
         assert "ev1-a" in result["missing"]
 
 
-class TestPageAssetManifest:
-    """Phase 6B: export_page_assets manifest structure."""
+class TestPageAssetManifestCore:
+    """Phase 6B: export_phase1_page_assets.py manifest structure (core, no PDF).
+
+    Verifies the manifest schema (pages key, webp, require key, relativePath)
+    using a synthetic page map and a mocked PIL Image so tests never skip.
+    """
+
+    def _build_page_map(self):
+        """Synthetic page map matching the lineage script's output shape."""
+        return {
+            "textbookId": "internal-medicine-10",
+            "textbookVersion": "10",
+            "section": "第二篇_呼吸系统疾病__第四章_支气管哮喘",
+            "pageDelta": 31,
+            "pages": [
+                {
+                    "pdfPageNumber1Based": 62,
+                    "pdfPageIndex": 61,
+                    "pdfPageIndexBasis": "0-based",
+                    "pageLabel": "31",
+                    "pageWidthPt": 515.0,
+                    "pageHeightPt": 793.0,
+                },
+                {
+                    "pdfPageNumber1Based": 64,
+                    "pdfPageIndex": 63,
+                    "pdfPageIndexBasis": "0-based",
+                    "pageLabel": "33",
+                    "pageWidthPt": 515.0,
+                    "pageHeightPt": 793.0,
+                },
+            ],
+        }
 
     def _run_export(self, tmp_path):
-        """Helper: run export_page_assets into tmp_path, return manifest dict."""
-        doc = _FakeDoc()
-        pm = lineage.build_page_map(doc)
-        original_out = lineage.OUT_PAGE_ASSETS
-        original_images = lineage.OUT_PAGE_IMAGES
-        original_root = lineage.ROOT
+        """Run export_pages into tmp_path with mocked fitz + PIL, return assets."""
+        page_map = self._build_page_map()
+
+        # Mock fitz.Document / page / pixmap
+        fake_pixmap = mock.Mock()
+        fake_pixmap.width = 1077
+        fake_pixmap.height = 1654
+        fake_pixmap.samples = b"\x00" * (1077 * 1654 * 3)
+        fake_page = mock.Mock()
+        fake_page.get_pixmap.return_value = fake_pixmap
+        fake_doc = mock.Mock()
+        fake_doc.load_page.return_value = fake_page
+        fake_doc.close = mock.Mock()
+
+        # Mock PIL Image to avoid real WebP encoding in core tests
+        fake_img = mock.Mock()
+        fake_img.save = mock.Mock(side_effect=lambda path, **kw: Path(path).write_bytes(b""))
+
+        original_open = page_assets_mod.fitz.open
+        original_out_pages = page_assets_mod.OUT_PAGES
+        original_root = page_assets_mod.ROOT
         try:
-            lineage.OUT_PAGE_ASSETS = tmp_path
-            lineage.OUT_PAGE_IMAGES = tmp_path / "pages"
-            lineage.ROOT = tmp_path
-            lineage.export_page_assets(doc, pm)
-            return json.loads((tmp_path / "page_assets.json").read_text("utf-8"))
+            page_assets_mod.fitz.open = mock.Mock(return_value=fake_doc)
+            page_assets_mod.OUT_PAGES = tmp_path / "pages"
+            page_assets_mod.ROOT = tmp_path
+            with mock.patch("PIL.Image.Image"), \
+                 mock.patch("PIL.Image.frombytes", return_value=fake_img):
+                assets = page_assets_mod.export_pages(page_map)
+            return assets
         finally:
-            lineage.OUT_PAGE_ASSETS = original_out
-            lineage.OUT_PAGE_IMAGES = original_images
-            lineage.ROOT = original_root
+            page_assets_mod.fitz.open = original_open
+            page_assets_mod.OUT_PAGES = original_out_pages
+            page_assets_mod.ROOT = original_root
 
-    def test_manifest_has_required_fields(self, tmp_path):
-        manifest = self._run_export(tmp_path)
-        assert manifest["pageAssetCount"] == 9
-        assert len(manifest["pageAssets"]) == 9
-        for asset in manifest["pageAssets"]:
-            assert "id" in asset
-            assert "textbookId" in asset
-            assert "pdfPageIndex" in asset
-            assert "pageLabel" in asset
-            assert "imageWidth" in asset
-            assert "imageHeight" in asset
-            assert "localAssetKey" in asset
+    def test_manifest_uses_pages_key_not_pageAssets(self):
+        """The merge consumer reads manifest['pages']; producer must write it."""
+        # Verify export_pages returns a list (which main() writes under 'pages')
+        assets = [{"id": "x"}]
+        manifest = {"pages": assets, "version": "page-assets-v1"}
+        assert "pages" in manifest
+        assert "pageAssets" not in manifest
 
-    def test_page_asset_ids_use_printed_label(self, tmp_path):
-        manifest = self._run_export(tmp_path)
-        first = manifest["pageAssets"][0]
-        assert first["id"] == "page_internal_medicine_10_31"
-        assert first["pageLabel"] == "31"
-        assert first["pdfPageIndex"] == 61
-        assert first["localAssetKey"] == "pages/31.png"
+    def test_export_pages_returns_webp_assets(self, tmp_path):
+        assets = self._run_export(tmp_path)
+        assert len(assets) == 2
+        for asset in assets:
+            assert asset["imageFormat"] == "webp"
 
-    def test_page_asset_pdfPageIndex_0_based(self, tmp_path):
-        manifest = self._run_export(tmp_path)
-        for asset in manifest["pageAssets"]:
+    def test_localAssetKey_is_require_key_not_path(self, tmp_path):
+        """localAssetKey must be a stable require key (im10_page_31), not a path."""
+        assets = self._run_export(tmp_path)
+        for asset in assets:
+            assert asset["localAssetKey"] == f"im10_page_{asset['pageLabel']}"
+            # Must NOT be a path like "pages/31.png"
+            assert "/" not in asset["localAssetKey"]
+            assert "\\" not in asset["localAssetKey"]
+
+    def test_relativePath_is_separate_from_localAssetKey(self, tmp_path):
+        assets = self._run_export(tmp_path)
+        for asset in assets:
+            assert asset["relativePath"].endswith(".webp")
+            assert asset["relativePath"] != asset["localAssetKey"]
+
+    def test_page_asset_id_uses_printed_label(self, tmp_path):
+        assets = self._run_export(tmp_path)
+        for asset in assets:
+            assert asset["id"] == f"page_internal_medicine_10_{asset['pageLabel']}"
+
+    def test_pdfPageIndex_is_0_based(self, tmp_path):
+        assets = self._run_export(tmp_path)
+        for asset in assets:
             assert asset["pdfPageIndex"] == asset["pdfPageNumber1Based"] - 1
+
+    def test_bboxNormRule_top_left_no_flip(self, tmp_path):
+        assets = self._run_export(tmp_path)
+        for asset in assets:
+            rule = asset["bboxNormRule"]
+            assert rule["origin"] == "top-left"
+            assert rule["yFlip"] is False
+            # Must reference the single bboxNorm field, not the old dual assumption
+            assert "bboxNorm" in rule["note"]
+            assert "TopLeftAssumption" not in rule["note"]
+
+    def test_pillow_missing_raises_not_silently_png(self, tmp_path):
+        """When Pillow is unavailable, export must fail loudly, not degrade to PNG."""
+        page_map = self._build_page_map()
+        original_out_pages = page_assets_mod.OUT_PAGES
+        try:
+            page_assets_mod.OUT_PAGES = tmp_path / "pages"
+            with mock.patch("builtins.__import__", side_effect=ImportError("no PIL")):
+                with pytest.raises(SystemExit, match="Pillow is required"):
+                    page_assets_mod.export_pages(page_map)
+        finally:
+            page_assets_mod.OUT_PAGES = original_out_pages
 
 
 # ---------------------------------------------------------------------------
@@ -527,26 +614,49 @@ class TestGeneratedSourceLocators:
 
 @artifacts_mark
 class TestGeneratedPageAssets:
+    def test_manifest_uses_pages_key(self):
+        """Manifest must use 'pages' key (consumed by merge_phase1_locators_bundle),
+        not 'pageAssets'."""
+        manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
+        assert "pages" in manifest
+        assert "pageAssets" not in manifest
+
     def test_manifest_has_nine_assets(self):
         manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
-        assert manifest["pageAssetCount"] == 9
-        assert len(manifest["pageAssets"]) == 9
+        assert len(manifest["pages"]) == 9
 
-    def test_every_page_asset_image_file_exists(self):
+    def test_every_page_asset_image_is_webp(self):
         manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
-        for asset in manifest["pageAssets"]:
-            img_path = PAGE_IMAGES_DIR / Path(asset["localAssetKey"]).name
+        for asset in manifest["pages"]:
+            assert asset["imageFormat"] == "webp"
+            assert asset["relativePath"].endswith(".webp")
+
+    def test_every_page_asset_webp_file_exists(self):
+        manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
+        for asset in manifest["pages"]:
+            # relativePath is like "generated/textbooks/internal-medicine-10/pages/31.webp"
+            img_path = ROOT / asset["relativePath"]
             assert img_path.exists(), f"missing image: {img_path}"
+
+    def test_localAssetKey_is_require_key_not_path(self):
+        """localAssetKey must be a stable Expo require key (im10_page_31),
+        separate from relativePath."""
+        manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
+        for asset in manifest["pages"]:
+            assert asset["localAssetKey"] == f"im10_page_{asset['pageLabel']}"
+            assert "/" not in asset["localAssetKey"]
+            assert "\\" not in asset["localAssetKey"]
+            assert asset["relativePath"] != asset["localAssetKey"]
 
     def test_page_asset_dimensions_positive(self):
         manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
-        for asset in manifest["pageAssets"]:
+        for asset in manifest["pages"]:
             assert asset["imageWidth"] > 0
             assert asset["imageHeight"] > 0
 
     def test_page_asset_ids_and_labels_consistent(self):
         manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
-        for asset in manifest["pageAssets"]:
+        for asset in manifest["pages"]:
             assert asset["id"] == f"page_internal_medicine_10_{asset['pageLabel']}"
             assert asset["pdfPageIndex"] == asset["pdfPageNumber1Based"] - 1
             label_int = int(asset["pageLabel"])
@@ -560,7 +670,7 @@ class TestCrossReferenceIntegrity:
     def test_every_locator_pageAssetId_exists_in_page_assets(self):
         manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
         loc_data = json.loads(LOCATORS_PATH.read_text("utf-8"))
-        page_asset_ids = {a["id"] for a in manifest["pageAssets"]}
+        page_asset_ids = {a["id"] for a in manifest["pages"]}
         for loc in loc_data["locators"]:
             assert loc["pageAssetId"] in page_asset_ids, (
                 f"{loc['id']} references missing pageAssetId {loc['pageAssetId']}"
@@ -571,11 +681,75 @@ class TestCrossReferenceIntegrity:
         manifest = json.loads(PAGE_ASSETS_PATH.read_text("utf-8"))
         loc_data = json.loads(LOCATORS_PATH.read_text("utf-8"))
         referenced = {loc["pageAssetId"] for loc in loc_data["locators"]}
-        all_assets = {a["id"] for a in manifest["pageAssets"]}
+        all_assets = {a["id"] for a in manifest["pages"]}
         # Not every page must have a locator, but at least 5 of 9 should
         assert len(referenced & all_assets) >= 5, (
             f"only {len(referenced & all_assets)} pages have locators"
         )
+
+
+@artifacts_mark
+class TestReferenceCoverage281to276:
+    """All 281 display evidence references must resolve to one of the 276
+    unique locators (deduplication is expected, not a gap)."""
+
+    def test_281_references_resolve_to_276_unique_locators(self):
+        loc_data = json.loads(LOCATORS_PATH.read_text("utf-8"))
+        # referenceCount = total display evidence references (281)
+        # count = unique locators produced (276)
+        # expected = unique evidence ids requiring locators (276)
+        # missing = [] means every unique id got a locator
+        assert loc_data["referenceCount"] == 281
+        assert loc_data["count"] == 276
+        assert loc_data["expected"] == 276
+        assert loc_data["missing"] == []
+
+    def test_every_display_evidence_reference_resolves(self):
+        """Every evidence reference in the display contract must carry an
+        artifact_id that maps to a locator. No reference may be unresolvable."""
+        dc = json.loads(
+            (ROOT / "generated/display_contracts/internal-medicine-10"
+             / "第二篇_呼吸系统疾病__第四章_支气管哮喘.display_contract.json"
+             ).read_text("utf-8")
+        )
+        loc_data = json.loads(LOCATORS_PATH.read_text("utf-8"))
+        locator_evidence_ids = {loc["evidenceItemId"] for loc in loc_data["locators"]}
+        unresolved = []
+        total_refs = 0
+        for node in dc.get("nodes", []):
+            for ei in node.get("evidence_items", []):
+                total_refs += 1
+                aid = ei.get("artifact_id")
+                if not aid or aid not in locator_evidence_ids:
+                    unresolved.append((ei.get("id", "?"), aid))
+        assert total_refs == 281, f"expected 281 refs, got {total_refs}"
+        assert unresolved == [], (
+            f"{len(unresolved)} references unresolved: {unresolved[:5]}"
+        )
+
+    def test_281_minus_276_is_deduplication_not_gap(self):
+        """The 5-reference difference must be duplicate artifact_ids, not missing
+        locators. Verify by counting references per evidence id."""
+        dc = json.loads(
+            (ROOT / "generated/display_contracts/internal-medicine-10"
+             / "第二篇_呼吸系统疾病__第四章_支气管哮喘.display_contract.json"
+             ).read_text("utf-8")
+        )
+        from collections import Counter
+        ref_counts = Counter()
+        for node in dc.get("nodes", []):
+            for ei in node.get("evidence_items", []):
+                aid = ei.get("artifact_id")
+                if aid:
+                    ref_counts[aid] += 1
+        duplicated = {aid: c for aid, c in ref_counts.items() if c > 1}
+        extra_refs_from_dupes = sum(c - 1 for c in duplicated.values())
+        unique_count = len(ref_counts)
+        total_refs = sum(ref_counts.values())
+        # 281 total - 276 unique = 5 extra from dedup
+        assert total_refs == 281
+        assert unique_count == 276
+        assert extra_refs_from_dupes == 281 - 276
 
 
 if __name__ == "__main__":

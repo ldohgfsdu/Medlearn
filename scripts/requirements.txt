@@ -1,7 +1,9 @@
-pymupdf
+pymupdf==1.27.2.3
+Pillow
 supabase
 python-dotenv
 requests
 docling
 rapidocr
 PyYAML
+pytest

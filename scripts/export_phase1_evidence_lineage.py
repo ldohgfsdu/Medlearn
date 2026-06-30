@@ -35,8 +35,10 @@ OUT_BASE = ROOT / "generated/phase1_visual_evidence"
 OUT_LOCATORS = OUT_BASE / "source_locators" / TEXTBOOK_ID
 OUT_PAGE_MAP = OUT_BASE / "page_maps"
 OUT_REPORTS = ROOT / "generated/reports/phase1_visual_evidence_coordinate_check"
-OUT_PAGE_ASSETS = ROOT / "generated/textbooks" / TEXTBOOK_ID
-OUT_PAGE_IMAGES = OUT_PAGE_ASSETS / "pages"
+# PageAsset export (webp + page_assets.json) lives in
+# scripts/export_phase1_page_assets.py to keep responsibility separation:
+#   lineage script    -> page map + SourceLocator
+#   page-assets script -> webp + pages manifest
 
 
 def _iso() -> str:
@@ -189,59 +191,6 @@ def build_source_locators_v0(
         "expected": len(unique_items) + len(missing_without_id),
         "missing": missing,
         "locators": locators,
-    }
-
-
-def export_page_assets(doc: fitz.Document, page_map: dict) -> dict:
-    """Export page images and PageAsset manifest for the asthma scope.
-
-    Outputs:
-    - generated/textbooks/internal-medicine-10/pages/{pageLabel}.png
-    - generated/textbooks/internal-medicine-10/page_assets.json
-    """
-    OUT_PAGE_IMAGES.mkdir(parents=True, exist_ok=True)
-    dpi = 150
-    mat = fitz.Matrix(dpi / 72, dpi / 72)
-
-    assets = []
-    for p in page_map["pages"]:
-        printed_label = p["pageLabel"]  # "31".."39"
-        pdf_page_index = p["pdfPageIndex"]
-        page = doc.load_page(pdf_page_index)
-        pix = page.get_pixmap(matrix=mat, alpha=False)
-        img_path = OUT_PAGE_IMAGES / f"{printed_label}.png"
-        pix.save(str(img_path))
-
-        assets.append({
-            "id": f"page_{TEXTBOOK_ID.replace('-', '_')}_{printed_label}",
-            "textbookId": TEXTBOOK_ID,
-            "textbookVersion": TEXTBOOK_VERSION,
-            "pdfPageIndex": pdf_page_index,
-            "pdfPageNumber1Based": p["pdfPageNumber1Based"],
-            "pageLabel": printed_label,
-            "imageWidth": pix.width,
-            "imageHeight": pix.height,
-            "imageFormat": "png",
-            "localAssetKey": f"pages/{printed_label}.png",
-        })
-
-    manifest = {
-        "textbookId": TEXTBOOK_ID,
-        "textbookVersion": TEXTBOOK_VERSION,
-        "section": SECTION_KEY,
-        "generatedAt": _iso(),
-        "pageAssetCount": len(assets),
-        "pageAssets": assets,
-    }
-    manifest_path = OUT_PAGE_ASSETS / "page_assets.json"
-    manifest_path.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    return {
-        "manifest": str(manifest_path.relative_to(ROOT)),
-        "pageAssetCount": len(assets),
-        "imageDirectory": str(OUT_PAGE_IMAGES.relative_to(ROOT)),
-        "imageFormat": "png",
     }
 
 
@@ -427,9 +376,6 @@ def main() -> None:
             json.dumps(locators, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-        # Export page images and PageAsset manifest
-        page_assets = export_page_assets(doc, page_map)
-
         cal = coordinate_calibration(doc, evidence_by_id)
         gng = go_no_go(locators, page_map, cal)
         gng_path = OUT_BASE / "step1_export_page_assets_go_no_go.json"
@@ -438,12 +384,14 @@ def main() -> None:
         print(json.dumps(
             {
                 "page_map": str(page_map_path.relative_to(ROOT)),
-                "page_assets": page_assets["manifest"],
-                "page_asset_count": page_assets["pageAssetCount"],
                 "locators": str(loc_path.relative_to(ROOT)),
                 "locator_count": locators["count"],
                 "coordinate_check": str(OUT_REPORTS.relative_to(ROOT)),
                 "go_no_go": gng["step1_export_page_assets"],
+                "note": (
+                    "PageAsset export (webp + page_assets.json) is handled by "
+                    "scripts/export_phase1_page_assets.py; run it separately."
+                ),
             },
             ensure_ascii=False,
             indent=2,
