@@ -18,7 +18,7 @@ MedLearn 是一个纯客户端的医学教育 SPA（React 19 + Vite + Dexie/Inde
 
 **API 配置**：
 - Base URL: `https://api.meai.cloud`（存 localStorage，可修改）
-- API Key: `sk-7G9IMddl5rbBA2O6v6h2BA5wKrp2UdGR8LlPI09as60qXwrV`（用户输入后存 localStorage）
+- API Key: `<REDACTED — 泄露凭证已从当前文件移除；仍须在 meai.cloud 服务端确认撤销或轮换>`（用户输入后存 localStorage）
 - Model: `claude-opus-4-7`（默认，可在设置页切换）
 
 ### 关于 CORS 的处理
