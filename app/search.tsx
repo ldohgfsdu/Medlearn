@@ -11,8 +11,20 @@ import {
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSearchNodes } from '@/hooks/useKnowledge'
-import { displayNodeTitle, formatNodeType } from '@/utils/knowledgeCatalog'
+import { displayNodeTitle } from '@/utils/knowledgeCatalog'
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
+import { resolveCatalogTarget, type KnowledgeNavigationNode } from '@/utils/routeBuilders'
+
+export const options = { headerTitle: '知识搜索' }
+
+type SearchResultNode = KnowledgeNavigationNode & {
+  id: string
+  title: string
+  type: string
+  chapter?: string | null
+  sub_chapter?: string | null
+}
 
 const TYPE_COLORS: Record<string, string> = {
   disease: Colors.error,
@@ -29,25 +41,23 @@ export default function SearchPage() {
   const hasSearch = trimmed.length >= 2
   const { data: results, isFetching } = useSearchNodes(query)
 
-  const handleNodePress = (node: { id: string; title: string }) => {
-    router.push({
-      pathname: '/node/[id]',
-      params: { id: node.id, title: node.title },
-    })
+  const handleNodePress = (node: KnowledgeNavigationNode) => {
+    const target = resolveCatalogTarget(node)
+    if (target) router.push(target)
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>知识搜索</Text>
-        <Text style={styles.subtitle}>输入两个字以上，按教材知识点检索</Text>
+        <Text style={styles.subtitle}>搜索疾病、别名或“疾病 + 方面”，只导航到教材证据</Text>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
           <TextInput
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="如「心力衰竭」「肺炎」"
+            placeholder="如「COPD 治疗」「哮喘诊断标准」"
             placeholderTextColor={Colors.textTertiary}
             autoCapitalize="none"
             returnKeyType="search"
@@ -85,11 +95,12 @@ export default function SearchPage() {
           </View>
         ) : results && results.length > 0 ? (
           <View style={styles.resultList}>
-            {results.map((node, index) => (
+            {(results as SearchResultNode[]).map((node, index) => (
               <TouchableOpacity
                 key={node.id}
                 style={[styles.resultRow, index < results.length - 1 && styles.rowDivider]}
                 onPress={() => handleNodePress(node)}
+                disabled={!resolveCatalogTarget(node)}
                 activeOpacity={0.65}
               >
                 <View style={[
@@ -101,7 +112,7 @@ export default function SearchPage() {
                     {displayNodeTitle(node.title, node.sub_chapter)}
                   </Text>
                   <Text style={styles.resultMeta} numberOfLines={1}>
-                    {formatNodeType(node.type)}
+                    {node.content_status === 'available' ? '疾病 · 可查看' : '疾病 · 整理中'}
                     {node.chapter ? ` · ${node.chapter}` : ''}
                     {node.sub_chapter ? ` · ${node.sub_chapter}` : ''}
                   </Text>
@@ -127,7 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Layout.screenPaddingX,
     paddingTop: Spacing.base,
     paddingBottom: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -169,9 +180,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing['4xl'],
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingTop: Spacing.md,
+    paddingBottom: Layout.screenPaddingBottom,
   },
   hintBlock: {
     minHeight: 200,
@@ -209,7 +220,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
   resultRow: {
-    minHeight: 72,
+    minHeight: Layout.listRowHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,

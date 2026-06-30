@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react'
+
+export const options = { headerTitle: '学习路径' }
 import {
   View,
   Text,
@@ -13,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useLearningPath, useNextRecommended } from '@/hooks/useLearningPath'
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
 import type { LearningPathNode } from '@/services/learning-path'
+import { resolveTarget } from '@/utils/routeBuilders'
 
 const STATUS_CONFIG: Record<LearningPathNode['status'], { icon: keyof typeof Ionicons.glyphMap; label: string; color: string; bg: string }> = {
   mastered: { icon: 'checkmark-circle', label: '已掌握', color: Colors.success, bg: '#ECFDF5' },
@@ -82,10 +85,8 @@ export default function LearningPathScreen() {
 
   const handleNodePress = (node: LearningPathNode) => {
     if (node.status === 'locked') return
-    router.push({
-      pathname: '/node/[id]',
-      params: { id: node.id, title: node.title },
-    })
+    const target = resolveTarget(node)
+    if (target) router.push(target)
   }
 
   return (

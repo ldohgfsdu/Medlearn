@@ -242,6 +242,132 @@ def v4_structured_to_knowledge_node(
     return row
 
 
+def _remap_row_references(
+    rows: list[dict[str, Any]],
+    *,
+    id_map: dict[str, str],
+    valid_ids: set[str],
+    title_to_id: dict[str, str],
+) -> None:
+    """Rewrite related_nodes / causal_links to production kn-* IDs in-place."""
+    for row in rows:
+        remapped_related: list[str] = []
+        for ref_id in row.get("related_nodes") or []:
+            ref = str(ref_id or "").strip()
+            if not ref:
+                continue
+            mapped = id_map.get(ref, ref)
+            if mapped in valid_ids:
+                remapped_related.append(mapped)
+        row["related_nodes"] = list(dict.fromkeys(remapped_related))
+
+        remapped_links: list[dict[str, Any]] = []
+        for link in row.get("causal_links") or []:
+            if not isinstance(link, dict):
+                continue
+            updated = dict(link)
+            target_id = str(link.get("target_id") or "").strip()
+            mapped_target = id_map.get(target_id, target_id) if target_id else ""
+            if not mapped_target or mapped_target not in valid_ids:
+                to_title = str(link.get("to") or "").strip()
+                if to_title:
+                    mapped_target = title_to_id.get(normalized_title_key(to_title), "")
+            if mapped_target and mapped_target in valid_ids:
+                updated["target_id"] = mapped_target
+                source_id = str(link.get("source_id") or "").strip()
+                if source_id:
+                    mapped_source = id_map.get(source_id, source_id)
+                    if mapped_source in valid_ids:
+                        updated["source_id"] = mapped_source
+                    else:
+                        updated.pop("source_id", None)
+                remapped_links.append(updated)
+        row["causal_links"] = remapped_links
+
+
+def needs_reference_repair(rows: list[dict[str, Any]]) -> bool:
+    """True when normalized rows still reference legacy v3-* IDs."""
+    for row in rows:
+        for ref_id in row.get("related_nodes") or []:
+            if str(ref_id).startswith("v3-"):
+                return True
+        for link in row.get("causal_links") or []:
+            if not isinstance(link, dict):
+                continue
+            target_id = str(link.get("target_id") or "")
+            source_id = str(link.get("source_id") or "")
+            if target_id.startswith("v3-") or source_id.startswith("v3-"):
+                return True
+    return False
+
+
+def repair_row_references(
+    rows: list[dict[str, Any]],
+    *,
+    v3_to_kn: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Repair already-finalized rows (kn-* ids) whose edges still point at v3-*."""
+    valid_ids = {str(row.get("id") or "") for row in rows if row.get("id")}
+    title_to_id = {
+        normalized_title_key(str(row.get("title") or "")): str(row["id"])
+        for row in rows
+        if row.get("id")
+    }
+    id_map = dict(v3_to_kn or {})
+    for row in rows:
+        node_id = str(row.get("id") or "")
+        if node_id:
+            id_map[node_id] = node_id
+    _remap_row_references(
+        rows,
+        id_map=id_map,
+        valid_ids=valid_ids,
+        title_to_id=title_to_id,
+    )
+    return rows
+
+
+def build_v3_to_kn_map(
+    raw_rows: list[dict[str, Any]],
+    identity: TextbookIdentity,
+    *,
+    provenance: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Map legacy v3-* node IDs to production kn-* IDs."""
+    mapping: dict[str, str] = {}
+    for row in raw_rows:
+        legacy_id = str(row.get("id") or "").strip()
+        if not legacy_id.startswith("v3-"):
+            continue
+        title = str(row.get("title") or "").strip()
+        chapter = str(
+            (provenance.get("part_title") if provenance else None)
+            or row.get("chapter")
+            or "未分类"
+        ).strip()
+        sub_chapter_text = str(
+            (provenance.get("section_title") if provenance else None)
+            or row.get("sub_chapter")
+            or ""
+        ).strip() or None
+        source_span = row.get("source_span") or {}
+        source_anchor = None
+        if isinstance(source_span, dict):
+            source_anchor = str(
+                source_span.get("chunk_index")
+                or source_span.get("segmentId")
+                or ""
+            ) or None
+        mapping[legacy_id] = production_node_id(
+            identity.canonical_id,
+            chapter,
+            sub_chapter_text,
+            title,
+            source_anchor=source_anchor,
+        )
+    return mapping
+
+
 def finalize_knowledge_rows(
     rows: list[dict[str, Any]],
     identity: TextbookIdentity = INTERNAL_MEDICINE_10,
@@ -250,12 +376,15 @@ def finalize_knowledge_rows(
 ) -> list[dict[str, Any]]:
     finalized: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
+    id_map: dict[str, str] = {}
+    pending: list[tuple[str | None, dict[str, Any]]] = []
 
     for index, row in enumerate(rows):
         if not is_valid_node_row(row):
             continue
 
         title = str(row.get("title") or "").strip()
+        legacy_id = str(row.get("id") or "").strip() or None
         pdf_chapter = str(row.get("chapter") or "").strip() or None
         chapter = str(
             (provenance.get("part_title") if provenance else None)
@@ -287,6 +416,8 @@ def finalize_knowledge_rows(
         if node_id in seen_ids:
             continue
         seen_ids.add(node_id)
+        if legacy_id:
+            id_map[legacy_id] = node_id
 
         structured_sections = row.get("structured_sections") or []
         if not isinstance(structured_sections, list):
@@ -325,7 +456,19 @@ def finalize_knowledge_rows(
             if pdf_chapter and pdf_chapter != chapter:
                 row_provenance["pdf_part_title"] = pdf_chapter
             attach_provenance(finalized_row, row_provenance)
-        finalized.append(finalized_row)
+        pending.append((legacy_id, finalized_row))
+
+    valid_ids = {row["id"] for _, row in pending}
+    title_to_id = {
+        normalized_title_key(row["title"]): row["id"] for _, row in pending
+    }
+    finalized = [row for _, row in pending]
+    _remap_row_references(
+        finalized,
+        id_map=id_map,
+        valid_ids=valid_ids,
+        title_to_id=title_to_id,
+    )
     return finalized
 
 

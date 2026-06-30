@@ -15,8 +15,8 @@ def load_golden(path: Path):
 
 def main():
     golden_path = Path("golden_dataset/mini_golden_set.json")
-    output_dir = Path("benchmark_results")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("artifacts/benchmarks")
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     print("🚀 Phase 1: Establishing Baseline with Real LLM")
     print("=" * 70)

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { resolveCaseTemplate, type CaseTemplateSummary } from '@/hooks/useCaseSession'
+import { getTotalScore, parseScoreReport } from '@/utils/scoreReport'
 
 interface AnalyticsData {
   completedCases: number
@@ -28,10 +30,13 @@ export function useAnalyticsStats(userId: string | undefined) {
 
       const completedCases = sessions.length
 
+      // Parse score reports once per session to avoid redundant parsing
+      const parsedReports = sessions.map((s) => parseScoreReport(s.score))
+
       // 计算平均分
-      const scores = sessions
-        .map((s) => (s.score as any)?.totalScore)
-        .filter((s) => typeof s === 'number')
+      const scores = parsedReports
+        .map((report) => getTotalScore(report))
+        .filter((s): s is number => typeof s === 'number')
       const avgScore = scores.length > 0
         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
         : 0
@@ -47,10 +52,12 @@ export function useAnalyticsStats(userId: string | undefined) {
 
       // 按学科统计分数
       const subjectMap: Record<string, number[]> = {}
-      sessions.forEach((s) => {
-        const template = s.case_templates as any
+      sessions.forEach((s, i) => {
+        const template = resolveCaseTemplate(
+          s.case_templates as CaseTemplateSummary | CaseTemplateSummary[] | null,
+        )
         const subject = template?.specialty || '其他'
-        const score = (s.score as any)?.totalScore
+        const score = getTotalScore(parsedReports[i])
         if (typeof score === 'number') {
           if (!subjectMap[subject]) subjectMap[subject] = []
           subjectMap[subject].push(score)
@@ -58,14 +65,15 @@ export function useAnalyticsStats(userId: string | undefined) {
       })
       const subjectScores = Object.entries(subjectMap).map(([name, arr]) => ({
         name,
-        score: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
+        score: arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0,
       })).sort((a, b) => b.score - a.score)
 
       // 推理维度指标
-      const diagnosisCorrect = sessions.filter((s) => {
-        const ds = (s.score as any)?.diagnosis?.score
-        const dm = (s.score as any)?.diagnosis?.maxScore
-        return typeof ds === 'number' && typeof dm === 'number' && ds / dm >= 0.75
+      const diagnosisCorrect = sessions.filter((_s, i) => {
+        const report = parsedReports[i]
+        const ds = report?.diagnosis.score
+        const dm = report?.diagnosis.maxScore
+        return typeof ds === 'number' && typeof dm === 'number' && dm > 0 && ds / dm >= 0.75
       }).length
       const diagnosisRate = completedCases > 0 ? Math.round((diagnosisCorrect / completedCases) * 100) : 0
 

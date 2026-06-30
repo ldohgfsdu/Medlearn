@@ -4,6 +4,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
+import { resolveCaseTemplate, type CaseTemplateSummary } from '@/hooks/useCaseSession'
 import { supabase } from '@/lib/supabase'
 import { caseEngine } from '@/services/case-engine'
 import {
@@ -12,7 +13,9 @@ import {
   type CaseDifficulty,
 } from '@/utils/learningChallenge'
 import { Colors, Typography, Spacing, BorderRadius, Shadows, getMasteryColor } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
 import { CHIEF_COMPLAINTS } from '@/constants/vindicate'
+import { getTotalScore, parseScoreReport } from '@/utils/scoreReport'
 
 const COMPLAINT_META: Record<string, {
   icon: keyof typeof Ionicons.glyphMap
@@ -53,17 +56,21 @@ export default function CasesScreen() {
         .limit(10)
 
       if (error) throw error
-      return data ?? []
+      return (data ?? []).map((session) => ({
+        ...session,
+        score: parseScoreReport(session.score),
+      }))
     },
   })
 
   const getRecommendedDifficulty = (chiefComplaint: string): CaseDifficulty => {
     const latestSession = completedSessions.find((session) => {
-      const template = session.case_templates as any
+      const template = resolveCaseTemplate(
+        session.case_templates as CaseTemplateSummary | CaseTemplateSummary[] | null,
+      )
       return template?.chief_complaint === chiefComplaint
     })
-    const score = (latestSession?.score as any)?.totalScore
-    return recommendStretchDifficulty(typeof score === 'number' ? score : null)
+    return recommendStretchDifficulty(getTotalScore(latestSession?.score))
   }
 
   const handleStartCase = async (chiefComplaint: string) => {
@@ -142,37 +149,25 @@ export default function CasesScreen() {
           </View>
 
           <View style={styles.cardGrid}>
-        {CHIEF_COMPLAINTS.map((complaint, index) => {
+        {CHIEF_COMPLAINTS.map((complaint) => {
           const meta = COMPLAINT_META[complaint.id]
-          const isFeatured = index === 0
           const recommendedDifficulty = getRecommendedDifficulty(complaint.id)
           return (
             <TouchableOpacity
               key={complaint.id}
-              style={[styles.caseCard, isFeatured && styles.caseCardFeatured]}
+              style={styles.caseCard}
               onPress={() => handleStartCase(complaint.id)}
               disabled={loading !== null}
               activeOpacity={0.75}
             >
-              <View style={[
-                styles.caseIconWrap,
-                isFeatured && styles.caseIconFeatured,
-                { backgroundColor: meta.tint },
-              ]}>
-                <Ionicons name={meta.icon} size={isFeatured ? 26 : 22} color={Colors.ink} />
+              <View style={[styles.caseIconWrap, { backgroundColor: meta.tint }]}>
+                <Ionicons name={meta.icon} size={20} color={Colors.ink} />
               </View>
-              <View style={isFeatured ? styles.caseFeaturedCopy : undefined}>
-                <Text style={[styles.caseTitle, isFeatured && styles.caseTitleFeatured]}>{complaint.label}</Text>
-                <Text style={styles.caseSubtitle} numberOfLines={1}>{meta.cue}</Text>
-                <Text style={styles.difficultyHint}>
-                  建议 · {getDifficultyLabel(recommendedDifficulty)}
-                </Text>
-              </View>
-              {isFeatured && (
-                <View style={styles.startMark}>
-                  <Ionicons name="arrow-forward" size={18} color="#FFFDF9" />
-                </View>
-              )}
+              <Text style={styles.caseTitle}>{complaint.label}</Text>
+              <Text style={styles.caseSubtitle} numberOfLines={1}>{meta.cue}</Text>
+              <Text style={styles.difficultyHint}>
+                建议 · {getDifficultyLabel(recommendedDifficulty)}
+              </Text>
               {loading === complaint.id && (
                 <View style={styles.loadingOverlay}>
                   <ActivityIndicator size="small" color={Colors.primary[700]} />
@@ -183,6 +178,17 @@ export default function CasesScreen() {
         })}
           </View>
         </>
+      )}
+
+      {showHistoryFirst && (
+        <TouchableOpacity
+          style={styles.historyBackLink}
+          onPress={() => router.replace('/(tabs)/cases')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="pulse-outline" size={16} color={Colors.primary[700]} />
+          <Text style={styles.historyBackText}>去开始新病例</Text>
+        </TouchableOpacity>
       )}
 
       <View style={[styles.sectionHeader, !showHistoryFirst && styles.historyHeader]}>
@@ -202,9 +208,10 @@ export default function CasesScreen() {
       ) : (
         <View style={styles.completedList}>
           {completedSessions.map((session, index) => {
-            const score = session.score as any
-            const template = session.case_templates as any
-            const totalScore = score?.totalScore ?? 0
+            const totalScore = getTotalScore(session.score) ?? 0
+            const template = resolveCaseTemplate(
+              session.case_templates as CaseTemplateSummary | CaseTemplateSummary[] | null,
+            )
             return (
               <TouchableOpacity
                 key={session.id}
@@ -272,12 +279,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingBottom: Layout.screenPaddingBottom,
   },
   pageIntro: {
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.md,
   },
   pageIntroTitle: {
     ...Typography.titleLarge,
@@ -311,42 +318,24 @@ const styles = StyleSheet.create({
   },
   caseCard: {
     width: '48.5%' as any,
-    minHeight: 142,
+    minHeight: 108,
     backgroundColor: Colors.surface,
-    padding: Spacing.base,
-    borderRadius: BorderRadius.xl,
+    padding: Layout.cardPadding,
+    borderRadius: Layout.cardRadius,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  caseCardFeatured: {
-    width: '100%',
-    minHeight: 94,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E7DCC9',
-    borderColor: '#E7DCC9',
-  },
   caseIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: Layout.iconWrap,
+    height: Layout.iconWrap,
+    borderRadius: Layout.iconWrap / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
-  },
-  caseIconFeatured: {
-    marginBottom: 0,
-  },
-  caseFeaturedCopy: {
-    flex: 1,
-    marginLeft: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   caseTitle: {
-    ...Typography.titleMedium,
+    ...Typography.titleSmall,
     color: Colors.textPrimary,
-  },
-  caseTitleFeatured: {
-    fontSize: 18,
   },
   caseSubtitle: {
     ...Typography.labelSmall,
@@ -357,15 +346,7 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     color: Colors.primary[700],
     fontWeight: '700',
-    marginTop: Spacing.sm,
-  },
-  startMark: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.ink,
+    marginTop: Spacing.xs,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -377,6 +358,18 @@ const styles = StyleSheet.create({
   },
   historyHeader: {
     marginTop: Spacing['2xl'],
+  },
+  historyBackLink: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  historyBackText: {
+    ...Typography.labelLarge,
+    color: Colors.primary[700],
+    fontWeight: '700',
   },
   emptyCard: {
     minHeight: 168,
@@ -417,10 +410,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
   completedCard: {
-    minHeight: 68,
+    minHeight: Layout.listRowHeightCompact,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   completedBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,

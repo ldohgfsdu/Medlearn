@@ -5,8 +5,8 @@ from .base import TextbookReader, ReaderResult
 
 
 def get_reader(path: str | Path) -> TextbookReader:
-    """Factory function. Currently using standard PdfReader.
-    Enhanced version with local model post-processing is applied in higher layers."""
+    """Factory function. Production ingest uses pipeline_v3 PyMuPDF path, not this reader.
+    EnhancedPdfReader exists for experiments only and is not wired here."""
     ext = Path(path).suffix.lower()
     if ext == ".pdf":
         from .pdf_reader import PdfReader

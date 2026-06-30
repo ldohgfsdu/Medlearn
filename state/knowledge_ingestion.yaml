@@ -5,35 +5,54 @@ active_object:
   status: active
   manifest: manifests/internal_medicine_ingestion.yaml
   pipeline_entrypoint: scripts/ingest_knowledge.py
-  notes: 'V4 architecture accepted. Upload path smoke-tested with fixture for section
-    1. Real production ingestion remains pending until section 1 completes PDF → Docling
-    → Ollama → normalize → Supabase → verify.
+  notes: 'Production path: ingest_knowledge.py → V3 → knowledge_node_adapter → knowledge_nodes
+
+    + document_chunks + causal_chains (P0 section upload).
 
     '
-production_status:
-  architecture: accepted
-  contract: v4_accepted
-  upload_pipeline: verified_fixture_section_1
-  real_extraction_pipeline: ready_for_section_1_extract
-  production_ingestion: not_accepted
-  app_integration: db_query_ready_ui_pending
+extraction:
+  status: verified_36_chapters
+  verified_section_count: 36
+  book_id: internal-medicine-10
+  manifest: manifests/internal_medicine_ingestion.yaml
+  next_pending_section: 第四篇 消化系统疾病/第四章 胃炎
+production_ingestion:
+  status: accepted_if_db_verified
+  contract: v3_accepted
+  upload_pipeline: knowledge_nodes_plus_chunks_plus_causal_chains
+  p0_reference_integrity: fixed_round1
+  p1_architecture_converged: true
+  pipeline_closure_verified: true
+  notes: 'Upload path writes knowledge_nodes, document_chunks (related_node_id), and
+    causal_chains.
+
+    Re-upload from normalized cache repairs legacy v3-* edge references.
+
+    '
+  p0_backfill_completed: true
+  p0_backfill_sections: 33
+app_integration:
+  status: pending_or_partial
+  db_query_ready: true
+  ui_visible: pending
+  rag_related_chunks: enabled_after_p0_upload
 ollama_gpu_config:
   num_gpu: 999
   num_ctx: 4096
   processor_at_smoke: 100% GPU
   vram_used_mib: 6967
   note: 'Previous num_gpu 20 caused hybrid CPU/GPU. num_gpu 999 + num_ctx 4096 loads
-    fully on RTX 3080. Pipeline now passes OLLAMA_NUM_GPU (default 999) and caps num_ctx
-    at 4096 in API options.
+
+    fully on RTX 3080. Pipeline passes OLLAMA_NUM_GPU (default 999).
 
     '
-last_completed_section: 第二篇 呼吸系统疾病/第九章 肺癌
-last_completed_mode: fixture_upload_only
-current_section: 第二篇 呼吸系统疾病/第十二章 肺动脉高压
-last_upload_count: 86
-last_remote_count: 86
+last_completed_section: 第四篇 消化系统疾病/第三章 食管癌
+last_completed_mode: real_llm_extraction
+current_section: 第四篇 消化系统疾病/第三章 食管癌
+last_upload_count: 4
+last_remote_count: 4
 last_error: null
-updated_at: '2026-06-13T15:45:26.899057+00:00'
+updated_at: '2026-06-17T15:56:07.384722+00:00'
 real_llm_gate:
   target_section: 第二篇 呼吸系统疾病/第一章 总论
   checklist:
@@ -41,14 +60,125 @@ real_llm_gate:
     ollama_inference_ready: true
     ollama_gpu_offload: 100pct_gpu
     pdf_catalog_unit_resolved: true
-    docling_output_valid: pending
-    llm_v4_contract: pending
-    normalize_ok: pending
+    docling_output_valid: not_required_production_uses_pymupdf
+    llm_v4_contract: not_applicable
+    normalize_ok: true
     normalized_cache_written: true
     supabase_upload_ok: true
     no_extraction_failed: true
     identity_fields_correct: true
-    provenance_from_real_pipeline: pending
+    provenance_from_real_pipeline: true
     idempotent_upload: true
     app_query_path_readable: true
     app_ui_visible: pending
+    reference_id_integrity: fixed_round1
+    document_chunks_upload: fixed_round1
+    causal_chains_upload: fixed_round1
+performance:
+  last_section: &id001
+    section: 第四篇 消化系统疾病/第三章 食管癌
+    stage: upload
+    timings_sec:
+      load_cache: 0.001
+      upload_idempotent: 4.498
+      upload.prepare_rows: 0.0
+      upload.remote_before: 1.241
+      upload.upsert_nodes: 0.639
+      upload.upload_artifacts: 2.191
+      upload.cleanup_stale: 0.0
+      upload.remote_after: 0.426
+      upload.total: 4.497
+      artifact.build_chunks: 0.0
+      artifact.upload_chunks_total: 1.705
+      artifact.chunks.delete_existing_chunks: 0.435
+      artifact.chunks.embed_chunks: 0.742
+      artifact.chunks.upsert_chunks: 0.528
+      artifact.chunks.total: 1.705
+      artifact.build_chains: 0.0
+      artifact.upsert_chains: 0.465
+      artifact.total: 2.17
+      status_uploaded: 0.024
+      verify_remote_ids: 0.0
+      status_verified: 0.019
+      total: 4.568
+    recorded_at: '2026-06-17T15:56:07.384722+00:00'
+    extra:
+      node_count: 4
+      remote_count: 4
+      chunks_uploaded: 6
+      chunks_embedded: 6
+      causal_chains_uploaded: 1
+  history:
+  - section: 第四篇 消化系统疾病/第二章 胃食管反流病
+    stage: extract
+    timings_sec:
+      extract_source: 40.116
+      normalize_source: 0.008
+      quality_gate: 0.009
+      write_cache: 0.003
+      status_update: 0.026
+      total: 40.183
+    recorded_at: '2026-06-17T15:53:01.207295+00:00'
+    extra:
+      pipeline_version: v3
+      node_count: 7
+      cache_path: F:\ml\generated\knowledge_nodes\internal-medicine-10\第四篇_消化系统疾病__第二章_胃食管反流病.normalized.json
+  - section: 第四篇 消化系统疾病/第二章 胃食管反流病
+    stage: upload
+    timings_sec:
+      load_cache: 0.001
+      upload_idempotent: 7.467
+      upload.prepare_rows: 0.0
+      upload.remote_before: 1.27
+      upload.upsert_nodes: 0.568
+      upload.upload_artifacts: 5.007
+      upload.cleanup_stale: 0.0
+      upload.remote_after: 0.623
+      upload.total: 7.468
+      artifact.build_chunks: 0.0
+      artifact.upload_chunks_total: 4.995
+      artifact.chunks.delete_existing_chunks: 0.472
+      artifact.chunks.embed_chunks: 3.785
+      artifact.chunks.upsert_chunks: 0.738
+      artifact.chunks.total: 4.995
+      artifact.build_chains: 0.0
+      artifact.upsert_chains: 0.0
+      artifact.total: 14.985
+      status_uploaded: 0.017
+      verify_remote_ids: 0.0
+      status_verified: 0.015
+      total: 7.52
+    recorded_at: '2026-06-17T15:53:08.763235+00:00'
+    extra:
+      node_count: 7
+      remote_count: 7
+      chunks_uploaded: 9
+      chunks_embedded: 9
+      causal_chains_uploaded: 0
+  - section: 第四篇 消化系统疾病/第三章 食管癌
+    stage: extract
+    timings_sec:
+      extract_source: 36.038
+      extract.prepare_ollama: 0.542
+      extract.resolve_catalog_range: 0.005
+      extract.build_pipeline: 0.006
+      extract.run_section_extract: 35.485
+      extract.runner.read_source: 0.45
+      extract.runner.split_filter_chunks: 0.002
+      extract.runner.llm_extract: 35.022
+      extract.runner.enrich_write_cache: 0.002
+      extract.runner.build_rows: 0.005
+      extract.runner.write_outputs: 0.004
+      extract.runner.total: 35.485
+      extract.total: 36.038
+      normalize_source: 0.008
+      quality_gate: 0.009
+      write_cache: 0.003
+      status_update: 0.028
+      total: 36.108
+    recorded_at: '2026-06-17T15:56:02.774426+00:00'
+    extra:
+      pipeline_version: v3
+      node_count: 4
+      cache_path: F:\ml\generated\knowledge_nodes\internal-medicine-10\第四篇_消化系统疾病__第三章_食管癌.normalized.json
+  - *id001

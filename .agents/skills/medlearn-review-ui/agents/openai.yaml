@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review MedLearn UI"
+  short_description: "Review MedLearn UI against product and design rules"
+  default_prompt: "Use $medlearn-review-ui to review this MedLearn screen or UI change."

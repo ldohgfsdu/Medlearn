@@ -1,0 +1,33 @@
+{
+  "dataset_version": "sft_v2_expanded_182",
+  "total_samples": 182,
+  "skew_flags": [
+    {
+      "flag": "single_chapter_over_30pct",
+      "chapter_path": "unknown",
+      "value": 0.3516,
+      "sampler_action": "chapter_balanced_batch_sampler"
+    },
+    {
+      "flag": "single_parent_entity_over_10pct",
+      "parent_entity": "原发性高血压",
+      "value": 0.2143,
+      "sampler_action": "max_per_parent_entity_cap"
+    }
+  ],
+  "sampler_recommendations": [
+    "chapter_balanced_batch_sampler",
+    "max_per_parent_entity_cap"
+  ],
+  "defaults": {
+    "stage_order": [
+      "stage1_evidence_copy",
+      "stage2_evidence_content_distill",
+      "stage3_full_nodes_only"
+    ],
+    "max_per_parent_entity_per_batch": 2,
+    "hydrated_non_hydrated_ratio_target": "1:1",
+    "chapter_balanced_batches": true
+  },
+  "note": "Do not delete Tier A samples; apply these controls during curriculum training only."
+}

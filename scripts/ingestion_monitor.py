@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 """
-V4.7 Ingestion Monitor
-Tracks full textbook ingestion with checkpoint and summary.
+DEPRECATED: legacy V4.7 ingestion monitor.
+
+Production status: `python scripts/ingest_knowledge.py --book-id internal-medicine-10 status`
+State file: `state/knowledge_ingestion.yaml`
 """
 import json
 from pathlib import Path
 from datetime import datetime
 
-STATE_FILE = Path("ingestion_state.json")
-FAILED_DIR = Path("failed_nodes")
-PILOT_REPORTS_DIR = Path("pilot_reports")
+STATE_FILE = Path(__file__).resolve().parent.parent / "state" / "archive" / "legacy_v4" / "scripts_ingestion_state.json"
+FAILED_DIR = Path("artifacts/legacy-ingestion/failed-nodes")
+PILOT_REPORTS_DIR = Path("artifacts/pilot-reports")
 
 def load_state():
     if STATE_FILE.exists():

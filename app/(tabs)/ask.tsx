@@ -18,6 +18,7 @@ import { sendChatMessage } from '@/services/ai'
 import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
 
 interface Message {
+  id: string
   role: 'user' | 'assistant'
   content: string
 }
@@ -51,19 +52,19 @@ export default function AskScreen() {
     if (!question || isLoading) return
 
     setInputText('')
-    setMessages(prev => [...prev, { role: 'user', content: question }])
+    setMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, role: 'user', content: question }])
     setIsLoading(true)
 
     try {
       const reply = await sendChatMessage([
         { role: 'user', content: question },
       ])
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      setMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, role: 'assistant', content: reply }])
     } catch (e: any) {
       const msg = e?.message === 'AI_REQUEST_TIMEOUT'
         ? 'AI 响应较慢，请稍后再试或缩短问题。'
         : '抱歉，回答问题时出现了错误，请稍后重试。'
-      setMessages(prev => [...prev, { role: 'assistant', content: msg }])
+      setMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, role: 'assistant', content: msg }])
     } finally {
       setIsLoading(false)
     }
@@ -159,7 +160,7 @@ export default function AskScreen() {
 
           {messages.map((message, index) => (
             <View
-              key={`${message.role}-${index}`}
+              key={message.id}
               style={[
                 styles.messageBlock,
                 message.role === 'user' ? styles.userBlock : styles.assistantBlock,

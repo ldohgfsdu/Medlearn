@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/hooks/useAuth'
 import { Colors } from '@/constants/theme'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import '../global.css'
 
 const queryClient = new QueryClient({
@@ -24,7 +25,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (loading) return
 
     const inAuthGroup = segments[0] === '(auth)'
-    const isPublicRoute = segments[0] === 'map'
+    const isPublicRoute = segments[0] === 'map' || segments[0] === 'textbook'
 
     if (!user && !inAuthGroup && !isPublicRoute) {
       // 未登录，跳转登录页
@@ -43,6 +44,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AuthGuard>
+          <ErrorBoundary>
           <Stack
             screenOptions={{
               headerStyle: { backgroundColor: Colors.background },
@@ -90,6 +92,20 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="textbook/index"
+              options={{
+                headerTitle: '电子教材',
+                headerBackTitle: '返回',
+              }}
+            />
+            <Stack.Screen
+              name="textbook/[sectionId]"
+              options={{
+                headerTitle: '章节详情',
+                headerBackTitle: '电子教材',
+              }}
+            />
+            <Stack.Screen
               name="knowledge/[id]"
               options={{ headerShown: false }}
             />
@@ -133,6 +149,7 @@ export default function RootLayout() {
               options={{ headerShown: false }}
             />
           </Stack>
+          </ErrorBoundary>
         </AuthGuard>
       </AuthProvider>
     </QueryClientProvider>

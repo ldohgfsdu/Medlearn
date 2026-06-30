@@ -80,20 +80,25 @@ export default function RegisterScreen() {
       return
     }
 
-    setError('')
-    setLoading(true)
-    const normalizedEmail = email.trim().toLowerCase()
-    const { error: signUpError } = await signUp(normalizedEmail, password, nickname.trim())
-    setLoading(false)
+    try {
+      setError('')
+      setLoading(true)
+      const normalizedEmail = email.trim().toLowerCase()
+      const { error: signUpError } = await signUp(normalizedEmail, password, nickname.trim())
 
-    if (signUpError) {
-      setError(authErrorMessage(signUpError))
-      return
+      if (signUpError) {
+        setError(authErrorMessage(signUpError))
+        return
+      }
+
+      setEmail(normalizedEmail)
+      setStep('verification')
+      setCountdown(RESEND_SECONDS)
+    } catch (e) {
+      setError('网络错误，请检查连接后重试')
+    } finally {
+      setLoading(false)
     }
-
-    setEmail(normalizedEmail)
-    setStep('verification')
-    setCountdown(RESEND_SECONDS)
   }
 
   const handleVerify = async () => {
@@ -102,31 +107,41 @@ export default function RegisterScreen() {
       return
     }
 
-    setError('')
-    setLoading(true)
-    const { error: verifyError } = await verifySignUpCode(email, code)
-    setLoading(false)
+    try {
+      setError('')
+      setLoading(true)
+      const { error: verifyError } = await verifySignUpCode(email, code)
 
-    if (verifyError) {
-      setError(authErrorMessage(verifyError))
-      return
+      if (verifyError) {
+        setError(authErrorMessage(verifyError))
+        return
+      }
+
+      router.replace('/(tabs)')
+    } catch (e) {
+      setError('网络错误，请检查连接后重试')
+    } finally {
+      setLoading(false)
     }
-
-    router.replace('/(tabs)')
   }
 
   const handleResend = async () => {
     if (countdown > 0 || resending) return
-    setError('')
-    setResending(true)
-    const { error: resendError } = await resendSignUpCode(email)
-    setResending(false)
+    try {
+      setError('')
+      setResending(true)
+      const { error: resendError } = await resendSignUpCode(email)
 
-    if (resendError) {
-      setError(authErrorMessage(resendError))
-      return
+      if (resendError) {
+        setError(authErrorMessage(resendError))
+        return
+      }
+      setCountdown(RESEND_SECONDS)
+    } catch (e) {
+      setError('网络错误，请检查连接后重试')
+    } finally {
+      setResending(false)
     }
-    setCountdown(RESEND_SECONDS)
   }
 
   return (

@@ -39,7 +39,7 @@ export default function DiagnoseScreen() {
 
   const updateDifferential = (index: number, field: 'diagnosis' | 'reasoning', value: string) => {
     const updated = [...differentials]
-    updated[index][field] = value
+    updated[index] = { ...updated[index], [field]: value }
     setDifferentials(updated)
   }
 

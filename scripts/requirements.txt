@@ -3,4 +3,5 @@ supabase
 python-dotenv
 requests
 docling
+rapidocr
 PyYAML

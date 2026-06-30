@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { calculateLearningRecordStats } from '@/utils/learningRecords'
+import { getTotalScore, parseScoreReport } from '@/utils/scoreReport'
 
 interface ProfileStats {
   xp: number
@@ -24,10 +25,7 @@ export function useProfileStats(userId: string | undefined) {
       if (!sessions) return { xp: 0, cases: 0, learningDays: 0 }
 
       const cases = sessions.length
-      const xp = sessions.reduce((acc, s) => {
-        const score = (s.score as any)?.totalScore ?? 0
-        return acc + score
-      }, 0)
+      const xp = sessions.reduce((acc, s) => acc + (getTotalScore(parseScoreReport(s.score)) ?? 0), 0)
       const { learningDays } = calculateLearningRecordStats(sessions)
 
       return { xp, cases, learningDays }

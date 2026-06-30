@@ -2,7 +2,7 @@ import type { CaseQualityRecord } from './case-quality.ts'
 
 export type AlphaCaseSeed = CaseQualityRecord & { specialty: string }
 
-const REVIEWER = 'alpha-demo-medical-reviewer'
+const REVIEWER = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const REVIEWED_AT = '2026-06-13T00:00:00.000Z'
 
 const SCORING_RUBRIC = {

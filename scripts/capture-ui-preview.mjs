@@ -1,9 +1,34 @@
 import { chromium } from 'playwright'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-const BASE = process.env.PREVIEW_BASE_URL || 'http://localhost:8082'
-const OUT = join(process.cwd(), 'dogfood-output', 'screenshots', 'ui-ux-20260613')
+const BASE = process.env.PREVIEW_BASE_URL || 'http://localhost:8083'
+const OUT = join(process.cwd(), 'artifacts', 'qa', 'screenshots', 'ui-ux-20260613')
+
+function loadEnvValue(key) {
+  if (process.env[key]) return process.env[key]
+  const envPath = join(process.cwd(), '.env')
+  if (!existsSync(envPath)) return undefined
+  const line = readFileSync(envPath, 'utf8')
+    .split(/\r?\n/)
+    .find((entry) => entry.startsWith(`${key}=`))
+  return line?.slice(key.length + 1).trim()
+}
+
+async function tryLogin(page) {
+  const email = process.env.PREVIEW_EMAIL || loadEnvValue('PREVIEW_EMAIL')
+  const password = process.env.PREVIEW_PASSWORD || loadEnvValue('PREVIEW_PASSWORD')
+  if (!email || !password) return false
+
+  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 45000 })
+  await page.waitForTimeout(2000)
+  await page.getByPlaceholder('邮箱地址').fill(email)
+  await page.getByPlaceholder('密码').fill(password)
+  await page.getByRole('button', { name: '登录' }).click()
+  await page.waitForTimeout(4000)
+  const url = page.url()
+  return !url.includes('/login')
+}
 
 const routes = [
   { name: 'login', path: '/login', waitFor: 'text=Medlearn' },
@@ -25,6 +50,8 @@ const context = await browser.newContext({
   locale: 'zh-CN',
 })
 const page = await context.newPage()
+const loggedIn = await tryLogin(page)
+console.log(loggedIn ? 'authenticated preview' : 'unauthenticated preview (login wall)')
 
 for (const route of routes) {
   const url = `${BASE}${route.path}`

@@ -1,0 +1,29 @@
+{
+  "version": "sft_v2",
+  "source_version": "sft_v1",
+  "generated_at": "2026-06-15T11:16:45.689448+00:00",
+  "rules_version": "sft_data_cleaning_v2",
+  "total_samples": 112,
+  "accepted_samples": 20,
+  "train_samples": 18,
+  "internal_eval_samples": 2,
+  "golden_eval_samples": 8,
+  "repair_candidates": 91,
+  "rejected_samples": 1,
+  "acceptance_rate": 0.1786,
+  "evidence_exact_match_rate": 1.0,
+  "content_equals_evidence_rate": 0.0,
+  "avg_nodes_per_sample": 5.85,
+  "avg_aspects_per_sample": 5.85,
+  "training_focus": {
+    "primary_target": "nodes",
+    "include_edges_in_loss": false,
+    "optional_edges_field": "optional_edges"
+  },
+  "outputs": {
+    "train": "F:\\ml\\training\\data\\sft_v2\\train.jsonl",
+    "eval": "F:\\ml\\training\\data\\sft_v2\\eval.jsonl",
+    "rejected": "F:\\ml\\training\\data\\sft_v2\\rejected.jsonl",
+    "repair_candidates": "F:\\ml\\training\\data\\sft_v2\\repair_candidates.jsonl"
+  }
+}

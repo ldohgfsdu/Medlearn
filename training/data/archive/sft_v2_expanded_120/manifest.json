@@ -1,0 +1,50 @@
+{
+  "version": "sft_v2_expanded_120",
+  "frozen": true,
+  "previous_version": "sft_v2_expanded_104",
+  "source_version": "sft_v2_expanded_104",
+  "generated_at": "2026-06-15T11:38:19.569749+00:00",
+  "previous_tier_a": 104,
+  "accepted_from_existing_104": 104,
+  "accepted_from_manual_review": 0,
+  "accepted_from_unrepaired": 31,
+  "accepted_from_new_chunks": 78,
+  "incremental_accepted_samples": 78,
+  "total_accepted_samples": 182,
+  "train_eval_overlap_count": 0,
+  "training_status": "not_started",
+  "new_candidates_scanned": 151,
+  "rejected_new_samples": 73,
+  "repair_candidates_new_samples": 0,
+  "manual_review_new_samples": 0,
+  "evidence_exact_match_rate": 1.0,
+  "content_equals_evidence_rate": 0.0,
+  "avg_nodes_per_sample": 4.3242,
+  "avg_aspects_per_sample": 4.1923,
+  "ready_for_training": true,
+  "ready_for_training_recommended": true,
+  "decision_gate_minimum": {
+    "ready_for_training": true,
+    "blockers": [],
+    "accepted_samples": 182,
+    "target_accepted_samples": 300
+  },
+  "decision_gate_recommended": {
+    "ready_for_training_minimum": true,
+    "ready_for_training_recommended": true,
+    "blockers": []
+  },
+  "golden_eval_samples": 8,
+  "outputs": {
+    "manual_review_resolved": "F:\\ml\\training\\data\\sft_v2_expanded_120\\manual_review_resolved.jsonl",
+    "unrepaired_triage": "F:\\ml\\training\\data\\sft_v2_expanded_120\\unrepaired_triage.jsonl",
+    "new_candidates": "F:\\ml\\training\\data\\sft_v2_expanded_120\\new_candidates.jsonl",
+    "accepted_new": "F:\\ml\\training\\data\\sft_v2_expanded_120\\accepted_new.jsonl",
+    "rejected_new": "F:\\ml\\training\\data\\sft_v2_expanded_120\\rejected_new.jsonl",
+    "repair_candidates_new": "F:\\ml\\training\\data\\sft_v2_expanded_120\\repair_candidates_new.jsonl",
+    "manual_review_new": "F:\\ml\\training\\data\\sft_v2_expanded_120\\manual_review_new.jsonl",
+    "train": "F:\\ml\\training\\data\\sft_v2_expanded_120\\train.jsonl",
+    "eval": "F:\\ml\\training\\data\\sft_v2_expanded_120\\eval.jsonl",
+    "expansion_diff": "F:\\ml\\training\\data\\sft_v2_expanded_120\\expansion_diff.jsonl"
+  }
+}

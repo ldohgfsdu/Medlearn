@@ -8,6 +8,9 @@ export interface LearningPathNode {
   chapter: string
   mastery: number    // 0-100 掌握度
   status: 'locked' | 'available' | 'in_progress' | 'mastered'
+  disease_id?: string | null
+  chapter_section_id?: string | null
+  content_class?: 'confirmed_disease' | 'non_disease_knowledge' | 'suspected_disease' | 'invalid' | null
 }
 
 export interface LearningPath {
@@ -32,7 +35,7 @@ export async function generateLearningPath(
   // 获取该科目所有知识点
   const { data: nodes } = await supabase
     .from('knowledge_nodes')
-    .select('id, title, type, subject, chapter, order_num, causal_links')
+    .select('id, title, type, subject, chapter, order_num, causal_links, disease_id, chapter_section_id, content_class')
     .eq('subject', subject)
     .order('order_num', { ascending: true })
 
@@ -66,7 +69,8 @@ export async function generateLearningPath(
 
   // 从 feynman_records 获取（取最高分）
   for (const f of (feynmanRes.data || [])) {
-    const score = (f.ai_score as any)?.totalScore ?? (f.ai_score as any)?.accuracy ?? 0
+    const aiScore = f.ai_score as { totalScore?: number; accuracy?: number } | null
+    const score = aiScore?.totalScore ?? aiScore?.accuracy ?? 0
     const existing = masteryMap.get(f.node_id) || 0
     masteryMap.set(f.node_id, Math.max(existing, score))
   }
@@ -90,6 +94,9 @@ export async function generateLearningPath(
       chapter: node.chapter || '',
       mastery,
       status,
+      disease_id: node.disease_id,
+      chapter_section_id: node.chapter_section_id,
+      content_class: node.content_class,
     }
   })
 

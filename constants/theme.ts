@@ -3,6 +3,9 @@
  * 基于 PRD 第 22-28 章规范
  */
 
+import { Platform } from 'react-native'
+import { shadowStyle, WEB_SHADOWS } from '@/utils/shadows'
+
 // ============================================
 // 颜色系统（PRD 23）
 // ============================================
@@ -118,29 +121,21 @@ export const BorderRadius = {
 // 阴影（PRD 26.2）
 // ============================================
 
-export const Shadows = {
-  level1: {
-    shadowColor: '#17332C',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  level2: {
-    shadowColor: '#17332C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  level3: {
-    shadowColor: '#17332C',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 6,
-  },
+const nativeShadows = {
+  level1: shadowStyle('level1'),
+  level2: shadowStyle('level2'),
+  level3: shadowStyle('level3'),
+  sheet: shadowStyle('sheet'),
 } as const
+
+const webShadows = {
+  level1: { boxShadow: WEB_SHADOWS.level1 },
+  level2: { boxShadow: WEB_SHADOWS.level2 },
+  level3: { boxShadow: WEB_SHADOWS.level3 },
+  sheet: { boxShadow: WEB_SHADOWS.sheet },
+} as const
+
+export const Shadows = Platform.OS === 'web' ? webShadows : nativeShadows
 
 // ============================================
 // 渐变色对

@@ -5,6 +5,8 @@ const url = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const DEMO_REVIEWER_EMAIL = 'alpha-demo-reviewer@medlearn.local'
 const DEMO_REVIEWER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const DEMO_REVIEWER_PASSWORD =
+  process.env.DEMO_REVIEWER_PASSWORD ?? 'MedlearnDemoReviewer2026!'
 
 async function ensureDemoReviewer(supabase) {
   const { data: existing, error: getError } = await supabase.auth.admin.getUserById(DEMO_REVIEWER_ID)
@@ -13,7 +15,7 @@ async function ensureDemoReviewer(supabase) {
   const { data, error } = await supabase.auth.admin.createUser({
     id: DEMO_REVIEWER_ID,
     email: DEMO_REVIEWER_EMAIL,
-    password: 'MedlearnDemoReviewer2026!',
+    password: DEMO_REVIEWER_PASSWORD,
     email_confirm: true,
     user_metadata: { role: 'medical_reviewer_demo' },
   })

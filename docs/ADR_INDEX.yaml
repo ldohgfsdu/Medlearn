@@ -1,12 +1,82 @@
 schema_version: 1
 adrs:
+  - id: ADR-010
+    title: Enforce Transactional Review Consistency
+    status: accepted
+    path: docs/adr/ADR-010-transactional-review-consistency.md
+    applies_to:
+      - evidence_claim
+      - verification_decision
+      - review_conflict
+      - editorial_review
+      - database
+    supersedes: []
+
+  - id: ADR-009
+    title: Preserve Text, Tables, Figures, And Captions As Evidence Artifacts
+    status: accepted
+    path: docs/adr/ADR-009-multimodal-evidence-artifacts.md
+    applies_to:
+      - evidence_artifact
+      - knowledge_item
+      - textbook_pipeline
+      - knowledge_detail
+    supersedes: []
+
+  - id: ADR-008
+    title: Reuse Medical Concepts, Isolate Knowledge Detail Instances
+    status: accepted
+    path: docs/adr/ADR-008-concept-reuse-detail-isolation.md
+    applies_to:
+      - medical_concept
+      - knowledge_detail_instance
+      - knowledge_graph
+      - textbook_version
+      - catalog_node
+    supersedes: []
+
+  - id: ADR-007
+    title: Separate Catalog Position, Content Identity, And Detail Page
+    status: accepted
+    path: docs/adr/ADR-007-separate-catalog-content-and-detail.md
+    applies_to:
+      - catalog_node
+      - content_identity
+      - content_kind
+      - detail_page
+      - knowledge_detail
+      - disease_detail
+    supersedes: []
+
+  - id: ADR-006
+    title: Textbooks Own Knowledge Aspect Structure
+    status: accepted
+    path: docs/adr/ADR-006-textbook-owned-knowledge-aspects.md
+    applies_to:
+      - knowledge_detail
+      - knowledge_aspect
+      - textbook_fidelity
+      - textbook_pipeline
+    supersedes: []
+
+  - id: ADR-005
+    title: Textbook Versions Own Their Catalog And Evidence
+    status: accepted
+    path: docs/adr/ADR-005-textbook-version-boundaries.md
+    applies_to:
+      - textbook
+      - textbook_version
+      - catalog_skeleton
+      - knowledge_detail
+      - evidence
+    supersedes: []
+
   - id: ADR-004
     title: Display Hierarchy vs Semantic Graph Separation
-    status: proposed
-    path: scripts/textbook_pipeline/ADR-004-display-graph-separation.md
+    status: accepted
+    path: docs/adr/ADR-004-display-graph-separation.md
     applies_to:
       - knowledge_display
       - semantic_graph
       - textbook_pipeline
     supersedes: []
-

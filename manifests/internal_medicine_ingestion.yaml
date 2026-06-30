@@ -1,0 +1,524 @@
+schema_version: 1
+book_id: internal-medicine-10
+display_name: 内科学（第10版）
+source_pdf: textbook/内科学（第10版）.pdf
+pipeline: pipeline_v3
+output_dir: generated/pipeline_v3
+status: in_progress
+last_run: null
+parts:
+- title: 第一篇 绪论
+  status: pending
+  sections:
+  - title: 绪论
+    status: verified
+    updated_at: '2026-06-13T16:28:48.174176+00:00'
+    node_count: 19
+    remote_count: 19
+    completed_at: '2026-06-13T16:28:48.174176+00:00'
+- title: 第二篇 呼吸系统疾病
+  status: in_progress
+  sections:
+  - status: verified
+    real_llm_extraction: completed
+    updated_at: '2026-06-13T14:09:34.673330+00:00'
+    node_count: 10
+    remote_count: 10
+    completed_at: '2026-06-13T14:09:34.673330+00:00'
+    title: 第一章 总论
+  - status: verified
+    updated_at: '2026-06-13T14:14:53.313995+00:00'
+    node_count: 10
+    remote_count: 10
+    completed_at: '2026-06-13T14:14:53.313995+00:00'
+    title: 第二章 急性上呼吸道感染和急性气管 支气管炎
+  - status: verified
+    updated_at: '2026-06-13T14:15:54.950339+00:00'
+    node_count: 17
+    remote_count: 17
+    completed_at: '2026-06-13T14:15:54.950339+00:00'
+    title: 第三章 慢性阻塞性肺疾病
+  - status: verified
+    updated_at: '2026-06-13T18:24:05.455505+00:00'
+    node_count: 57
+    remote_count: 57
+    completed_at: '2026-06-13T18:24:05.455505+00:00'
+    title: 第四章 支气管哮喘
+  - status: verified
+    updated_at: '2026-06-13T14:16:41.264238+00:00'
+    node_count: 8
+    remote_count: 8
+    completed_at: '2026-06-13T14:16:41.264238+00:00'
+    title: 第五章 支气管扩张症
+  - status: verified
+    updated_at: '2026-06-13T14:17:58.744120+00:00'
+    node_count: 11
+    remote_count: 11
+    completed_at: '2026-06-13T14:17:58.744120+00:00'
+    title: 第六章 肺部感染性疾病
+  - status: verified
+    updated_at: '2026-06-13T16:17:20.898482+00:00'
+    node_count: 35
+    remote_count: 35
+    completed_at: '2026-06-13T16:17:20.898482+00:00'
+    title: 第七章 肺脓肿
+  - status: verified
+    updated_at: '2026-06-13T14:18:49.416364+00:00'
+    node_count: 6
+    remote_count: 6
+    completed_at: '2026-06-13T14:18:49.416364+00:00'
+    title: 第八章 肺结核
+  - status: verified
+    updated_at: '2026-06-13T16:17:23.486906+00:00'
+    node_count: 142
+    remote_count: 142
+    completed_at: '2026-06-13T16:17:23.486906+00:00'
+    title: 第九章 肺癌
+  - status: verified
+    updated_at: '2026-06-13T14:20:56.972112+00:00'
+    node_count: 19
+    remote_count: 19
+    completed_at: '2026-06-13T14:20:56.972112+00:00'
+    title: 第十章 间质性肺疾病
+  - status: verified
+    updated_at: '2026-06-13T16:17:25.236794+00:00'
+    node_count: 56
+    remote_count: 56
+    completed_at: '2026-06-13T16:17:25.236794+00:00'
+    title: 第十一章 肺血栓栓塞症
+  - status: verified
+    updated_at: '2026-06-13T16:17:27.829899+00:00'
+    node_count: 64
+    remote_count: 64
+    completed_at: '2026-06-13T16:17:27.829899+00:00'
+    title: 第十二章 肺动脉高压
+  - status: verified
+    updated_at: '2026-06-13T16:19:26.038757+00:00'
+    node_count: 78
+    remote_count: 78
+    completed_at: '2026-06-13T16:19:26.038757+00:00'
+    title: 第十三章 胸膜疾病
+  - status: verified
+    updated_at: '2026-06-13T16:19:27.606582+00:00'
+    node_count: 30
+    remote_count: 30
+    completed_at: '2026-06-13T16:19:27.606582+00:00'
+    title: 第十四章 睡眠呼吸障碍
+  - status: verified
+    updated_at: '2026-06-13T16:19:29.423927+00:00'
+    node_count: 37
+    remote_count: 37
+    completed_at: '2026-06-13T16:19:29.423927+00:00'
+    title: 第十五章 急性呼吸窘迫综合征
+  - status: verified
+    updated_at: '2026-06-13T16:21:06.164732+00:00'
+    node_count: 100
+    remote_count: 100
+    completed_at: '2026-06-13T16:21:06.164732+00:00'
+    title: 第十六章 呼吸衰竭与呼吸支持技术
+  - status: verified
+    title: 第十七章 烟草病学概要
+    updated_at: '2026-06-13T16:28:39.992504+00:00'
+    node_count: 17
+    remote_count: 17
+    completed_at: '2026-06-13T16:28:39.992504+00:00'
+- title: 第三篇 循环系统疾病
+  status: pending
+  sections:
+  - status: verified
+    title: 第一章 总论
+    updated_at: '2026-06-13T16:39:11.358462+00:00'
+    node_count: 54
+    remote_count: 54
+    completed_at: '2026-06-13T16:39:11.358462+00:00'
+  - status: verified
+    title: 第二章 心力衰竭
+    updated_at: '2026-06-13T16:42:59.589659+00:00'
+    node_count: 78
+    remote_count: 78
+    completed_at: '2026-06-13T16:42:59.589659+00:00'
+  - status: verified
+    title: 第三章 心律失常
+    updated_at: '2026-06-13T16:52:38.066600+00:00'
+    node_count: 237
+    remote_count: 237
+    completed_at: '2026-06-13T16:52:38.066600+00:00'
+  - status: verified
+    title: 第四章 动脉粥样硬化和冠状动脉粥样 硬化性心脏病
+    updated_at: '2026-06-13T17:00:51.623343+00:00'
+    node_count: 204
+    remote_count: 204
+    completed_at: '2026-06-13T17:00:51.623343+00:00'
+  - status: verified
+    title: 第五章 高血压
+    updated_at: '2026-06-13T17:06:50.250202+00:00'
+    node_count: 68
+    remote_count: 68
+    completed_at: '2026-06-13T17:06:50.250202+00:00'
+  - status: verified
+    title: 第六章 心肌疾病
+    updated_at: '2026-06-13T17:10:26.079801+00:00'
+    node_count: 58
+    remote_count: 58
+    completed_at: '2026-06-13T17:10:26.079801+00:00'
+  - status: verified
+    title: 第七章 先天性心血管病
+    updated_at: '2026-06-13T17:13:35.335573+00:00'
+    node_count: 34
+    remote_count: 34
+    completed_at: '2026-06-13T17:13:35.335573+00:00'
+  - status: verified
+    title: 第八章 心脏瓣膜病
+    updated_at: '2026-06-13T17:18:58.518173+00:00'
+    node_count: 61
+    remote_count: 61
+    completed_at: '2026-06-13T17:18:58.518173+00:00'
+  - status: verified
+    title: 第九章 心包疾病
+    updated_at: '2026-06-13T17:20:32.007939+00:00'
+    node_count: 25
+    remote_count: 25
+    completed_at: '2026-06-13T17:20:32.007939+00:00'
+  - status: verified
+    title: 第十章 感染性心内膜炎
+    updated_at: '2026-06-13T17:22:28.974508+00:00'
+    node_count: 30
+    remote_count: 30
+    completed_at: '2026-06-13T17:22:28.974508+00:00'
+  - status: verified
+    title: 第十一章 心脏骤停与心脏性猝死
+    updated_at: '2026-06-13T17:24:20.050458+00:00'
+    node_count: 19
+    remote_count: 19
+    completed_at: '2026-06-13T17:24:20.050458+00:00'
+  - status: verified
+    title: 第十二章 主动脉和周围血管病
+    updated_at: '2026-06-13T17:26:23.986956+00:00'
+    node_count: 24
+    remote_count: 24
+    completed_at: '2026-06-13T17:26:23.986956+00:00'
+  - status: verified
+    title: 第十三章 心血管神经症
+    updated_at: '2026-06-13T17:26:47.495248+00:00'
+    node_count: 6
+    remote_count: 6
+    completed_at: '2026-06-13T17:26:47.495248+00:00'
+  - status: verified
+    title: 第十四章 肿瘤心脏病学
+    updated_at: '2026-06-13T17:28:32.240891+00:00'
+    node_count: 19
+    remote_count: 19
+    completed_at: '2026-06-13T17:28:32.240891+00:00'
+  - status: verified
+    title: 第十五章 其他心血管疾病
+    updated_at: '2026-06-13T17:31:20.766449+00:00'
+    node_count: 12
+    remote_count: 12
+    completed_at: '2026-06-13T17:31:20.766449+00:00'
+- title: 第四篇 消化系统疾病
+  status: pending
+  sections:
+  - status: verified
+    title: 第一章 总论
+    updated_at: '2026-06-13T18:39:37.078609+00:00'
+    node_count: 43
+    quality_metrics:
+      pdf_parser: pymupdf
+      catalog_mapping:
+        manifest_title: 第一章 总论
+        resolved_title: 第一章 总论
+        score: 100
+        method: exact
+      parser_units: 2
+      parser_fallback_units: 0
+      chunk_coverage:
+        total_chunks: 7
+        cached_chunks: 7
+        coverage_ratio: 1.0
+        min_ratio: 0.8
+        min_cached: 3
+        passed: true
+      guardrails:
+        kept_nodes: 43
+        rejected_nodes: 0
+        rejection_reasons: {}
+        generic_aspect_label: null
+        generic_aspect_count: 0
+        generic_aspect_ratio: 0.0
+        total_considered: 43
+    remote_count: 43
+    completed_at: '2026-06-13T18:39:37.078609+00:00'
+  - status: verified
+    title: 第二章 胃食管反流病
+    updated_at: '2026-06-17T15:53:08.747683+00:00'
+    node_count: 7
+    quality_metrics:
+      pdf_parser: auto
+      catalog_mapping:
+        manifest_title: 第二章 胃食管反流病
+        resolved_title: 第二章 胃食管反流病
+        score: 100
+        method: exact
+      parser_units: 1
+      parser_fallback_units: 0
+      parser_page_counts:
+        pymupdf: 3
+      parser_blocking_pages: []
+      chunk_coverage:
+        total_chunks: 2
+        cached_chunks: 2
+        coverage_ratio: 1.0
+        min_ratio: 0.8
+        min_cached: 3
+        passed: true
+      guardrails:
+        kept_nodes: 7
+        rejected_nodes: 0
+        rejection_reasons: {}
+        generic_aspect_label: 分类
+        generic_aspect_count: 1
+        generic_aspect_ratio: 0.143
+        duplicate_parent_aspect_nodes: 0
+        total_considered: 7
+    remote_count: 7
+    completed_at: '2026-06-17T15:53:08.747683+00:00'
+  - status: verified
+    title: 第三章 食管癌
+    updated_at: '2026-06-17T15:56:07.365718+00:00'
+    node_count: 4
+    quality_metrics:
+      pdf_parser: auto
+      catalog_mapping:
+        manifest_title: 第三章 食管癌
+        resolved_title: 第三章 食管癌
+        score: 100
+        method: exact
+      parser_units: 1
+      parser_fallback_units: 0
+      parser_page_counts:
+        pymupdf: 3
+      parser_blocking_pages: []
+      chunk_coverage:
+        total_chunks: 2
+        cached_chunks: 2
+        coverage_ratio: 1.0
+        min_ratio: 0.8
+        min_cached: 3
+        passed: true
+      guardrails:
+        kept_nodes: 4
+        rejected_nodes: 0
+        rejection_reasons: {}
+        generic_aspect_label: null
+        generic_aspect_count: 0
+        generic_aspect_ratio: 0.0
+        duplicate_parent_aspect_nodes: 0
+        total_considered: 4
+    remote_count: 4
+    completed_at: '2026-06-17T15:56:07.365718+00:00'
+  - status: pending
+    title: 第四章 胃炎
+  - status: pending
+    title: 第五章 消化性溃疡
+  - status: pending
+    title: 第六章 胃癌
+  - status: pending
+    title: 第七章 肠结核和结核性腹膜炎
+  - status: pending
+    title: 第八章 炎症性肠病
+  - status: pending
+    title: 第九章 结直肠癌
+  - status: pending
+    title: 第十章 功能性胃肠病
+  - status: pending
+    title: 第十一章 病毒性肝炎
+  - status: pending
+    title: 第十二章 脂肪性肝病
+  - status: pending
+    title: 第十三章 自身免疫性肝病
+  - status: pending
+    title: 第十四章 药物性肝病
+  - status: pending
+    title: 第十五章 肝硬化
+  - status: pending
+    title: 第十六章 原发性肝癌
+  - status: pending
+    title: 第十七章 急性肝衰竭
+  - status: pending
+    title: 第十八章 肝外胆系结石及炎症
+  - status: pending
+    title: 第十九章 胆道系统肿瘤
+  - status: pending
+    title: 第二十章 胰腺炎
+  - status: pending
+    title: 第二十一章 胰腺癌
+  - status: pending
+    title: 第二十二章 腹痛
+  - status: pending
+    title: 第二十三章 慢性腹泻
+  - status: pending
+    title: 第二十四章 便秘
+  - status: pending
+    title: 第二十五章 消化道出血
+- title: 第五篇 泌尿系统疾病
+  status: pending
+  sections:
+  - status: pending
+    title: 第一章 总论
+  - status: pending
+    title: 第二章 原发性肾小球疾病
+  - status: pending
+    title: 第三章 继发性肾病
+  - status: pending
+    title: 第四章 间质性肾炎
+  - status: pending
+    title: 第五章 尿路感染
+  - status: pending
+    title: 第六章 肾小管疾病
+  - status: pending
+    title: 第七章 肾血管疾病
+  - status: pending
+    title: 第八章 遗传性肾病
+  - status: pending
+    title: 第九章 急性肾损伤
+  - status: pending
+    title: 第十章 慢性肾衰竭
+  - status: pending
+    title: 第十一章 肾脏替代治疗
+- title: 第六篇 血液系统疾病
+  status: pending
+  sections:
+  - status: pending
+    title: 第一章 总论
+  - status: pending
+    title: 第二章 贫血概述
+  - status: pending
+    title: 第三章 缺铁性贫血
+  - status: pending
+    title: 第四章 巨幼细胞贫血
+  - status: pending
+    title: 第五章 再生障碍性贫血
+  - status: pending
+    title: 第六章 溶血性贫血
+  - status: pending
+    title: 第七章 白细胞减少和粒细胞缺乏症
+  - status: pending
+    title: 第八章 骨髓增生异常性肿瘤
+  - status: pending
+    title: 第九章 白血病
+  - status: pending
+    title: 第十章 淋巴瘤
+  - status: pending
+    title: 第十一章 多发性骨髓瘤
+  - status: pending
+    title: 第十二章 骨髓增殖性肿瘤
+  - status: pending
+    title: 第十三章 脾功能亢进
+  - status: pending
+    title: 第十四章 出血性疾病概述
+  - status: pending
+    title: 第十五章 紫癜性疾病
+  - status: pending
+    title: 第十六章 凝血障碍性疾病
+  - status: pending
+    title: 第十七章 弥散性血管内凝血
+  - status: pending
+    title: 第十八章 血栓性疾病
+  - status: pending
+    title: 第十九章 输血和输血反应
+  - status: pending
+    title: 第二十章 造血干细胞移植
+  - status: pending
+    title: 第二十一章 CAR-T 细胞免疫疗法在血 液病中的应用
+- title: 第七篇 内分泌和代谢性疾病
+  status: pending
+  sections:
+  - status: pending
+    title: 第一章 总论
+  - status: pending
+    title: 第二章 下丘脑疾病
+  - status: pending
+    title: 第三章 垂体前叶疾病
+  - status: pending
+    title: 第四章 垂体后叶疾病
+  - status: pending
+    title: 第五章 甲状腺疾病
+  - status: pending
+    title: 第六章 甲状旁腺疾病
+  - status: pending
+    title: 第七章 肾上腺疾病
+  - status: pending
+    title: 第八章 糖尿病
+  - status: pending
+    title: 第九章 低血糖症与胰岛素瘤
+  - status: pending
+    title: 第十章 血脂异常性疾病
+  - status: pending
+    title: 第十一章 肥胖症
+  - status: pending
+    title: 第十二章 水、电解质代谢和酸碱平衡 失常
+  - status: pending
+    title: 第十三章 高尿酸血症
+  - status: pending
+    title: 第十四章 骨质疏松症
+  - status: pending
+    title: 第十五章 性发育异常疾病
+  - status: pending
+    title: 第十六章 多内分泌腺体疾病
+  - status: pending
+    title: 第十七章 神经内分泌肿瘤
+  - status: pending
+    title: 第十八章 异位激素分泌综合征
+- title: 第八篇 风湿免疫病
+  status: pending
+  sections:
+  - status: pending
+    title: 第一章 总论
+  - status: pending
+    title: 第二章 类风湿关节炎
+  - status: pending
+    title: 第三章 系统性红斑狼疮
+  - status: pending
+    title: 第四章 干燥综合征
+  - status: pending
+    title: 第五章 脊柱关节炎
+  - status: pending
+    title: 第六章 系统性血管炎
+  - status: pending
+    title: 第七章 特发性炎症性肌病
+  - status: pending
+    title: 第八章 系统性硬化症
+  - status: pending
+    title: 第九章 痛风
+  - status: pending
+    title: 第十章 骨关节炎
+  - status: pending
+    title: 第十一章 IgG4 相关性疾病
+  - status: pending
+    title: 第十二章 抗磷脂综合征
+  - status: pending
+    title: 第十三章 成人斯蒂尔病
+  - status: pending
+    title: 第十四章 复发性多软骨炎
+  - status: pending
+    title: 第十五章 风湿热
+  - status: pending
+    title: 第十六章 纤维肌痛综合征
+- title: 第九篇 理化因素所致疾病
+  status: pending
+  sections:
+  - status: pending
+    title: 第一章 总论
+  - status: pending
+    title: 第二章 中毒
+  - status: pending
+    title: 第三章 中暑
+  - status: pending
+    title: 第四章 冻僵
+  - status: pending
+    title: 第五章 高原病
+  - status: pending
+    title: 第六章 淹溺
+  - status: pending
+    title: 第七章 电击
+updated_at: '2026-06-17T15:56:07.365718+00:00'

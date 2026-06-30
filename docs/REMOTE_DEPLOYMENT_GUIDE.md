@@ -42,7 +42,7 @@ npm run apply:remote-sql
 ## 2. 关联远端项目
 
 ```powershell
-cd G:\ml
+cd F:\ml
 supabase link --project-ref <your-project-ref>
 ```
 

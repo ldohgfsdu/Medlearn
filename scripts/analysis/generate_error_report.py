@@ -87,11 +87,12 @@ class ErrorAnalyzer:
         print("="*80)
         
         # Save report
-        Path("analysis").mkdir(exist_ok=True)
-        with open("analysis/error_report_v4.5.json", "w", encoding="utf-8") as f:
+        output_dir = Path("artifacts/analysis")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        with open(output_dir / "error_report_v4.5.json", "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
         
-        print("Report saved to: analysis/error_report_v4.5.json")
+        print(f"Report saved to: {output_dir / 'error_report_v4.5.json'}")
         return report
 
 if __name__ == "__main__":

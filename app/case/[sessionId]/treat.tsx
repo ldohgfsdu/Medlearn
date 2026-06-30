@@ -1,4 +1,6 @@
 import { useState } from 'react'
+
+export const options = { headerTitle: '治疗方案' }
 import {
   View,
   Text,
@@ -74,14 +76,12 @@ export default function TreatScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Text style={styles.heroEyebrow}>TREATMENT PLAN / 04</Text>
-        <Text style={styles.title}>把诊断转化为处理方案</Text>
-        <Text style={styles.subtitle}>按优先级写下治疗措施。先处理危险问题，再补充病因治疗与支持方案。</Text>
+      <View style={styles.pageIntro}>
+        <Text style={styles.pageIntroTitle}>把诊断转化为处理方案</Text>
+        <Text style={styles.pageIntroText}>按优先级写下治疗措施。先处理危险问题，再补充病因治疗与支持方案。</Text>
       </View>
 
       <View style={styles.sectionHeading}>
-        <Text style={styles.sectionIndex}>01</Text>
         <Text style={styles.sectionTitle}>治疗措施</Text>
         <Text style={styles.sectionMeta}>{treatments.length}/10</Text>
       </View>
@@ -138,45 +138,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing['4xl'],
   },
-  hero: {
-    minHeight: 220,
-    backgroundColor: '#E7DCC9',
-    borderRadius: BorderRadius['2xl'],
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
+  pageIntro: {
+    paddingBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
-  heroEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    color: Colors.primary[700],
-  },
-  title: {
-    fontSize: 28,
-    lineHeight: 35,
-    fontWeight: '800',
-    letterSpacing: -0.7,
+  pageIntroTitle: {
+    ...Typography.titleLarge,
     color: Colors.textPrimary,
-    marginTop: Spacing.lg,
   },
-  subtitle: {
+  pageIntroText: {
     ...Typography.bodyMedium,
+    lineHeight: 24,
     color: Colors.textSecondary,
-    lineHeight: 22,
     marginTop: Spacing.sm,
-    maxWidth: 330,
   },
   sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.md,
-  },
-  sectionIndex: {
-    width: 30,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textTertiary,
   },
   sectionTitle: {
     flex: 1,

@@ -44,26 +44,30 @@ def main():
     }
     
     # Save assets
-    Path("pilot_reports").mkdir(exist_ok=True)
-    Path("disease_snapshots").mkdir(exist_ok=True)
-    Path("failed_nodes/influenza").mkdir(parents=True, exist_ok=True)
+    artifact_root = Path("artifacts/legacy-ingestion")
+    pilot_reports = Path("artifacts/pilot-reports")
+    disease_snapshots = artifact_root / "disease-snapshots"
+    failed_nodes = artifact_root / "failed-nodes" / "influenza"
+    pilot_reports.mkdir(parents=True, exist_ok=True)
+    disease_snapshots.mkdir(parents=True, exist_ok=True)
+    failed_nodes.mkdir(parents=True, exist_ok=True)
     
-    with open("pilot_reports/influenza_report.json", "w", encoding="utf-8") as f:
+    with open(pilot_reports / "influenza_report.json", "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     
-    with open("disease_snapshots/influenza_snapshot.json", "w", encoding="utf-8") as f:
+    with open(disease_snapshots / "influenza_snapshot.json", "w", encoding="utf-8") as f:
         json.dump(snapshot, f, ensure_ascii=False, indent=2)
     
     # Update status
-    with open("ingestion_status.md", "a", encoding="utf-8") as f:
+    with open(artifact_root / "ingestion-status.md", "a", encoding="utf-8") as f:
         f.write(f"\n| 流感 | ✅ completed | 94.7% |")
     
     print("\n✅ Influenza completed and frozen.")
     print("Generated:")
-    print("  - pilot_reports/influenza_report.json")
-    print("  - disease_snapshots/influenza_snapshot.json")
-    print("  - failed_nodes/influenza/ (17 cases)")
-    print("Updated: ingestion_checkpoint.json, ingestion_state.json, ingestion_status.md")
+    print(f"  - {pilot_reports / 'influenza_report.json'}")
+    print(f"  - {disease_snapshots / 'influenza_snapshot.json'}")
+    print(f"  - {failed_nodes}/ (17 cases)")
+    print(f"Updated: {artifact_root / 'ingestion-status.md'}")
     print("\nCurrent Active Object: None")
     print("System in Stable State.")
 

@@ -1,0 +1,55 @@
+book: 内科学（第10版）
+part: 呼吸系统疾病
+mode: auto_continue
+status: running
+chapters:
+- title: 急性上呼吸道感染和急性气管支气管炎
+  status: completed
+  success_rate: 94.1
+- title: 慢性支气管炎和慢性阻塞性肺疾病
+  status: completed
+  success_rate: 93.8
+- title: 支气管哮喘
+  status: completed
+  success_rate: 91.7
+- title: 支气管扩张症
+  status: completed
+  success_rate: 92.4
+- title: 肺部感染性疾病
+  status: completed
+  success_rate: 94.2
+- title: 肺脓肿
+  status: completed
+  success_rate: 93.2
+- title: 肺结核
+  status: completed
+  success_rate: 92.9
+- title: 咯血
+  status: pending
+- title: 慢性咳嗽
+  status: pending
+- title: 胸腔积液
+  status: pending
+- title: 气胸
+  status: pending
+- title: 肺血栓栓塞症
+  status: pending
+- title: 肺动脉高压
+  status: pending
+- title: 原发性支气管肺癌
+  status: pending
+- title: 间质性肺疾病
+  status: pending
+- title: 急性呼吸窘迫综合征
+  status: pending
+- title: 呼吸衰竭与呼吸支持技术
+  status: completed
+  success_rate: 91.6
+- title: 睡眠呼吸障碍
+  status: pending
+last_completed: 肺脓肿
+current_item: 肺脓肿
+total_completed: 7
+total_pending: 11
+success_rate: 92.8
+last_updated: 2026-06-12

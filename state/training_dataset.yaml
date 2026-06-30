@@ -1,0 +1,6 @@
+# 当前晋升中的 SFT 数据集版本。历史版本见 training/data/archive/。
+active_version: sft_v2_expanded_182
+active_path: training/data/sft_v2_expanded_182
+base_model: .models/modelscope/Qwen/Qwen3-0___6B
+large_model: .models/huggingface/Qwen/Qwen3-8B
+legacy_archive: training/archive/e-ml-train

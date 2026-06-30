@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Phase 1 Visual Evidence"
+  short_description: "Build textbook page-image evidence back-jumps"
+  default_prompt: "Use $medlearn-phase1-visual-evidence to implement this Phase 1 textbook evidence back-jump."

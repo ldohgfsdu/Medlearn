@@ -42,21 +42,29 @@ export async function trackCaseEvent({
   difficulty,
   properties = {},
 }: TrackCaseEventInput): Promise<void> {
-  const { error } = await supabase.from('case_events').insert({
-    event_name: eventName,
-    user_id: userId,
-    session_id: sessionId,
-    case_id: caseId,
-    chief_complaint: chiefComplaint ?? null,
-    difficulty: difficulty ?? null,
-    app_version: APP_VERSION,
-    properties,
-  })
+  try {
+    const { error } = await supabase.from('case_events').insert({
+      event_name: eventName,
+      user_id: userId,
+      session_id: sessionId,
+      case_id: caseId,
+      chief_complaint: chiefComplaint ?? null,
+      difficulty: difficulty ?? null,
+      app_version: APP_VERSION,
+      properties,
+    })
 
-  if (error) {
-    if (eventName === 'case_completed' || eventName === 'llm_cost_recorded') {
-      throw error
+    if (error) {
+      if (eventName === 'case_completed' || eventName === 'llm_cost_recorded') {
+        throw error
+      }
+      console.warn('[analytics] track failed:', eventName, error.message)
     }
-    console.warn('[analytics] track failed:', eventName, error.message)
+  } catch (err) {
+    // Never let analytics tracking block or crash the main flow
+    if (eventName === 'case_completed' || eventName === 'llm_cost_recorded') {
+      throw err
+    }
+    console.warn('[analytics] track error:', eventName, err instanceof Error ? err.message : err)
   }
 }

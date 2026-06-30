@@ -29,22 +29,28 @@ export default function LoginScreen() {
       setError('请输入邮箱和密码')
       return
     }
-    setLoading(true)
-    const { error: err } = await signIn(email.trim(), password)
-    setLoading(false)
-    if (err) {
-      // 将英文错误信息转为中文
-      if (err.includes('Invalid login credentials')) {
-        setError('邮箱或密码不正确，请重试')
-      } else if (err.includes('Email not confirmed')) {
-        setError('邮箱尚未验证，请先验证邮箱')
-      } else if (err.includes('Too many requests')) {
-        setError('登录尝试过于频繁，请稍后再试')
+    try {
+      setLoading(true)
+      setError('')
+      const { error: err } = await signIn(email.trim(), password)
+      if (err) {
+        // 将英文错误信息转为中文
+        if (err.includes('Invalid login credentials')) {
+          setError('邮箱或密码不正确，请重试')
+        } else if (err.includes('Email not confirmed')) {
+          setError('邮箱尚未验证，请先验证邮箱')
+        } else if (err.includes('Too many requests')) {
+          setError('登录尝试过于频繁，请稍后再试')
+        } else {
+          setError(err)
+        }
       } else {
-        setError(err)
+        router.replace('/(tabs)')
       }
-    } else {
-      router.replace('/(tabs)')
+    } catch (e) {
+      setError('网络错误，请检查连接后重试')
+    } finally {
+      setLoading(false)
     }
   }
 

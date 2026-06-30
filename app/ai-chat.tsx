@@ -18,36 +18,20 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
+import { Layout } from '@/constants/layout'
 import { sendChatMessage } from '@/services/ai'
 import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.75
 
-interface Conversation {
-  id: string
-  title: string
-  date: string
-}
-
-const MOCK_CONVERSATIONS: Conversation[] = [
-  { id: '1', title: '新对话', date: '今天' },
-  { id: '2', title: '心肌梗死病例讨论', date: '昨天' },
-  { id: '3', title: '糖尿病诊断标准', date: '昨天' },
-  { id: '4', title: '肺炎 vs 肺结核鉴别', date: '前天' },
-]
-
 export default function AIChatScreen() {
   const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [inputText, setInputText] = useState('')
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
-  const [conversations] = useState<Conversation[]>(MOCK_CONVERSATIONS)
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
-  const [voiceMode, setVoiceMode] = useState(false)
 
-  // 动画值
   const [translateX] = useState(() => new Animated.Value(0))
   const [scale] = useState(() => new Animated.Value(1))
   const [borderRadius] = useState(() => new Animated.Value(0))
@@ -122,7 +106,6 @@ export default function AIChatScreen() {
     [animateDrawer, drawerOpen, overlayOpacity, scale, translateX]
   )
 
-  // 键盘弹出时自动滚动到底部
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -159,23 +142,13 @@ export default function AIChatScreen() {
 
   const startNewChat = () => {
     setMessages([])
-    setActiveConversation(null)
-    animateDrawer(false)
-  }
-
-  const selectConversation = (conv: Conversation) => {
-    setActiveConversation(conv)
-    setMessages([
-      { role: 'assistant', content: `已打开「${conv.title}」。你可以继续追问，或补充新的病例信息。` },
-    ])
     animateDrawer(false)
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={drawerOpen ? '#000' : Colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* 抽屉层 */}
       <View style={styles.drawerContainer}>
         <View style={styles.drawerHeader}>
           <Text style={styles.drawerTitle}>会话</Text>
@@ -184,25 +157,18 @@ export default function AIChatScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.drawerContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.dateLabel}>今天</Text>
-          {conversations.map((conv) => (
-            <TouchableOpacity
-              key={conv.id}
-              style={styles.conversationItem}
-              onPress={() => selectConversation(conv)}
-            >
-              <Text style={styles.conversationTitle}>{conv.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.drawerEmpty}>
+          <Ionicons name="chatbubbles-outline" size={32} color={Colors.neutral[300]} />
+          <Text style={styles.drawerEmptyTitle}>暂无历史会话</Text>
+          <Text style={styles.drawerEmptyText}>会话记录功能即将上线，当前可开始新对话。</Text>
+        </View>
+
         <TouchableOpacity style={styles.drawerBack} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={17} color={Colors.textSecondary} />
-          <Text style={styles.drawerBackText}>返回智能问答</Text>
+          <Text style={styles.drawerBackText}>返回学习问答</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 主内容层 */}
       <Animated.View
         style={[
           styles.mainContainer,
@@ -221,46 +187,26 @@ export default function AIChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         >
-          {/* 顶部导航栏 */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.headerBtn} onPress={() => animateDrawer(!drawerOpen)}>
               <Ionicons name="menu" size={22} color={Colors.textPrimary} />
             </TouchableOpacity>
 
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {activeConversation?.title || '智能助手'}
+              学习问答
             </Text>
 
             <View style={styles.headerRight}>
-              <TouchableOpacity
-                style={[styles.headerBtn, voiceMode && styles.headerBtnActive]}
-                onPress={() => setVoiceMode(enabled => !enabled)}
-              >
-                <Ionicons
-                  name={voiceMode ? 'headset' : 'headset-outline'}
-                  size={22}
-                  color={voiceMode ? Colors.primary[700] : Colors.textPrimary}
-                />
-              </TouchableOpacity>
               <TouchableOpacity style={styles.headerBtn} onPress={startNewChat}>
                 <Ionicons name="add" size={22} color={Colors.textPrimary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerBtn}
-                onPress={() => router.push('/(tabs)/profile')}
-              >
-                <Ionicons name="settings-outline" size={22} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 消息区域 */}
           {messages.length === 0 ? (
             <View style={styles.emptyState}>
-              <View style={styles.lightningContainer}>
-                <Ionicons name="flash" size={32} color={Colors.textPrimary} />
-              </View>
-              <Text style={styles.emptyTitle}>接下来想聊点什么？</Text>
+              <Text style={styles.emptyTitle}>输入一个具体的医学问题</Text>
+              <Text style={styles.emptySubtitle}>回答会优先给出结构，便于复习与对照。</Text>
             </View>
           ) : (
             <ScrollView
@@ -297,14 +243,13 @@ export default function AIChatScreen() {
             </View>
           )}
 
-          {/* 底部输入框 */}
           <View style={styles.inputWrapper}>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.textInput}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="问我任何问题..."
+                placeholder="输入医学问题..."
                 placeholderTextColor={Colors.textTertiary}
                 multiline
                 maxLength={500}
@@ -315,16 +260,19 @@ export default function AIChatScreen() {
                 disabled={!inputText.trim() || sending}
               >
                 {sending ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={Colors.surface} size="small" />
                 ) : (
-                  <Ionicons name="arrow-up" size={20} color={inputText.trim() ? '#fff' : Colors.textTertiary} />
+                  <Ionicons
+                    name="arrow-up"
+                    size={20}
+                    color={inputText.trim() ? Colors.surface : Colors.textTertiary}
+                  />
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
 
-        {/* 遮罩层 — 始终挂载，靠 opacity 控制显隐 */}
         <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
           <TouchableOpacity
             style={styles.overlayTouchable}
@@ -340,7 +288,7 @@ export default function AIChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.background,
   },
   drawerContainer: {
     position: 'absolute',
@@ -350,14 +298,13 @@ const styles = StyleSheet.create({
     width: DRAWER_WIDTH,
     backgroundColor: Colors.background,
     paddingTop: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Layout.screenPaddingX,
   },
   drawerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.lg,
-    paddingHorizontal: Spacing.sm,
   },
   drawerTitle: {
     ...Typography.titleLarge,
@@ -365,18 +312,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   newChatBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
-  drawerContent: {
+  drawerEmpty: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  drawerEmptyTitle: {
+    ...Typography.titleSmall,
+    color: Colors.textPrimary,
+    marginTop: Spacing.md,
+    fontWeight: '600',
+  },
+  drawerEmptyText: {
+    ...Typography.bodySmall,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    lineHeight: 20,
   },
   drawerBack: {
-    minHeight: 46,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -389,29 +352,10 @@ const styles = StyleSheet.create({
     ...Typography.labelMedium,
     color: Colors.textSecondary,
   },
-  dateLabel: {
-    ...Typography.labelMedium,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-  },
-  conversationItem: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.base,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.xs,
-    backgroundColor: Colors.neutral[100],
-  },
-  conversationTitle: {
-    ...Typography.bodyMedium,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
   mainContainer: {
     flex: 1,
     backgroundColor: Colors.background,
     overflow: 'hidden',
-    ...Shadows.level3,
   },
   keyboardView: {
     flex: 1,
@@ -420,14 +364,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Layout.screenPaddingX,
     paddingVertical: Spacing.sm,
     backgroundColor: Colors.background,
   },
   headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
@@ -444,46 +388,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  headerBtnActive: {
-    backgroundColor: Colors.primary[50],
-  },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Layout.screenPaddingX,
     paddingBottom: 100,
-  },
-  lightningContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.neutral[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.lg,
   },
   emptyTitle: {
     ...Typography.titleLarge,
     color: Colors.textPrimary,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    ...Typography.bodyMedium,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    lineHeight: 24,
   },
   messageList: {
     flex: 1,
   },
   messageListContent: {
-    padding: Spacing.md,
+    padding: Layout.screenPaddingX,
     paddingBottom: Spacing.xl,
   },
   messageBubble: {
     maxWidth: '80%',
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.xl,
+    borderRadius: Layout.cardRadius,
     marginBottom: Spacing.sm,
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: Colors.primary[500],
+    backgroundColor: Colors.primary[700],
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
@@ -495,16 +436,16 @@ const styles = StyleSheet.create({
   },
   messageText: {
     ...Typography.bodyMedium,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   userText: {
-    color: '#fff',
+    color: Colors.surface,
   },
   assistantText: {
     color: Colors.textPrimary,
   },
   inputWrapper: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Layout.screenPaddingX,
     paddingVertical: Spacing.md,
     backgroundColor: Colors.background,
   },
@@ -513,23 +454,25 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius['2xl'],
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
-    ...Shadows.level2,
   },
   textInput: {
     flex: 1,
     ...Typography.bodyMedium,
     color: Colors.textPrimary,
     maxHeight: 100,
+    minHeight: 44,
     paddingVertical: Spacing.sm,
     paddingRight: Spacing.sm,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.textPrimary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primary[700],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -539,15 +482,14 @@ const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: '#000',
-    pointerEvents: 'box-none',
+    backgroundColor: Colors.ink,
   },
   overlayTouchable: {
     flex: 1,
   },
   disclaimerContainer: {
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Layout.screenPaddingX,
     paddingBottom: Spacing.sm,
   },
 })

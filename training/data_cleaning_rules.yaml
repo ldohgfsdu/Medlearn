@@ -1,0 +1,50 @@
+version: sft_data_cleaning_v2
+
+hard_reject:
+  - invalid_json
+  - empty_nodes
+  - evidence_not_in_source
+  - hallucinated_entity
+  - edge_invalid_target
+  - source_text_missing
+  - nodes_missing_required_fields
+
+soft_repair:
+  - content_equals_evidence
+  - single_summary_node
+  - missing_aspect
+  - parent_entity_missing_in_content
+  - edge_missing
+  - aspect_imbalance
+
+accept:
+  min_nodes_per_sample: 3
+  evidence_must_be_exact_substring: true
+  allow_content_equals_evidence: false
+  require_parent_entity_in_source: true
+  require_aspect: true
+
+aspect_balance:
+  min_unique_aspects_per_parent_entity: 3
+  preferred_aspects:
+    - definition
+    - etiology
+    - pathogenesis
+    - clinical_manifestation
+    - diagnosis
+    - treatment
+    - complication
+    - prognosis
+    - prevention
+
+training_focus:
+  primary_target: nodes
+  include_edges_in_loss: false
+  optional_edges_field: optional_edges
+
+decision_gate:
+  min_accepted_samples_to_train: 100
+  target_accepted_samples: 300
+  min_evidence_exact_match_rate: 0.9
+  max_content_equals_evidence_rate: 0.1
+  min_avg_nodes_per_sample: 3

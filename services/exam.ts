@@ -94,16 +94,23 @@ ${knowledgeContext}
     throw new Error('AI 返回的 JSON 格式无效')
   }
 
-  const questions: ExamQuestion[] = (parsed.questions || []).map((q: any, i: number) => ({
-    id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2)}`,
-    type: q.type || 'single',
-    question: q.question,
-    options: q.options,
-    answer: q.answer,
-    explanation: q.explanation || '',
-    related_nodes: nodeIds,
-    difficulty: q.difficulty || difficulty,
-  }))
+  const questions: ExamQuestion[] = (parsed.questions || [])
+    .filter((q: any): q is Record<string, unknown> =>
+      typeof q === 'object' && q !== null &&
+      typeof q.question === 'string' &&
+      Array.isArray(q.options) && q.options.length >= 2 &&
+      typeof q.answer === 'number'
+    )
+    .map((q: any, i: number) => ({
+      id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      type: q.type === 'multiple' ? 'multiple' as const : 'single' as const,
+      question: q.question as string,
+      options: (q.options as unknown[]).map(String),
+      answer: Math.max(0, Math.min(Number(q.answer), (1 << (q.options as unknown[]).length) - 1)),
+      explanation: typeof q.explanation === 'string' ? q.explanation : '',
+      related_nodes: nodeIds,
+      difficulty: [1, 2, 3].includes(q.difficulty as number) ? (q.difficulty as number) : difficulty,
+    }))
 
   return questions
 }

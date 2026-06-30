@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review MedLearn Ingestion"
+  short_description: "Review textbook ingestion integrity and release readiness"
+  default_prompt: "Use $medlearn-review-ingestion to review the current textbook ingestion change."

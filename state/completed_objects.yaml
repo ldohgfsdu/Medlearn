@@ -1,5 +1,65 @@
 schema_version: 1
 objects:
+  - id: respiratory_knowledge_query_mvp
+    title: Respiratory trustworthy knowledge lookup MVP
+    status: completed
+    objective: Deliver a 15-second trustworthy textbook lookup loop for five golden respiratory diseases.
+    scope:
+      - app/search.tsx
+      - app/map.tsx
+      - app/disease
+      - app/overview
+      - hooks/useKnowledge.ts
+      - hooks/useDiseaseDetail.ts
+      - scripts/pipeline_v3_extract.py
+      - scripts/backfill_disease_entities.py
+      - memory/respiratory-knowledge-query-acceptance.md
+    acceptance_criteria:
+      - All 50 golden-disease checks pass.
+      - Search and catalog both reach textbook evidence within 15 seconds.
+      - Pneumonia remains an overview rather than a disease detail page.
+      - Standard aspects render numbered child items instead of peer cards.
+      - Evidence is expandable and includes a page or page range.
+      - Search navigates to grounded content without generating medical answers.
+    dependencies:
+      - knowledge_data_model_alignment
+    evidence:
+      - npm run check passed with 89 of 89 tests.
+      - Python test suite passed with 70 of 70 tests.
+      - Search runtime measured 3.38 seconds.
+      - Catalog runtime measured 5.91 seconds.
+      - memory/respiratory-knowledge-query-acceptance.md
+    frozen: true
+    activated_at: "2026-06-14"
+    completed_at: "2026-06-14"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: local_demo_recovery
+    title: Restore a locally runnable demo
+    status: completed
+    objective: Restore a locally runnable demo and a stable Node 22 validation path.
+    scope:
+      - app
+      - Node 22.13.1 isolated toolchain
+      - Expo web export
+      - npm run check
+    acceptance_criteria:
+      - The real application is restored from its backup.
+      - Expo web export succeeds with Node 22.13.1.
+      - npm run check succeeds with Node 22.13.1.
+    dependencies: []
+    evidence:
+      - Real app exported successfully with Node 22.13.1.
+      - npm run check completed successfully with Node 22.13.1.
+    frozen: true
+    activated_at: "2026-06-13"
+    completed_at: "2026-06-14"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
   - id: project_governance_bootstrap
     title: Project governance bootstrap
     status: completed

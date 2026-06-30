@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validate Medical Content"
+  short_description: "Validate grounded medical content and evidence boundaries"
+  default_prompt: "Use $medlearn-validate-medical-content to validate this MedLearn medical content change."

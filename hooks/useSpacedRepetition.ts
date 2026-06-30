@@ -109,7 +109,7 @@ export function useSubmitReview() {
       // 记录学习活动
       const { error: activityError } = await supabase.from('study_activities').insert({
         user_id: userId,
-        type: 'feynman',
+        type: 'review',
         node_id: nodeId,
         score,
       })

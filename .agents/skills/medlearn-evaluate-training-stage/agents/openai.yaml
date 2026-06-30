@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evaluate Training Stage"
+  short_description: "Evaluate MedLearn model training stages and gates"
+  default_prompt: "Use $medlearn-evaluate-training-stage to evaluate this training stage."

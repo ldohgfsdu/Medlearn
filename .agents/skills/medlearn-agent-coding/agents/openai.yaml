@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement MedLearn Changes"
+  short_description: "Implement repository changes within MedLearn guardrails"
+  default_prompt: "Use $medlearn-agent-coding to implement this MedLearn repository change."
