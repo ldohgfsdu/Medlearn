@@ -2,17 +2,17 @@
 // Clean page images only — highlights are drawn at runtime in PageViewer.
 
 export const PHASE1_PAGE_IMAGE_ASSETS: Record<string, number> = {
-  im10_page_62: require('@/assets/textbooks/internal-medicine-10/pages/62.webp'),
-  im10_page_63: require('@/assets/textbooks/internal-medicine-10/pages/63.webp'),
-  im10_page_64: require('@/assets/textbooks/internal-medicine-10/pages/64.webp'),
-  im10_page_65: require('@/assets/textbooks/internal-medicine-10/pages/65.webp'),
-  im10_page_66: require('@/assets/textbooks/internal-medicine-10/pages/66.webp'),
-  im10_page_67: require('@/assets/textbooks/internal-medicine-10/pages/67.webp'),
-  im10_page_68: require('@/assets/textbooks/internal-medicine-10/pages/68.webp'),
-  im10_page_69: require('@/assets/textbooks/internal-medicine-10/pages/69.webp'),
-  im10_page_70: require('@/assets/textbooks/internal-medicine-10/pages/70.webp'),
+  im10_page_31: require('@/assets/textbooks/internal-medicine-10/pages/31.webp'),
+  im10_page_32: require('@/assets/textbooks/internal-medicine-10/pages/32.webp'),
+  im10_page_33: require('@/assets/textbooks/internal-medicine-10/pages/33.webp'),
+  im10_page_34: require('@/assets/textbooks/internal-medicine-10/pages/34.webp'),
+  im10_page_35: require('@/assets/textbooks/internal-medicine-10/pages/35.webp'),
+  im10_page_36: require('@/assets/textbooks/internal-medicine-10/pages/36.webp'),
+  im10_page_37: require('@/assets/textbooks/internal-medicine-10/pages/37.webp'),
+  im10_page_38: require('@/assets/textbooks/internal-medicine-10/pages/38.webp'),
+  im10_page_39: require('@/assets/textbooks/internal-medicine-10/pages/39.webp'),
 }
 
 export const PHASE1_ASTHMA_PAGE_LABELS = [
-"62", "63", "64", "65", "66", "67", "68", "69", "70"
+"31", "32", "33", "34", "35", "36", "37", "38", "39"
 ] as const
