@@ -51,11 +51,33 @@ def count_exported_android_webp_assets() -> str:
     return str(len([asset for asset in android_assets if asset.get("ext") == "webp"]))
 
 
+def git_tracked_files(paths: list[Path]) -> set[str]:
+    """Return the subset of `paths` that are tracked by git.
+
+    A clean checkout only contains tracked files, so an untracked webp would
+    be missing after clone. This gate catches assets that exist on the local
+    filesystem but were never committed.
+    """
+    if not paths:
+        return set()
+    rel_paths = [str(p.relative_to(ROOT).as_posix()) for p in paths]
+    result = subprocess.run(
+        ["git", "ls-files", "--"] + rel_paths,
+        cwd=ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        text=True,
+        check=False,
+    )
+    return {line.strip() for line in result.stdout.splitlines() if line.strip()}
+
+
 def write_report(
     *,
     ok: bool,
     keys: list[str],
     missing_files: list[str],
+    untracked_assets: list[str],
     locators: list[dict],
     missing_asset: list[str],
     bad_norm: list[str],
@@ -70,6 +92,7 @@ def write_report(
         "",
         f"- require registry keys: **{len(keys)}**",
         f"- missing asset files: **{len(missing_files)}**",
+        f"- untracked asset files (would be missing on clean checkout): **{len(untracked_assets)}**",
         f"- locators: **{len(locators)}**",
         f"- display-contract evidence references: **{evidence_references}**",
         f"- evidence references missing a resolvable SourceLocator: **{len(missing_locator_references)}**",
@@ -130,6 +153,16 @@ def main() -> int:
         if not (ASSETS / f"{key.replace('im10_page_', '')}.webp").exists()
     ]
 
+    # Clean-checkout gate: every referenced webp must be git-tracked, not just
+    # present on the local filesystem. An untracked asset passes the .exists()
+    # check above but would be missing after a fresh clone, breaking Metro.
+    asset_paths = [ASSETS / f"{key.replace('im10_page_', '')}.webp" for key in keys]
+    tracked = git_tracked_files(asset_paths)
+    untracked_assets = [
+        key for key, p in zip(keys, asset_paths)
+        if str(p.relative_to(ROOT).as_posix()) not in tracked
+    ]
+
     bundle_paths = sorted(BUNDLE_JSON_DIR.glob("*.bundle.json"))
     if not bundle_paths:
         raise FileNotFoundError(f"No Phase 1 bundle JSON found in {BUNDLE_JSON_DIR}")
@@ -167,6 +200,7 @@ def main() -> int:
     ok = (
         len(keys) == 9
         and not missing_files
+        and not untracked_assets
         and not missing_asset
         and not bad_norm
         and not missing_locator_references
@@ -184,6 +218,7 @@ def main() -> int:
         ok=ok,
         keys=keys,
         missing_files=missing_files,
+        untracked_assets=untracked_assets,
         locators=locators,
         missing_asset=missing_asset,
         bad_norm=bad_norm,
