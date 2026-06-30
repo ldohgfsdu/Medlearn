@@ -50,22 +50,29 @@ BDT（支气管舒张试验）校准：
 - Y 翻转后 needle 不包含在 bbox 内 → 确认 top-left 原点
 - **bboxNorm 公式**：`[x0/w, y0/h, x1/w, y1/h]`（无翻转）
 
-### F4: 显式 ID 连接 281/281 通过
+### F4: 显式 ID 连接 281/281 通过（严格门禁）
 
 - locator_source: `knowledge_node_evidence_json`
 - join field: `artifact_id`（display contract → evidence.json）
-- 281 条 display evidence refs 全部通过 `artifact_id` 精确解析到 evidence.json
+- 281 条 display evidence refs 全部携带 `artifact_id` 并精确解析到 evidence.json
+- **严格门禁**：`resolved == total == 281`、`unresolved == 0`、`all_have_artifact_id == true`
+- 任一条件不满足即 `status = BLOCKED`，进入 overall blockers
 - **无模糊文本匹配**
 
-### F5: 10 条抽样全通过
+### F5: 10 条抽样全通过（bbox 区域文本验证）
 
-每条检查 6 项：
+每条检查 7 项：
 1. `page_start == locator.page` ✓
 2. `page_start` 在哮喘 PDF 范围内 ✓
 3. bbox 存在且 4 值 ✓
 4. bbox 在页面边界内 ✓
-5. raw_text 片段在页面文本中 ✓
+5. **raw_text 片段在 bbox 区域文本内**（rawdict char 交集，非整页匹配）✓
 6. bboxNorm 全在 `[0, 1]` ✓
+7. bbox 区域文本非空 ✓
+
+抽样覆盖 5 个不同页面（PDF 63, 65, 66, 68, 70），满足"至少覆盖多个页面"要求，支持冻结全 scope 的 top-left 变换。
+
+抽样失败会进入 `overall_status` blockers，导致整体 BLOCKED。
 
 ## 3. 现有脚本问题（已识别，未修改）
 
@@ -155,9 +162,9 @@ display_contract.evidence_items[].artifact_id
 
 ## 6. 自动测试
 
-22 项测试通过：
-- 11 core（PageIdentity 常量、page 语义逻辑、ID join 逻辑、bbox 包含逻辑）
-- 11 PDF 集成（audit 运行、页身份、bbox 坐标系、ID join、10 条抽样、校准图）
+25 项测试通过：
+- 12 core（PageIdentity 常量、page 语义逻辑、ID join 严格门禁逻辑、bbox 包含逻辑）
+- 13 PDF 集成（audit 运行、页身份、bbox 坐标系、ID join 281/281 严格断言、10 条抽样含 bbox 区域文本验证、多页覆盖、校准图）
 
 ## 7. 边界遵守
 

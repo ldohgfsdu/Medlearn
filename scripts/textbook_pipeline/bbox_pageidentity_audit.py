@@ -254,6 +254,11 @@ def verify_explicit_id_join(
         else:
             refs_missing.append({"artifact_id": aid, "reason": "not in evidence.json"})
 
+    all_have_artifact_id = refs_with_artifact_id == total_refs
+    all_resolved = refs_resolved == total_refs
+    none_unresolved = len(refs_missing) == 0
+    status_ok = all_have_artifact_id and all_resolved and none_unresolved
+
     return {
         "locator_source": "knowledge_node_evidence_json",
         "join_field": "artifact_id",
@@ -262,8 +267,10 @@ def verify_explicit_id_join(
         "refs_resolved_via_explicit_id": refs_resolved,
         "refs_unresolved": len(refs_missing),
         "fuzzy_text_matching_used": False,
+        "all_have_artifact_id": all_have_artifact_id,
+        "all_resolved": all_resolved,
         "missing_examples": refs_missing[:10],
-        "status": "OK" if refs_resolved > 0 else "BLOCKED",
+        "status": "OK" if status_ok else "BLOCKED",
     }
 
 
@@ -320,14 +327,35 @@ def sample_10_evidence(
             result["checks"]["bbox_x0_lt_x1"] = bbox[0] < bbox[2]
             result["checks"]["bbox_y0_lt_y1"] = bbox[1] < bbox[3]
 
-            # Check 5: raw_text snippet found in page text (whitespace-normalized)
-            page_text = pg.get_text()
-            normalized_page = " ".join(page_text.split())
+            # Check 5: raw_text snippet found INSIDE the bbox (not just on page).
+            # Extract text from the bbox region via rawdict char intersection,
+            # then compare evidence snippet against that region text.
+            ev_x0, ev_y0, ev_x1, ev_y1 = bbox
+            raw = pg.get_text("rawdict", sort=True)
+            region_chars: list[str] = []
+            for block in raw.get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        for ch in span.get("chars", []):
+                            cb = ch.get("bbox")
+                            if not cb or len(cb) < 4:
+                                continue
+                            # Char center inside bbox?
+                            cx = (cb[0] + cb[2]) / 2
+                            cy = (cb[1] + cb[3]) / 2
+                            if (ev_x0 <= cx <= ev_x1 and ev_y0 <= cy <= ev_y1):
+                                region_chars.append(ch.get("c", ""))
+            region_text = " ".join("".join(region_chars).split())
             normalized_raw = " ".join(raw_text.split())
-            # Check first 30 chars of raw_text appear in page
             snippet = normalized_raw[:30]
-            result["checks"]["raw_text_snippet_in_page"] = snippet in normalized_page
-            result["checks"]["raw_text_snippet"] = snippet
+            result["checks"]["raw_text_snippet_in_bbox_region"] = (
+                bool(snippet) and snippet in region_text
+            )
+            result["checks"]["region_text_nonempty"] = bool(region_text)
+            result["region_text_preview"] = region_text[:80]
+            result["raw_text_snippet"] = snippet
 
         # Check 6: bboxNorm in [0,1]
         if bbox and page_start:
@@ -343,11 +371,12 @@ def sample_10_evidence(
         samples.append(result)
 
     passed = sum(1 for s in samples if s["all_checks_pass"])
+    all_pass = passed == len(samples)
     return {
         "sample_size": len(samples),
         "all_checks_passed": passed,
         "samples": samples,
-        "status": "OK" if passed == len(samples) else "PARTIAL",
+        "status": "OK" if all_pass else "BLOCKED",
     }
 
 
@@ -434,7 +463,15 @@ def main() -> None:
     if bbox_system["status"] == "BLOCKED":
         blockers.append(f"bbox coordinate system: {bbox_system.get('error', 'inconclusive')}")
     if id_join["status"] == "BLOCKED":
-        blockers.append("explicit ID join failed")
+        blockers.append(
+            f"explicit ID join failed: resolved={id_join['refs_resolved_via_explicit_id']}/"
+            f"{id_join['display_evidence_refs_total']}, "
+            f"unresolved={id_join['refs_unresolved']}"
+        )
+    if sample["status"] != "OK":
+        blockers.append(
+            f"sample check failed: {sample['all_checks_passed']}/{sample['sample_size']} passed"
+        )
 
     report = {
         "audit": "phase6a_bbox_pageidentity_audit",

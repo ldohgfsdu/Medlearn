@@ -106,19 +106,34 @@ class TestExplicitIDJoin:
         assert not result["fuzzy_text_matching_used"]
         assert result["status"] == "OK"
 
-    def test_missing_artifact_id(self):
+    def test_missing_artifact_id_blocks(self):
         evidence = {"ev1-aaa": {"id": "ev1-aaa"}}
         refs = [{"id": "r1"}, {"id": "r2", "artifact_id": "ev1-aaa"}]
         result = verify_explicit_id_join(evidence, refs)
         assert result["refs_with_artifact_id"] == 1
         assert result["refs_resolved_via_explicit_id"] == 1
         assert result["refs_unresolved"] == 1
+        assert not result["all_have_artifact_id"]
+        assert result["status"] == "BLOCKED"
 
     def test_unresolved_id(self):
         evidence = {}
         refs = [{"id": "r1", "artifact_id": "ev1-missing"}]
         result = verify_explicit_id_join(evidence, refs)
         assert result["refs_resolved_via_explicit_id"] == 0
+        assert result["status"] == "BLOCKED"
+
+    def test_partial_resolved_blocks(self):
+        evidence = {"ev1-aaa": {"id": "ev1-aaa"}}
+        refs = [
+            {"id": "r1", "artifact_id": "ev1-aaa"},
+            {"id": "r2", "artifact_id": "ev1-missing"},
+        ]
+        result = verify_explicit_id_join(evidence, refs)
+        # Even though 1 resolved, gate must block because not all resolved
+        assert result["refs_resolved_via_explicit_id"] == 1
+        assert result["refs_unresolved"] == 1
+        assert not result["all_resolved"]
         assert result["status"] == "BLOCKED"
 
 
@@ -264,7 +279,17 @@ class TestPDFExplicitIDJoin:
         evidence = load_evidence()
         refs = load_display_evidence_refs()
         result = verify_explicit_id_join(evidence, refs)
-        assert result["refs_resolved_via_explicit_id"] > 0
+        total = result["display_evidence_refs_total"]
+        with_id = result["refs_with_artifact_id"]
+        resolved = result["refs_resolved_via_explicit_id"]
+        unresolved = result["refs_unresolved"]
+        # Strict gate: every ref must carry artifact_id and resolve exactly
+        assert with_id == total, f"only {with_id}/{total} refs have artifact_id"
+        assert resolved == total, f"only {resolved}/{total} refs resolved"
+        assert unresolved == 0, f"{unresolved} refs unresolved"
+        assert result["all_have_artifact_id"]
+        assert result["all_resolved"]
+        assert result["status"] == "OK"
         assert not result["fuzzy_text_matching_used"]
 
 
@@ -284,6 +309,32 @@ class TestPDFSample10:
             doc.close()
         assert result["sample_size"] == 10
         assert result["all_checks_passed"] == 10
+        assert result["status"] == "OK"
+
+    def test_raw_text_verified_inside_bbox(self):
+        """Each sample's raw_text snippet must be found INSIDE its bbox region,
+        not just somewhere on the page."""
+        from textbook_pipeline.bbox_pageidentity_audit import (
+            load_evidence,
+            sample_10_evidence,
+        )
+        import fitz
+        evidence = load_evidence()
+        doc = fitz.open(PDF)
+        try:
+            result = sample_10_evidence(doc, evidence)
+        finally:
+            doc.close()
+        for s in result["samples"]:
+            checks = s["checks"]
+            assert checks.get("raw_text_snippet_in_bbox_region"), (
+                f"{s['evidence_id']}: raw_text snippet not found in bbox region. "
+                f"snippet={s.get('raw_text_snippet')!r} "
+                f"region={s.get('region_text_preview')!r}"
+            )
+            assert checks.get("region_text_nonempty"), (
+                f"{s['evidence_id']}: bbox region has no text"
+            )
 
     def test_all_bboxNorm_in_0_1(self):
         from textbook_pipeline.bbox_pageidentity_audit import (
@@ -303,6 +354,25 @@ class TestPDFSample10:
                 assert all(0.0 <= v <= 1.0 for v in norm), (
                     f"bboxNorm out of [0,1] for {s['evidence_id']}: {norm}"
                 )
+
+    def test_sample_covers_multiple_pages(self):
+        """Freezing top-left transform for the whole scope requires sampling
+        across multiple pages, not just one."""
+        from textbook_pipeline.bbox_pageidentity_audit import (
+            load_evidence,
+            sample_10_evidence,
+        )
+        import fitz
+        evidence = load_evidence()
+        doc = fitz.open(PDF)
+        try:
+            result = sample_10_evidence(doc, evidence)
+        finally:
+            doc.close()
+        pages = {s["page_start"] for s in result["samples"]}
+        assert len(pages) >= 3, (
+            f"sample only covers {len(pages)} pages; need >=3 to freeze scope transform"
+        )
 
 
 @pdfmark
