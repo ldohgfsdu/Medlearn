@@ -1,0 +1,93 @@
+{
+  "manifest_version": "1",
+  "textbook_version_id": "internal-medicine-10",
+  "source_identity": {
+    "book_title": "内科学（第10版）",
+    "relative_path": "textbook/内科学（第10版）.pdf",
+    "sha256": "C0BB559FA2C8448A54612F7EDF751C9342DF584D15CE90D0CF7E4F97BF852D78",
+    "pdf_page_count": 982
+  },
+  "review_state": "draft",
+  "reviewer": null,
+  "reviewed_at": null,
+  "coverage_claim": "not_evaluated",
+  "scopes": [
+    {
+      "scope_id": "asthma",
+      "catalog_path": [
+        "第二篇",
+        "第四章 支气管哮喘"
+      ],
+      "boundary_basis": "chapter_title_through_page_before_next_chapter",
+      "source_segments": [
+        {
+          "segment_order": 0,
+          "pdf_page_start_1based": 62,
+          "pdf_page_end_1based": 70,
+          "printed_page_start_label": "31",
+          "printed_page_end_label": "39"
+        }
+      ],
+      "included_region_types": [
+        "text",
+        "table",
+        "figure",
+        "caption"
+      ],
+      "explicit_exclusions": [],
+      "pending_gaps": []
+    },
+    {
+      "scope_id": "tuberculosis",
+      "catalog_path": [
+        "第二篇",
+        "第八章 肺结核"
+      ],
+      "boundary_basis": "chapter_title_through_page_before_next_chapter",
+      "source_segments": [
+        {
+          "segment_order": 0,
+          "pdf_page_start_1based": 102,
+          "pdf_page_end_1based": 116,
+          "printed_page_start_label": "71",
+          "printed_page_end_label": "85"
+        }
+      ],
+      "included_region_types": [
+        "text",
+        "table",
+        "figure",
+        "caption"
+      ],
+      "explicit_exclusions": [],
+      "pending_gaps": []
+    }
+  ],
+  "page_mapping_evidence": {
+    "status": "verified_for_listed_scopes_only",
+    "observed_numeric_page_delta": 31,
+    "samples": [
+      {
+        "pdf_page_1based": 62,
+        "printed_page_label": "31"
+      },
+      {
+        "pdf_page_1based": 64,
+        "printed_page_label": "33"
+      },
+      {
+        "pdf_page_1based": 102,
+        "printed_page_label": "71"
+      },
+      {
+        "pdf_page_1based": 107,
+        "printed_page_label": "76"
+      },
+      {
+        "pdf_page_1based": 117,
+        "printed_page_label": "86"
+      }
+    ]
+  },
+  "manifest_checksum": "117effd28d4f22efd4f127334fb9333e849a2d0596279934f7a9cf044078c19b"
+}
