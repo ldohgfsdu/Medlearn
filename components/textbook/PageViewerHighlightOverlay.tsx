@@ -25,27 +25,35 @@ export function PageViewerHighlightOverlay({
       style={[StyleSheet.absoluteFill, { width: layoutWidth, height: layoutHeight }, style]}
       pointerEvents="none"
     >
-      {locators.map((loc) => {
-        const b = loc.bboxNorm
-        if (!b || b.length !== 4) return null
-        const [x0, y0, x1, y1] = b
-        const w = Math.max(0, (x1 - x0) * layoutWidth)
-        const h = Math.max(0, (y1 - y0) * layoutHeight)
-        if (w <= 0 || h <= 0) return null
-        return (
-          <View
-            key={loc.id}
-            style={[
-              styles.highlight,
-              {
-                left: x0 * layoutWidth,
-                top: y0 * layoutHeight,
-                width: w,
-                height: h,
-              },
-            ]}
-          />
-        )
+      {locators.flatMap((loc) => {
+        // Prefer per-visual-line bboxes (multi-line evidence); fall back to
+        // the single overall bboxNorm for backward compatibility.
+        const lines = loc.bboxNormLines?.filter((b) => b.length === 4)
+        const boxes = lines && lines.length > 0
+          ? lines
+          : loc.bboxNorm?.length === 4
+            ? [loc.bboxNorm]
+            : []
+        return boxes.map((b, i) => {
+          const [x0, y0, x1, y1] = b
+          const w = Math.max(0, (x1 - x0) * layoutWidth)
+          const h = Math.max(0, (y1 - y0) * layoutHeight)
+          if (w <= 0 || h <= 0) return null
+          return (
+            <View
+              key={`${loc.id}-${i}`}
+              style={[
+                styles.highlight,
+                {
+                  left: x0 * layoutWidth,
+                  top: y0 * layoutHeight,
+                  width: w,
+                  height: h,
+                },
+              ]}
+            />
+          )
+        })
       })}
     </View>
   )

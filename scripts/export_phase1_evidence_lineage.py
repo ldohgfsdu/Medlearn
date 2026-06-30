@@ -109,6 +109,98 @@ def bbox_to_norm_y_flip(
     ]
 
 
+def merge_same_line_bboxes(
+    bboxes: list[list[float]], gap_tolerance: float = 0.5
+) -> list[list[float]]:
+    """Merge bbox fragments on the same visual line.
+
+    Two fragments are on the same visual line if the vertical gap between them
+    is less than gap_tolerance pt. Adjacent text lines (gap ~2-3pt) are NOT
+    merged. Returns one bbox per visual line: [min_x0, min_y0, max_x1, max_y1].
+    """
+    if not bboxes:
+        return []
+    sorted_b = sorted(bboxes, key=lambda b: b[1])
+    merged = [list(sorted_b[0])]
+    for b in sorted_b[1:]:
+        last = merged[-1]
+        gap = b[1] - last[3]
+        if gap < gap_tolerance:
+            last[0] = min(last[0], b[0])
+            last[1] = min(last[1], b[1])
+            last[2] = max(last[2], b[2])
+            last[3] = max(last[3], b[3])
+        else:
+            merged.append(list(b))
+    return merged
+
+
+def extract_line_bboxes(
+    page: fitz.Page, raw_text: str, bbox: list[float]
+) -> list[list[float]]:
+    """Extract per-visual-line bboxes for an artifact.
+
+    Each returned bbox covers one visual PDF line (fragments on the same row
+    are merged). Single-line artifacts return [bbox] unchanged.
+    """
+    bbox_height = bbox[3] - bbox[1]
+    has_newlines = "\n" in raw_text
+
+    # Single line: no newlines and bbox height < 15pt (~1.2x line height)
+    if not has_newlines and bbox_height < 15:
+        return [bbox]
+
+    raw_bboxes: list[list[float]] = []
+
+    # Case 1: multi-line text with newlines — search each line segment
+    if has_newlines:
+        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+        for line_text in lines:
+            rects = page.search_for(line_text)
+            if rects:
+                best = min(rects, key=lambda r: abs(r.y0 - bbox[1]))
+                raw_bboxes.append([best.x0, best.y0, best.x1, best.y1])
+            else:
+                # search_for failed — try dict-based line matching
+                page_dict = page.get_text("dict")
+                for block in page_dict.get("blocks", []):
+                    if block.get("type") != 0:
+                        continue
+                    for line in block.get("lines", []):
+                        line_bbox = line.get("bbox")
+                        if not line_bbox:
+                            continue
+                        line_text_found = "".join(
+                            s.get("text", "") for s in line.get("spans", [])
+                        ).strip()
+                        if line_text_found and line_text in line_text_found:
+                            raw_bboxes.append(list(line_bbox))
+                            break
+        if raw_bboxes:
+            return merge_same_line_bboxes(raw_bboxes)
+
+    # Case 2: tall bbox (multi-line) — find all text lines within y-range
+    if bbox_height >= 15:
+        page_dict = page.get_text("dict")
+        for block in page_dict.get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                line_bbox = line.get("bbox")
+                if not line_bbox:
+                    continue
+                line_y_center = (line_bbox[1] + line_bbox[3]) / 2
+                if (bbox[1] - 2) <= line_y_center <= (bbox[3] + 2):
+                    raw_bboxes.append(list(line_bbox))
+        if raw_bboxes:
+            return merge_same_line_bboxes(
+                sorted(raw_bboxes, key=lambda b: b[1])
+            )
+
+    # Fallback: original single bbox
+    return [bbox]
+
+
 def collect_evidence_items() -> list[dict]:
     dc = json.loads(DC_PATH.read_text(encoding="utf-8"))
     items: list[dict] = []
@@ -119,7 +211,9 @@ def collect_evidence_items() -> list[dict]:
 
 
 def build_source_locators_v0(
-    evidence_by_id: dict[str, dict], page_map_by_pdf_page: dict[str, dict]
+    evidence_by_id: dict[str, dict],
+    page_map_by_pdf_page: dict[str, dict],
+    doc: fitz.Document,
 ) -> dict:
     """Build SourceLocator records through explicit artifact_id join.
 
@@ -127,6 +221,8 @@ def build_source_locators_v0(
     page_map_by_pdf_page is keyed by str(pdfPageNumber1Based).
     Output pageLabel is the printed label ("31"-"39").
     bboxNorm uses top-left/no-flip transform (confirmed in Phase 6A).
+    bboxNormLines provides per-visual-line bboxes for multi-line evidence
+    (one bbox per PDF line; same-row fragments merged).
     """
     items = collect_evidence_items()
     unique_items: dict[str, dict] = {}
@@ -159,6 +255,16 @@ def build_source_locators_v0(
         w = pm["pageWidthPt"]
         h = pm["pageHeightPt"]
         printed_label = pm["pageLabel"]  # "31".."39"
+        raw_text = art.get("raw_text") or ei.get("text") or ""
+
+        # Extract per-visual-line bboxes for multi-line evidence
+        page = doc.load_page(pm["pdfPageIndex"])
+        line_bboxes_pdf = extract_line_bboxes(page, raw_text, [float(x) for x in bbox])
+        bbox_pdf_lines = [[float(v) for v in lb] for lb in line_bboxes_pdf]
+        bbox_norm_lines = [
+            bbox_to_norm_top_left(lb, w, h) for lb in bbox_pdf_lines
+        ]
+
         locators.append(
             {
                 "id": f"loc_{eid.replace('-', '_')}",
@@ -173,10 +279,12 @@ def build_source_locators_v0(
                 "pageAssetId": f"page_{TEXTBOOK_ID.replace('-', '_')}_{printed_label}",
                 "bboxPdf": [float(x) for x in bbox],
                 "bboxNorm": bbox_to_norm_top_left(bbox, w, h),
+                "bboxPdfLines": bbox_pdf_lines,
+                "bboxNormLines": bbox_norm_lines,
                 "bboxNormTransform": "top_left_no_flip (confirmed Phase 6A)",
                 "pageWidthPt": w,
                 "pageHeightPt": h,
-                "rawText": art.get("raw_text") or ei.get("text") or "",
+                "rawText": raw_text,
                 "confidence": float(loc.get("confidence") or art.get("confidence") or 1.0),
             }
         )
@@ -369,7 +477,7 @@ def main() -> None:
         page_map_by_pdf_page = {
             str(p["pdfPageNumber1Based"]): p for p in page_map["pages"]
         }
-        locators = build_source_locators_v0(evidence_by_id, page_map_by_pdf_page)
+        locators = build_source_locators_v0(evidence_by_id, page_map_by_pdf_page, doc)
         OUT_LOCATORS.mkdir(parents=True, exist_ok=True)
         loc_path = OUT_LOCATORS / f"{SECTION_KEY}.source_locators_v0.json"
         loc_path.write_text(

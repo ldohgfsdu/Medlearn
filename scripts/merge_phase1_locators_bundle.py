@@ -56,6 +56,7 @@ def _compact_locator(loc: dict[str, Any]) -> dict[str, Any]:
         "pageAssetId": loc["pageAssetId"],
         "bboxPdf": loc.get("bboxPdf"),
         "bboxNorm": bbox_norm,
+        "bboxNormLines": loc.get("bboxNormLines"),
         "rawText": loc.get("rawText", ""),
         "confidence": loc.get("confidence", 1.0),
     }
@@ -124,6 +125,13 @@ def validate(
                 if v < 0 or v > 1:
                     bad_norm.append(loc["id"])
                     break
+        bnl = loc.get("bboxNormLines")
+        if bnl:
+            for line in bnl:
+                for v in line:
+                    if v < 0 or v > 1:
+                        bad_norm.append(f"{loc['id']}:bboxNormLines")
+                        break
         for field in ("pageLabel", "pdfPageIndex", "rawText"):
             if loc.get(field) in (None, ""):
                 bad_norm.append(f"{loc['id']}:missing_{field}")
@@ -202,6 +210,7 @@ def write_ts_bundle(bundle: dict[str, Any], path: Path) -> None:
         "  pageAssetId: string\n"
         "  bboxPdf?: number[]\n"
         "  bboxNorm?: number[]\n"
+        "  bboxNormLines?: number[][]\n"
         "  rawText: string\n"
         "  confidence: number\n"
         "}\n\n"
