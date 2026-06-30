@@ -1,5 +1,21 @@
 schema_version: 1
 adrs:
+  - id: ADR-011
+    title: Document Tree v1 As The Structural Source Of Truth
+    status: accepted
+    path: docs/adr/ADR-011-document-tree-v1.md
+    applies_to:
+      - textbook_version
+      - source_scope
+      - document_node
+      - content_block
+      - source_anchor
+      - page_identity
+      - textbook_pipeline
+      - evidence_artifact
+      - knowledge_item
+    supersedes: []
+
   - id: ADR-010
     title: Enforce Transactional Review Consistency
     status: accepted

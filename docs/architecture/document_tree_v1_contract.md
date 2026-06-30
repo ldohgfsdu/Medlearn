@@ -1,9 +1,9 @@
 # Document Tree v1 Contract
 
-> 状态：设计草案，尚未成为 accepted ADR  
+> 状态：已被 ADR-011 接受为 Document Tree v1 的详细规范  
 > 日期：2026-06-30  
 > 作用域：`内科学（第10版）`的哮喘、肺结核黄金章节  
-> 依据：PDF 实态核实、现有产物审计、ADR-004/005/006/007/009  
+> 依据：PDF 实态核实、现有产物审计、ADR-004/005/006/007/009/011  
 > 变更边界：本文只定义契约，不改变生成器、App、状态文件、数据库或远端数据
 
 ## 1. 已验证事实
@@ -327,7 +327,7 @@ fixture 中的每个断言都必须附 SourceAnchor；只看到标题文字而�
 
 ## 9. 下一阶段顺序
 
-1. 人工确认本草案，必要时形成或更新 accepted ADR。
+1. ~~人工确认本草案，必要时形成或更新 accepted ADR。~~ ✓ 已完成（ADR-011 accepted，2026-06-30）
 2. 为两个 scope 写正式 SourceScopeManifest，并完成 source-scope 审核。
 3. 设计确定性 ID 编码和标题栈规则。
 4. 扩展 extractor 生成 DocumentTree 和 ContentBlock；不同时改 UI。
