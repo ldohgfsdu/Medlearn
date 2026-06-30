@@ -149,23 +149,25 @@ export const pageAssets: Record<string, number> = {
 - [ ] 每条 locator：`pageAsset` 文件存在或 `localAssetKey` 可 require
 - [ ] 真机 3 条人工抽检（含支气管舒张试验）：高亮框与原文段落一致
 - [ ] 无 LLM 运行时调用、无整本 PDF 内置
-## Current Verification Status (2026-06-30)
+## Current Verification Status (2026-07-01)
 
-> **历史结果失效说明**：App 当前仍绑定旧的 62–70 assets/bundle（`im10_page_62`–`im10_page_70`、`62.webp`–`70.webp`）。Phase 6B 将印刷 `pageLabel` 修正为 31–39 后，以下 2026-06-25 的 PageViewer / Metro export PASS 证据已失效，需在 Step 3–5 用新的 31–39 bundle 重新执行。
+> **历史结果失效说明**：2026-06-25 基于旧 62–70 bundle 的 PageViewer / Metro export PASS 证据已于 Phase 6B 失效（`pageLabel` 修正为 31–39）。以下记录保留为历史，不再代表当前状态。
 
-**已失效（历史，待重新验证）：**
+**已失效（历史）：**
 
-- ~~Static PageViewer wiring: PASS~~（基于旧 62–70 bundle，pageLabel 已修正为 31–39，需重跑）
-- ~~Metro export asset check: PASS~~（Android export metadata 仍含旧 9 张 62–70 `.webp`，需重新生成 bundle 后重跑）
+- ~~Static PageViewer wiring: PASS~~（基于旧 62–70 bundle）
+- ~~Metro export asset check: PASS~~（Android export metadata 含旧 9 张 62–70 `.webp`）
 
-**当前状态（Phase 6B 数据管线）：**
+**当前状态（Phase 6B 数据管线 + Step 3/4 App 接入）：**
 
 - Lineage export (`scripts/export_phase1_evidence_lineage.py`)：PASS — page map + 276 SourceLocator，`pageLabel` 31–39，单一 `bboxNorm`（top-left/no-flip）。
 - PageAsset export (`scripts/export_phase1_page_assets.py`)：PASS — 9 张 `31.webp`–`39.webp`，`pages` manifest，`localAssetKey=im10_page_{31..39}`。
 - 281 引用 → 276 唯一 locator 覆盖验证：PASS（5 个差额为去重）。
+- Step 3 — merge locators 进 display contract / App bundle（`9654205f1` + `55492e9dd`）：PASS — 281 evidence references 全部获得 `sourceLocatorIds`；`constants/phase1PageImageAssets.ts` 重新生成 `im10_page_31`–`im10_page_39`；9 张 `31.webp`–`39.webp` git-tracked；TS/JS/JSON 无 62–70 残留。
+- Step 4 — PageViewer 交互接入与自动化验证：PASS — 4 个 UI 文件（`page-viewer.tsx`、`[sectionId]/unit/[unitId].tsx`、`phase1VisualEvidenceService.ts`、`PageViewerHighlightOverlay.tsx`）无需改动；`tsc --noEmit` clean；`validate_phase1_pageviewer.py --check-export` `ok=true`，9 keys，276 locators；Metro export 9 webp bundled；clean-checkout gate 0 untracked。
 
-**待 Step 3–5 重新执行：**
+**待执行：**
 
-- [ ] Step 3: merge locators 进 display contract / App bundle（`sourceLocatorIds`、`pageLabel`）
-- [ ] Step 4: 重新生成静态 require map（`im10_page_31`–`im10_page_39`）并重跑 `validate_phase1_pageviewer.py`
+- [x] Step 3: merge locators 进 display contract / App bundle（`sourceLocatorIds`、`pageLabel`）
+- [x] Step 4: PageViewer 交互接入与自动化验证（静态 require map + `validate_phase1_pageviewer.py --check-export`）
 - [ ] Step 5: APK 重新构建与真机验收（点「教材原文」→ 教材 P33 页图 → 黄框对齐段落）
