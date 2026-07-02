@@ -17,6 +17,7 @@ routes:
     skill: medlearn-review-ui
     read:
       - docs/DESIGN_CONTEXT.md
+      - docs/BRAND_VOICE.md
       - docs/LEARNING_DESIGN_PRINCIPLES.md
       - constants/theme.ts
     checks:

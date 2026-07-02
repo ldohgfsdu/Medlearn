@@ -11,10 +11,17 @@ Before changing files:
 2. Read `docs/MVP_PRD_V2.md`.
 3. Read `docs/CURRENT_STATE.md`; never edit it manually.
 4. Read `docs/ADR_INDEX.yaml` and load only accepted ADRs relevant to the task.
+   ADR bodies live under `docs/adr/ADR-0XX-*.md` (lowercase subdirectory).
 5. Read `CONTEXT.md`.
-6. Use `context/TASK_ROUTER.yaml` to select task-specific sources, skills, and
+6. Read `state/active_object.yaml` — the **only** source of the current active
+   object. Sister files (`state/blocked_objects.yaml`,
+   `state/completed_objects.yaml`, `state/knowledge_ingestion.yaml`,
+   `state/training_dataset.yaml`) give blocked/completed and ingestion state.
+7. Use `context/TASK_ROUTER.yaml` to select task-specific sources, skills, and
    acceptance checks.
-7. For documentation, Obsidian, or VitePress work, also read
+8. For UI, copy, or visual work, also read `docs/DESIGN_CONTEXT.md` and
+   `docs/BRAND_VOICE.md`.
+9. For documentation, Obsidian, or VitePress work, also read
    `docs/OBSIDIAN_VAULT.md` (agent handoff section).
 
 Running code and tests define what exists. The constitution and PRD define what
@@ -36,6 +43,8 @@ the product is and what matters. State YAML defines current execution priority.
   If they conflict, state the conflict before expanding scope.
 - Do not infer current priority from old reports, archived docs, generated
   artifacts, or code existence.
+- **Do not push to the remote repository unless the user explicitly asks.**
+  Commit locally; the user pushes.
 - Relative paths in `.agents/skills/**/SKILL.md` and all `checklists/**`
   references resolve from the repository root unless stated otherwise.
 - Markdown links of the form `[text](path)` may use `../` prefixes as needed
@@ -57,8 +66,49 @@ Project skills live in `.agents/skills/`:
 - `$medlearn-evaluate-training-stage`: assess SFT datasets, stage metrics, and
   training promotion gates.
 
+`.claude/skills/` contains thin redirects to the canonical skills above; do
+not expand them.
+
 Use the smallest set that covers the task. For cross-cutting work, apply
 `$medlearn-agent-coding` first, then the relevant specialist skill.
+
+## Checklists
+
+Authoritative checklists live under `checklists/` and resolve from the
+repository root:
+
+- `checklists/phase1-golden-path-acceptance.md` — Phase 1 golden path
+  acceptance for the current active object
+  `phase1_document_tree_golden_path_validation`.
+- `checklists/app-integration-gate.md` — app integration gate.
+- `checklists/production-acceptance.md` — production acceptance.
+- `checklists/no-regression-rules.md` — regression rules.
+- `checklists/evidence-copy-eval.md` — evidence copy evaluation.
+
+When a skill names a checklist, load it from this directory.
+
+## Design And Voice
+
+- `docs/DESIGN_CONTEXT.md` — visual design language: color semantics,
+  typography, spacing rhythm, component hierarchy, state colors, number styles.
+- `docs/BRAND_VOICE.md` — brand tone and copy rules: positioning, voice
+  principles, sample copy, forbidden phrasing, feedback language.
+- `constants/theme.ts`, `constants/textbookEditorial.ts`, `constants/layout.ts`,
+  `constants/pageStyles.ts` — design tokens; do not introduce ad-hoc colors,
+  fonts, or spacing.
+
+UI work must satisfy the Product Constraints in
+`.agents/skills/medlearn-review-ui/SKILL.md`.
+
+## Verification
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # expo lint
+npm test            # node --test tests/*.test.{js,ts}
+```
+
+Documentation-only changes do not require running tests.
 
 ## Documentation And Obsidian (Agent Handoff)
 
@@ -82,7 +132,7 @@ Use the smallest set that covers the task. For cross-cutting work, apply
 
 - Create Chinese-named Windows junctions for Obsidian (they garble in the UI).
 - Treat `F:\MedLearn Vault` notes as product truth; code + `docs/CURRENT_STATE.md` win.
-- Duplicate content into `docs-site/` (legacy); use `site/` only.
+- Duplicate content into `docs-site/` (legacy, pending removal); use `site/` only.
 - Hand-edit generated vault pages `发布文档站.md`, `10 发布文档/目录.md`, etc.; regenerate.
 
 Full topology and user workflow: `docs/OBSIDIAN_VAULT.md`.

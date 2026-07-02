@@ -9,6 +9,7 @@ description: Review or implement MedLearn screens, components, navigation, inter
 
 - `AGENTS.md`
 - `docs/DESIGN_CONTEXT.md`
+- `docs/BRAND_VOICE.md`
 - `docs/LEARNING_DESIGN_PRINCIPLES.md`
 - the target route, components, hooks, and services
 - `constants/theme.ts`, `constants/layout.ts`, and `constants/pageStyles.ts`
@@ -31,6 +32,11 @@ description: Review or implement MedLearn screens, components, navigation, inter
 - Prefer whitespace, type, and dividers over nested card grids.
 - Use Ionicons for functional icons; do not use emoji as controls.
 - Use shadows only for genuinely elevated surfaces.
+- Static content cards use hairline borders (`borderWidth: 1` + `Colors.border`), not shadows.
+- Titles (display, page, section, and navigation headers) use `FontFamily.serif` at fontWeight `600`; body and labels stay at 400/500.
+- Cap font weight at `600`; do not use 700/800/900. Decorative `letterSpacing` is reserved for verification-code inputs.
+- Numeric data uses the serif-600 number styles (`Typography.numberXL/Large/Medium`).
+- No `textTransform: 'uppercase'`; write labels as natural copy (e.g., "学习问答 · 01", "临床判断 · 03").
 - Keep the active screen focused on one task.
 - Require learner output before revealing feedback in recall or reasoning flows.
 - Preserve textbook source aspect order and evidence expansion behavior.
