@@ -94,7 +94,7 @@ def scan_page(page: fitz.Page, pdf_page_number_1based: int) -> PymupdfPageSnapsh
             spans_list: list[dict[str, Any]] = []
             for span in line.get("spans", []):
                 span_text = "".join(ch.get("c", "") for ch in span.get("chars", []))
-                if not span_text:
+                if not span_text.strip():
                     continue
                 spans_list.append(
                     _normalize_span_for_fingerprint(
