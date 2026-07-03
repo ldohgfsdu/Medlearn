@@ -30,6 +30,60 @@ objects:
     frozen: false
     activated_at: "2026-06-13"
     completed_at: null
-    blocked_reason: Remote API E2E passed (npm run e2e:remote); iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md.
+    blocked_reason: >
+      Case Simulator: remote API E2E passed (npm run e2e:remote); full iOS/Android
+      device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md. Not the
+      current Active Object—freeze case scope while phase1_document_tree_golden_path_validation
+      is active.
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: knowledge_remote_upload_validation
+    title: Validate EV1 knowledge remote upload readiness
+    status: blocked
+    objective: >
+      Prove the locally accepted EV1 knowledge bundle is safe to upload by running
+      read-only local and remote preflight checks, documenting expected write
+      impact, and preserving the no-upload boundary until explicit approval.
+    scope:
+      - scripts/ingest_knowledge.py
+      - scripts/orchestrator.py
+      - scripts/verify_pipeline_closure.py
+      - generated/knowledge_nodes/internal-medicine-10
+      - generated/display_contracts/internal-medicine-10
+      - generated/source_qa_queue/internal-medicine-10
+      - constants/ev1DisplayContracts.ts
+      - state/knowledge_ingestion.yaml
+    acceptance_criteria:
+      - Local EV1 strict quality gates still pass for candidate quality, release gate, display quality, and app-visible source QA.
+      - Remote-read preflight records current knowledge_nodes, document_chunks, and causal_chains integrity without writing remote data.
+      - Expected upload write impact and rollback/stop conditions are explicit before any Supabase re-upload.
+      - Staged or canary upload (asthma and tuberculosis golden sections first) succeeds on remote before any full-book upload.
+      - No upload is run until phase1_document_tree_golden_path_validation completes and the user explicitly approves remote writes.
+    dependencies:
+      - knowledge_ingestion_convergence
+      - phase1_document_tree_golden_path_validation
+    adr_tags:
+      - textbook_version
+      - textbook_pipeline
+      - evidence_artifact
+      - knowledge_detail
+      - database
+    evidence:
+      - docs/PIPELINE_INDEX.md
+      - docs/REMOTE_DEPLOYMENT_GUIDE.md
+      - generated/ev1_candidate_quality_report.json
+      - generated/ev1_release_gate.json
+      - generated/ev1_display_quality_report.json
+      - generated/source_qa_queue/internal-medicine-10/_all.source_qa.json
+      - state/knowledge_ingestion.yaml
+    frozen: false
+    activated_at: "2026-06-25"
+    completed_at: null
+    blocked_reason: >
+      Read-only preflight passed; full remote upload is blocked until
+      phase1_document_tree_golden_path_validation proves App reading experience
+      (Document Tree, evidence, page-image return) on asthma and tuberculosis golden
+      sections. Then use staged/canary upload—not immediate 1544→19961 full sync.
     reactivated_at: null
     reactivation_reason: null

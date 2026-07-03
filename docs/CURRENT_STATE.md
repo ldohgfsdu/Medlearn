@@ -64,6 +64,7 @@ No paused objects.
 | knowledge_v5_integration | Integrate experimental V5 knowledge pages | completed | 2026-06-13 |
 | local_demo_recovery | Restore a locally runnable demo | completed | 2026-06-14 |
 | mobile_ui_feedback_repair | Repair first mobile feedback issues | completed | 2026-06-21 |
+| multi_textbook_pipeline_ir_stabilization | Multi-textbook pipeline IR stabilization | completed | 2026-07-03 |
 | project_governance_bootstrap | Project governance bootstrap | completed | 2026-06-13 |
 | respiratory_knowledge_query_mvp | Respiratory trustworthy knowledge lookup MVP | completed | 2026-06-14 |
 | respiratory_mvp_real_question_validation | Validate the respiratory MVP with one real wrong question | completed | 2026-06-20 |

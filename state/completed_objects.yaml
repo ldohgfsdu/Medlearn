@@ -1,5 +1,368 @@
 schema_version: 1
 objects:
+  - id: multi_textbook_pipeline_ir_stabilization
+    title: Multi-textbook pipeline IR stabilization
+    status: completed
+    objective: >
+      Harden the canonical Document IR foundation before any PyMuPDF/Docling/RapidOCR
+      adapter is connected. Lock structural validation, version external rule sources
+      (subject hints, risk rules), and bind summary IDs to multi-version provenance.
+      No data migration, no backfill, no production runner connection until all four
+      P1 items pass.
+    scope:
+      - scripts/textbook_pipeline/document_ir.py
+      - scripts/textbook_pipeline/subject_hints.py
+      - scripts/textbook_pipeline/risk_rule_set.py
+      - scripts/textbook_pipeline/summary_candidate.py
+      - scripts/textbook_pipeline/evidence_release_gate.py
+      - tests/test_document_ir.py
+      - tests/test_subject_hints.py
+      - tests/test_risk_rule_set.py
+      - tests/test_summary_candidate.py
+      - registry/subject_hints/registry.v1.yaml
+      - registry/risk_rule_sets/registry.v1.yaml
+    acceptance_criteria:
+      - DocumentNode cycle detection and per-parent sibling_order uniqueness enforced by validate_document_ir() with negative tests.
+      - SubjectProfile refactored to SubjectHints backed by a versioned YAML registry; Python module becomes a loader, not a hard-coded table.
+      - Standalone versioned RiskRuleSet module, decoupled from SubjectHints, referenced only via stable ID + version.
+      - Summary ID incorporates evidence, model, prompt, and rule version fields; tests cover version drift detection.
+      - Document Tree carries no medical review status or subject semantics.
+      - No data migration, backfill, or remote upload is triggered by this object.
+    dependencies:
+      - knowledge_ingestion_convergence
+    adr_tags:
+      - textbook_pipeline
+      - textbook_version
+      - evidence_artifact
+    evidence:
+      - "P1-1 validate_document_ir() enforces parent_id cycle detection (self + multi-node) and per-parent sibling_order uniqueness; 4 negative/positive tests pass."
+      - "P1-2 subject_profile.py renamed to subject_hints.py; SubjectProfile -> SubjectHints; PROFILES/SIGNALS migrated to registry/subject_hints/registry.v1.yaml; high_risk_aspects removed in favor of default_risk_rule_set_id+version soft reference; 7 tests pass."
+      - "P1-3 New risk_rule_set.py + registry/risk_rule_sets/registry.v1.yaml; RiskRuleSet decoupled from SubjectHints (zero imports, id+version string reference only); 7 tests pass."
+      - "P1-4 EditorialSummaryCandidate adds evidence_version/model_version/prompt_version/rule_version fields, all included in candidate_id payload; 4 version-drift detection tests pass."
+      - "Post-P1 cleanup by user: restored build_source_locators_v0() optional doc compat interface (PageViewer 48 regressions recovered); updated stale verifier tests to reflect stricter prefix/cross-artifact rules; fixed synthesis prompt string assertion; regenerated docs/CURRENT_STATE.md."
+      - "P1 + verifier + synthesis + PageViewer: 98/98 tests pass."
+      - "Pipeline closure: PASS. Project state: valid. CURRENT_STATE: current."
+    frozen: true
+    activated_at: "2026-07-03"
+    completed_at: "2026-07-03"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: knowledge_ingestion_convergence
+    title: Converge EV1 local knowledge quality before upload
+    status: completed
+    objective: Raise full-book EV1 extraction and app-visible display quality to strict acceptance before any Supabase re-upload.
+    scope:
+      - scripts/ingest_knowledge.py
+      - scripts/orchestrator.py
+      - generated/knowledge_nodes/internal-medicine-10
+      - generated/display_contracts/internal-medicine-10
+      - constants/ev1DisplayContracts.ts
+      - state/knowledge_ingestion.yaml
+    acceptance_criteria:
+      - ev1-candidate-quality-report --strict --min-coverage 0.99 passes with quality_defect_total 0.
+      - ev1-release-gate passes for all 131 normalized caches.
+      - ev1-display-quality-report --strict passes with issue_total 0.
+      - audit-app-knowledge-quality --strict passes including pulmonary golden chapter and wrong-question cases.
+      - source_only_fallback items are remediated or documented as evidence-only.
+      - No upload, run-next, or backfill-p0 remote writes during this phase.
+    dependencies:
+      - knowledge_data_model_alignment
+    evidence:
+      - .\.venv-sft\Scripts\python.exe scripts\ingest_knowledge.py ev1-candidate-quality-report --strict --min-coverage 0.99 --pretty --diagnostic-items-output generated\ev1_candidate_quality_defect_queue.json passed with sections=131, coverage_min=0.992, quality_defect_total=0.
+      - .\.venv-sft\Scripts\python.exe scripts\ingest_knowledge.py ev1-release-gate passed with sections=131, passed=131, failed=0, nodes=19961.
+      - .\.venv-sft\Scripts\python.exe scripts\ingest_knowledge.py ev1-display-quality-report --strict --pretty passed with contracts=131, nodes=21294, issues=0, warnings=0.
+      - .\.venv-sft\Scripts\python.exe scripts\orchestrator.py audit-app-knowledge-quality passed with source QA book sections=131, items=9117, evidenceOnlyVisible=9117, missing=0, and pulmonary golden chapter PASS.
+      - source_only_fallback/needs_review items remain hidden as organized conclusions and are represented as app-visible evidence-only source QA entries.
+      - No upload, run-next, or backfill-p0 remote writes were run during this local quality phase.
+    adr_tags:
+      - textbook_version
+      - textbook_pipeline
+      - evidence_artifact
+      - knowledge_detail
+    frozen: true
+    activated_at: "2026-06-25"
+    completed_at: "2026-06-25"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: mobile_ui_feedback_repair
+    title: Repair first mobile feedback issues
+    status: completed
+    objective: >
+      Convert the first real-device feedback log into a focused mobile repair
+      pass for the home, knowledge map, wrong-question entry, secondary
+      navigation, and AI settings paths, then produce a refreshed Android test
+      APK without weakening medical or privacy boundaries.
+    scope:
+      - app.json
+      - app/_layout.tsx
+      - app/(tabs)/index.tsx
+      - app/case/[sessionId]/chat.tsx
+      - app/map.tsx
+      - app/settings/ai.tsx
+      - android/app/build.gradle
+      - services/ai-runtime.ts
+      - tests/case-security.test.js
+      - docs/MOBILE_TEST_BUILD.md
+      - state/active_object.yaml
+      - state/completed_objects.yaml
+      - docs/CURRENT_STATE.md
+    acceptance_criteria:
+      - Home and Knowledge entry cards avoid cramped mobile layout and keep text inside bounds.
+      - Knowledge and wrong-question screens respect safe-area/status-bar space and remain vertically scrollable.
+      - Knowledge map browse hierarchy favors textbook to part to chapter to section/unit without adding unsupported medical structure.
+      - Secondary screens expose a clear back path through existing Expo Router navigation.
+      - AI settings copy and provider choices align with the intended OpenAI/custom-compatible configuration path and connection feedback.
+      - Case protected answers, scoring rubrics, reviewer fields, and service credentials remain inaccessible to the client.
+      - Automated checks pass and a refreshed Android APK is produced.
+    dependencies:
+      - first_mobile_test_package
+      - remote_supabase_validation
+    evidence:
+      - npm run check passed with 124 tests.
+      - npm run verify:remote passed against the configured remote Supabase.
+      - node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/ai-settings.test.js tests/case-security.test.js tests/route-contracts.test.js passed with 19 tests.
+      - .\gradlew.bat assembleRelease completed successfully from android/.
+      - artifacts/medlearn-android-preview-v2.0.0-build2.apk produced with SHA-256 BE49AD14F7428CFB584D90616B948B7528FA0616AC4089C527A9B54B3EFE4B6E.
+      - aapt metadata reports com.medlearn.app version 2.0.0 versionCode 2, minSdkVersion 24, targetSdkVersion 36.
+      - apksigner verify --print-certs passed.
+      - APK bundle scan found no matches for service-role key names, AI API key names, protected answer markers, scoring rubric markers, or reviewer fields.
+      - adb devices -l found no attached Android phone, so real-device installation remains manual.
+    adr_tags:
+      - catalog_node
+      - detail_page
+      - evidence_artifact
+    frozen: true
+    activated_at: "2026-06-21"
+    completed_at: "2026-06-21"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: first_mobile_test_package
+    title: Package the first mobile test build
+    status: completed
+    objective: >
+      Produce the first installable mobile build artifact for real-device testing,
+      with release checks, packaging configuration, and explicit device-test
+      instructions while preserving MedLearn's medical and privacy boundaries.
+    scope:
+      - app.json
+      - eas.json
+      - package.json
+      - android/
+      - artifacts/medlearn-android-preview-v2.0.0-build1.apk
+      - docs/MOBILE_TEST_BUILD.md
+      - state/active_object.yaml
+      - state/completed_objects.yaml
+      - docs/CURRENT_STATE.md
+    acceptance_criteria:
+      - Release configuration supports a first internal Android test build.
+      - Automated repository checks pass before packaging.
+      - A mobile build command is executed and either produces an installable artifact or records the external blocker precisely.
+      - Device-test instructions identify the artifact, install method, and required manual checks.
+      - No service credentials, protected case answers, rubrics, or medical review fields are embedded in tracked release files.
+    dependencies:
+      - wrong_question_review_card_enrichment
+      - remote_supabase_validation
+    evidence:
+      - npm run check passed with 123 tests.
+      - npm run verify:remote passed against the configured remote Supabase.
+      - npx expo config --type public exposed no service-role keys, protected case answers, scoring rubrics, or reviewer fields in the public Expo config.
+      - npx eas-cli@latest build --platform android --profile preview --non-interactive was blocked by missing Expo account session.
+      - .\gradlew.bat assembleRelease completed successfully from android/.
+      - artifacts/medlearn-android-preview-v2.0.0-build1.apk produced with SHA-256 1592744E9053C439F6A54E3621F8F85117F14A8C22C5E5D8F7033A9523059606.
+      - apksigner verify --print-certs passed; package metadata is com.medlearn.app version 2.0.0 versionCode 1.
+      - APK bundle scan found no matches for service-role key names, AI API key names, protected answer markers, scoring rubric markers, or reviewer fields.
+      - adb devices found no attached Android device, so real-device install remains manual.
+    adr_tags:
+      - detail_page
+      - evidence_artifact
+    frozen: true
+    activated_at: "2026-06-21"
+    completed_at: "2026-06-21"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: wrong_question_review_card_enrichment
+    title: Enrich wrong-question review cards
+    status: completed
+    objective: >
+      Turn a saved wrong-question evidence target into a learner-owned review card
+      with answer context and mistake-reason tagging, without generating medical
+      explanations or changing textbook evidence.
+    scope:
+      - services/wrongQuestionService.ts
+      - app/wrong-questions.tsx
+      - scripts/run-wrong-question-review-queue-walkthrough.mjs
+      - tests/wrong-question-service.test.js
+      - tests/route-contracts.test.js
+      - memory/respiratory-knowledge-query-acceptance.md
+    acceptance_criteria:
+      - Saved wrong-question records preserve extracted user answer and correct answer when present in the pasted text.
+      - The review queue lets the learner tag one mistake reason before or during review.
+      - Mistake-reason tagging persists in local storage and survives queue reload.
+      - The feature remains learner self-review and does not publish AI-generated medical explanations.
+    dependencies:
+      - wrong_question_review_queue_closure
+    evidence:
+      - node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/wrong-question-service.test.js tests/route-contracts.test.js
+      - npm run walkthrough:wrong-question-review-queue -- --port=8101
+      - npm run check
+    adr_tags:
+      - detail_page
+      - evidence_artifact
+    frozen: true
+    activated_at: "2026-06-21"
+    completed_at: "2026-06-21"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: wrong_question_review_queue_closure
+    title: Close the wrong-question review queue loop
+    status: completed
+    objective: >
+      Validate that a learner can save a located wrong-question evidence target,
+      open it from the weakness queue, and mark the record reviewed without
+      exposing unsupported medical answers.
+    scope:
+      - app/map.tsx
+      - app/wrong-questions.tsx
+      - services/wrongQuestionService.ts
+      - scripts/run-wrong-question-review-queue-walkthrough.mjs
+      - tests/route-contracts.test.js
+      - memory/respiratory-knowledge-query-acceptance.md
+      - package.json
+    acceptance_criteria:
+      - A real wrong-question candidate can be saved from Knowledge Map into the active queue.
+      - The wrong-question queue opens the saved record back to the exact textbook evidence target.
+      - The record can be marked reviewed and moves out of the active queue.
+      - The flow remains grounded source navigation and does not publish an AI medical answer.
+    dependencies:
+      - wrong_question_case_003_viral_pneumonia
+    evidence:
+      - npm run walkthrough:wrong-question-review-queue -- --port=8100
+      - npm run check
+    adr_tags:
+      - catalog_node
+      - detail_page
+      - evidence_artifact
+    frozen: true
+    activated_at: "2026-06-21"
+    completed_at: "2026-06-21"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: wrong_question_case_003_viral_pneumonia
+    title: Add the viral pneumonia IgM wrong-question evidence case
+    status: completed
+    objective: >
+      Validate that the new real respiratory wrong question about suspected viral
+      pneumonia can navigate to local textbook evidence without becoming
+      open-ended medical answering.
+    scope:
+      - tests/fixtures/wrong-question-real-cases.js
+      - utils/wrongQuestionIntake.ts
+      - tests/wrong-question-real-cases.test.js
+      - scripts/measure-wrong-question-lookup.mjs
+      - tests/wrong-question-measurement-script.test.js
+      - memory/respiratory-knowledge-query-acceptance.md
+    acceptance_criteria:
+      - The viral pneumonia wrong question is captured with the user's wrong answer and expected correction target.
+      - The wrong-question intake returns a grounded local textbook candidate for viral pneumonia.
+      - The result reaches textbook-owned evidence, page reference, and target item.
+      - The fixture remains source navigation only and does not publish a medical diagnosis conclusion.
+    dependencies:
+      - wrong_question_search_friction_reduction
+    evidence:
+      - npm run measure:wrong-question
+      - node scripts/run-wrong-question-ui-walkthrough.mjs --case=rq-resp-003 --variant=stem_options_only --port=8098
+      - npm run check
+    adr_tags:
+      - evidence_artifact
+      - textbook_version
+      - knowledge_detail
+    frozen: true
+    activated_at: "2026-06-21"
+    completed_at: "2026-06-21"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: wrong_question_search_friction_reduction
+    title: Reduce wrong-question search friction for short noisy stems
+    status: completed
+    objective: >
+      Improve MVP wrong-question intake so short stems and noisy multiple-choice
+      options can still navigate to grounded textbook evidence without becoming
+      open-ended medical answering.
+    scope:
+      - utils/wrongQuestionIntake.ts
+      - tests/wrong-question-intake.test.js
+      - tests/wrong-question-real-cases.test.js
+      - scripts/measure-wrong-question-lookup.mjs
+      - memory/respiratory-knowledge-query-acceptance.md
+    acceptance_criteria:
+      - The first real respiratory wrong question resolves from stem and options without needing the reference explanation.
+      - Candidate results remain grounded to local textbook evidence, page reference, and target item.
+      - Existing full-context wrong-question fixtures continue to pass.
+      - High-risk treatment content remains source-navigation-only and is not published as medical advice.
+    dependencies:
+      - respiratory_mvp_real_question_validation
+    evidence:
+      - npm run measure:wrong-question
+      - node scripts/run-wrong-question-ui-walkthrough.mjs --case=rq-resp-001 --variant=stem_options_only --port=8097
+      - npm run check
+    adr_tags:
+      - evidence_artifact
+      - textbook_version
+      - knowledge_detail
+    frozen: true
+    activated_at: "2026-06-21"
+    completed_at: "2026-06-21"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
+  - id: respiratory_mvp_real_question_validation
+    title: Validate the respiratory MVP with one real wrong question
+    status: completed
+    objective: >
+      Validate that one real respiratory wrong question can be converted into a
+      grounded MVP textbook-evidence lookup, with the highest-friction product
+      step identified from the in-app flow.
+    scope:
+      - memory/respiratory-knowledge-query-acceptance.md
+      - one real respiratory wrong question
+      - MVP wrong-question intake
+      - textbook evidence navigation
+      - friction classification
+    acceptance_criteria:
+      - One real wrong question is captured with the user's wrong answer and the expected correction target.
+      - The MVP wrong-question intake returns a grounded textbook candidate for that question.
+      - The MVP result reaches the correct textbook-owned aspect, source evidence, page reference, and target item.
+      - The in-app navigation path from wrong question to evidence is documented.
+      - The highest-friction step is classified as search, catalog, detail, or evidence.
+    dependencies:
+      - respiratory_knowledge_query_mvp
+    evidence:
+      - memory/respiratory-knowledge-query-acceptance.md
+      - npm run measure:wrong-question
+      - npm run walkthrough:wrong-question-ui
+      - npm test
+    frozen: true
+    activated_at: "2026-06-14"
+    completed_at: "2026-06-20"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
   - id: respiratory_knowledge_query_mvp
     title: Respiratory trustworthy knowledge lookup MVP
     status: completed
