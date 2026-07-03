@@ -13,6 +13,7 @@ from .text_layers import build_text_layers
 
 IR_SCHEMA_VERSION = "document-ir.v1"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+RAW_SPAN_IDENTITY_KEYS = ("text", "font", "size", "bbox", "color", "flags")
 
 
 @dataclass(frozen=True)
@@ -126,9 +127,22 @@ def build_source_anchor(
     scope_id: str,
     source_pdf_sha256: str,
 ) -> SourceAnchor:
-    """Build an ADR-011 anchor from classification-independent parser spans."""
+    """Build an ADR-011 anchor from stable source-identity span fields.
+
+    Parser diagnostics and provenance may remain in ``RawSpan.spans`` for
+    audit, but are excluded from the identity hash because confidence and
+    parser-route metadata can vary across otherwise identical reruns.
+    """
+    identity_spans = [
+        {
+            key: span[key]
+            for key in RAW_SPAN_IDENTITY_KEYS
+            if key in span
+        }
+        for span in raw_span.spans
+    ]
     payload = json.dumps(
-        list(raw_span.spans),
+        identity_spans,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
