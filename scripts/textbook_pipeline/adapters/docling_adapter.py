@@ -19,9 +19,15 @@ tests skip when Docling cannot import.
 """
 from __future__ import annotations
 
+import subprocess
+import sys
+import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
+
+import pymupdf as fitz
 
 from ..document_ir import PageIdentity, RawSpan
 from .pymupdf_adapter import compute_source_pdf_sha256
@@ -32,6 +38,33 @@ DOCLING_DEFAULT_FONT = ""
 DOCLING_DEFAULT_SIZE = 0.0
 DOCLING_DEFAULT_COLOR = 0
 DOCLING_DEFAULT_FLAGS = 0
+
+
+def probe_docling_runtime(*, timeout_seconds: float = 30.0) -> bool:
+    """Return whether Docling imports successfully in an isolated process.
+
+    Docling's import chain loads native scipy libraries.  A broken native
+    runtime can raise ``MemoryError`` or terminate the interpreter, so tests
+    and callers must not probe it inside the long-lived parent process.
+    """
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import scipy.optimize, scipy.spatial.transform; "
+                    "from docling.document_converter import DocumentConverter"
+                ),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0
 
 
 @dataclass(frozen=True)
@@ -81,8 +114,8 @@ def _convert_page(page: Any, pdf_page_number_1based: int) -> DoclingPageSnapshot
     """Convert a Docling Page to a DoclingPageSnapshot.
 
     ``page.cells`` returns TextCell objects with ``.rect`` (BoundingRectangle)
-    and ``.text``. We call ``to_bounding_box()`` to get a BoundingBox with
-    ``l, t, r, b`` (top-left origin by default in docling_core).
+    and ``.text``. Docling bounding boxes default to a bottom-left origin, so
+    every box is explicitly converted to the IR's top-left coordinate space.
     """
     size = page.size
     width = float(size.width) if size else 0.0
@@ -93,7 +126,9 @@ def _convert_page(page: Any, pdf_page_number_1based: int) -> DoclingPageSnapshot
         text = cell.text or ""
         if not text.strip():
             continue
-        bbox_obj = cell.to_bounding_box()
+        bbox_obj = cell.to_bounding_box().to_top_left_origin(
+            page_height=height
+        )
         bbox_ltrb = [bbox_obj.l, bbox_obj.t, bbox_obj.r, bbox_obj.b]
         span_payload = _normalize_docling_cell_for_fingerprint(
             text=text,
@@ -124,6 +159,121 @@ def _convert_page(page: Any, pdf_page_number_1based: int) -> DoclingPageSnapshot
     )
 
 
+def _contiguous_page_ranges(
+    pdf_pages_1based: list[int],
+) -> tuple[tuple[int, int], ...]:
+    """Return minimal 1-based inclusive ranges covering requested pages."""
+    if not pdf_pages_1based:
+        raise ValueError("pdf_pages_1based must not be empty")
+    if any(
+        isinstance(page, bool) or not isinstance(page, int) or page < 1
+        for page in pdf_pages_1based
+    ):
+        raise ValueError("pdf_pages_1based must contain positive integers")
+
+    unique_pages = sorted(set(pdf_pages_1based))
+    ranges: list[tuple[int, int]] = []
+    start = previous = unique_pages[0]
+    for page in unique_pages[1:]:
+        if page == previous + 1:
+            previous = page
+            continue
+        ranges.append((start, previous))
+        start = previous = page
+    ranges.append((start, previous))
+    return tuple(ranges)
+
+
+@contextmanager
+def _selected_pages_pdf(
+    source_pdf_path: Path,
+    pdf_pages_1based: list[int],
+) -> Iterator[tuple[Path, tuple[int, ...]]]:
+    """Materialize only requested pages in a short-lived compact PDF.
+
+    Docling resolves local inputs by reading the entire file into memory
+    before applying ``page_range``.  Large textbooks therefore need a compact
+    input slice even when only one page was requested.  PyMuPDF is used only
+    for lossless page selection; Docling remains the text/layout parser.
+
+    The yielded tuple maps compact 1-based page positions back to original
+    source PDF page numbers.  The temporary file is removed on context exit.
+    """
+    page_ranges = _contiguous_page_ranges(pdf_pages_1based)
+    original_pages = tuple(sorted(set(pdf_pages_1based)))
+
+    source_document = fitz.open(str(source_pdf_path))
+    try:
+        for page_number in original_pages:
+            if page_number > source_document.page_count:
+                raise IndexError(
+                    f"pdf page {page_number} out of range "
+                    f"(1..{source_document.page_count})"
+                )
+
+        compact_document = fitz.open()
+        try:
+            for start, end in page_ranges:
+                compact_document.insert_pdf(
+                    source_document,
+                    from_page=start - 1,
+                    to_page=end - 1,
+                )
+            with tempfile.TemporaryDirectory(
+                prefix="medlearn-docling-"
+            ) as temp_dir:
+                compact_path = Path(temp_dir) / "selected-pages.pdf"
+                compact_document.save(str(compact_path))
+                yield compact_path, original_pages
+        finally:
+            compact_document.close()
+    finally:
+        source_document.close()
+
+
+def _build_document_converter() -> Any:
+    """Build a low-memory Docling converter for native-text textbook pages."""
+    # Preloading scipy avoids an intermittent Windows import failure observed
+    # when transformers imports scipy's compiled modules under memory pressure.
+    import scipy.optimize  # noqa: F401
+    import scipy.spatial.transform  # noqa: F401
+    from docling.datamodel.accelerator_options import AcceleratorOptions
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.pipeline.legacy_standard_pdf_pipeline import (
+        LegacyStandardPdfPipeline,
+    )
+
+    options = PdfPipelineOptions(
+        # Scanned pages are owned by the separate RapidOCR adapter.
+        do_ocr=False,
+        # RawSpan only needs source text/layout cells, not reconstructed tables.
+        do_table_structure=False,
+        force_backend_text=True,
+        images_scale=0.5,
+        # The adapter reads Page.cells after conversion.
+        generate_parsed_pages=True,
+        ocr_batch_size=1,
+        layout_batch_size=1,
+        table_batch_size=1,
+        accelerator_options=AcceleratorOptions(
+            device="cpu",
+            num_threads=1,
+        ),
+    )
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                # Sequential execution avoids the threaded pipeline's large
+                # transient queues and reproducible std::bad_alloc on Windows.
+                pipeline_cls=LegacyStandardPdfPipeline,
+                pipeline_options=options,
+            )
+        }
+    )
+
+
 def scan_pdf_pages(
     pdf_path: Path | str,
     *,
@@ -143,13 +293,26 @@ def scan_pdf_pages(
     source_sha = compute_source_pdf_sha256(pdf_path)
 
     # Lazy import — Docling's import chain may fail due to scipy DLL issues
-    from docling.document_converter import DocumentConverter
-
-    converter = DocumentConverter()
-    result = converter.convert(str(pdf_path))
-
-    # Build a lookup from page_no (1-based) to Page object
-    pages_by_no = {page.page_no: page for page in result.pages}
+    converter = _build_document_converter()
+    pages_by_no: dict[int, Any] = {}
+    with _selected_pages_pdf(
+        pdf_path, pdf_pages_1based
+    ) as (compact_path, original_pages):
+        result = converter.convert(
+            str(compact_path),
+            page_range=(1, len(original_pages)),
+        )
+        for page in result.pages:
+            compact_page_number = page.page_no
+            if not 1 <= compact_page_number <= len(original_pages):
+                raise IndexError(
+                    "Docling returned unexpected compact page number "
+                    f"{compact_page_number}"
+                )
+            original_page_number = original_pages[
+                compact_page_number - 1
+            ]
+            pages_by_no[original_page_number] = page
 
     snapshots: list[DoclingPageSnapshot] = []
     for page_num in pdf_pages_1based:

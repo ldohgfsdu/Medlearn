@@ -11,8 +11,13 @@ Two-tier (per project convention):
 from __future__ import annotations
 
 import sys
+import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
+
+import pymupdf as fitz
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -23,7 +28,10 @@ from textbook_pipeline.adapters.docling_adapter import (  # noqa: E402
     DOCLING_DEFAULT_FONT,
     DOCLING_DEFAULT_SIZE,
     DoclingDocumentSnapshot,
+    _contiguous_page_ranges,
+    _convert_page,
     _normalize_docling_cell_for_fingerprint,
+    probe_docling_runtime,
 )
 from textbook_pipeline.document_ir import (  # noqa: E402
     RawSpan,
@@ -34,14 +42,6 @@ PDF = ROOT / "textbook" / "内科学（第10版）.pdf"
 ASTHMA_PDF_PAGE_1BASED = 62
 TEXTBOOK_VERSION_ID = "internal-medicine-10"
 SCOPE_ID = "第二篇_呼吸系统疾病__第四章_支气管哮喘"
-
-
-def _docling_runtime_available() -> bool:
-    try:
-        from docling.document_converter import DocumentConverter  # noqa: F401
-        return True
-    except Exception:
-        return False
 
 
 # Lazy-evaluated to avoid triggering Docling's heavy import chain at module
@@ -124,6 +124,127 @@ class DoclingModuleLazyImportTests(unittest.TestCase):
         )
         self.assertIs(compute_source_pdf_sha256, pymupdf_sha)
 
+    @mock.patch(
+        "textbook_pipeline.adapters.docling_adapter.subprocess.run"
+    )
+    def test_runtime_probe_uses_isolated_subprocess(self, run):
+        run.return_value.returncode = 0
+        self.assertTrue(probe_docling_runtime(timeout_seconds=7.5))
+        self.assertEqual(run.call_args.kwargs["timeout"], 7.5)
+        self.assertIn(
+            "docling.document_converter",
+            run.call_args.args[0][-1],
+        )
+
+    @mock.patch(
+        "textbook_pipeline.adapters.docling_adapter.subprocess.run",
+        side_effect=TimeoutError,
+    )
+    def test_runtime_probe_returns_false_on_timeout(self, _run):
+        self.assertFalse(probe_docling_runtime(timeout_seconds=0.01))
+
+
+class DoclingPageConversionTests(unittest.TestCase):
+    def test_bottom_left_bbox_is_converted_to_top_left_origin(self):
+        class FakeBBox:
+            l = 10.0
+            t = 120.0
+            r = 20.0
+            b = 100.0
+
+            def __init__(self):
+                self.converted_with = None
+
+            def to_top_left_origin(self, *, page_height):
+                self.converted_with = page_height
+                return types.SimpleNamespace(
+                    l=self.l,
+                    t=page_height - self.t,
+                    r=self.r,
+                    b=page_height - self.b,
+                )
+
+        bbox = FakeBBox()
+        cell = types.SimpleNamespace(
+            text="test",
+            confidence=1.0,
+            from_ocr=False,
+            to_bounding_box=lambda: bbox,
+        )
+        page = types.SimpleNamespace(
+            size=types.SimpleNamespace(width=100.0, height=200.0),
+            cells=[cell],
+        )
+
+        snapshot = _convert_page(page, 4)
+
+        self.assertEqual(bbox.converted_with, 200.0)
+        self.assertEqual(
+            snapshot.raw_spans[0].spans[0]["bbox"],
+            [10.0, 80.0, 20.0, 100.0],
+        )
+
+    def test_contiguous_page_ranges_are_minimal_and_sorted(self):
+        self.assertEqual(
+            _contiguous_page_ranges([5, 3, 2, 2, 8, 7]),
+            ((2, 3), (5, 5), (7, 8)),
+        )
+
+    def test_contiguous_page_ranges_reject_invalid_input(self):
+        for invalid in ([], [0], [-1], [True], [1.5]):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    _contiguous_page_ranges(invalid)
+
+    def test_scan_converts_only_requested_page_ranges(self):
+        calls = []
+
+        class FakeConverter:
+            def convert(self, path, *, page_range):
+                with fitz.open(path) as compact_pdf:
+                    calls.append((page_range, compact_pdf.page_count))
+                return types.SimpleNamespace(
+                    pages=[
+                        types.SimpleNamespace(
+                            page_no=page_number,
+                            size=types.SimpleNamespace(
+                                width=100.0, height=200.0
+                            ),
+                            cells=[],
+                        )
+                        for page_number in range(
+                            page_range[0], page_range[1] + 1
+                        )
+                    ]
+                )
+
+        from textbook_pipeline.adapters.docling_adapter import scan_pdf_pages
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "fixture.pdf"
+            source_pdf = fitz.open()
+            try:
+                for _ in range(5):
+                    source_pdf.new_page(width=100.0, height=200.0)
+                source_pdf.save(pdf_path)
+            finally:
+                source_pdf.close()
+            with mock.patch(
+                "textbook_pipeline.adapters.docling_adapter."
+                "_build_document_converter",
+                return_value=FakeConverter(),
+            ):
+                snapshot = scan_pdf_pages(
+                    pdf_path,
+                    pdf_pages_1based=[3, 2, 2, 5],
+                )
+
+        self.assertEqual(calls, [((1, 3), 3)])
+        self.assertEqual(
+            [page.page_identity.pdf_page_number for page in snapshot.pages],
+            [3, 2, 2, 5],
+        )
+
 
 class SyntheticAnchorIdStabilityTests(unittest.TestCase):
     """Same Docling RawSpan -> same anchor ID, always."""
@@ -155,11 +276,20 @@ class SyntheticAnchorIdStabilityTests(unittest.TestCase):
         span_b = RawSpan(62, 0, 5, (_make_docling_span(),))
         self.assertNotEqual(self._anchor_id(span_a), self._anchor_id(span_b))
 
-    def test_different_ocr_flag_produces_different_anchor_id(self):
-        """OCR vs non-OCR provenance must be distinguishable in the anchor."""
+    def test_ocr_flag_does_not_change_anchor_id(self):
+        """Parser provenance is retained but excluded from source identity."""
         span_native = RawSpan(62, 0, 0, (_make_docling_span(from_ocr=False),))
         span_ocr = RawSpan(62, 0, 0, (_make_docling_span(from_ocr=True),))
-        self.assertNotEqual(self._anchor_id(span_native), self._anchor_id(span_ocr))
+        self.assertEqual(self._anchor_id(span_native), self._anchor_id(span_ocr))
+
+    def test_confidence_does_not_change_anchor_id(self):
+        span_a = RawSpan(
+            62, 0, 0, (_make_docling_span(confidence=0.51),)
+        )
+        span_b = RawSpan(
+            62, 0, 0, (_make_docling_span(confidence=0.99),)
+        )
+        self.assertEqual(self._anchor_id(span_a), self._anchor_id(span_b))
 
     def test_different_source_pdf_produces_different_anchor_id(self):
         span = RawSpan(62, 0, 0, (_make_docling_span(),))
@@ -191,7 +321,7 @@ class AsthmaPageDoclingAnchorIdStabilityTests(unittest.TestCase):
     def setUpClass(cls):
         global _docling_ok
         if _docling_ok is None:
-            _docling_ok = _docling_runtime_available()
+            _docling_ok = probe_docling_runtime()
         if not _docling_ok:
             raise unittest.SkipTest("Docling runtime not available")
     def _scan_asthma_page(self) -> DoclingDocumentSnapshot:
