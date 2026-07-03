@@ -1,5 +1,64 @@
 schema_version: 1
 objects:
+  - id: phase1_document_tree_golden_path_validation
+    title: Validate Document Tree golden-path reading experience in App
+    status: paused
+    objective: >
+      Validate that locally accepted EV1 textbook knowledge can be consumed as a
+      structured electronic textbook in the App—not merely queried from the
+      database. Use asthma and pulmonary tuberculosis as golden-path sections
+      only. Prove Document Tree → section → evidence/node → page-image return
+      path before any full remote EV1 upload.
+    scope:
+      - docs/architecture/phase1_phase2_gate.md
+      - docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md
+      - CONTEXT.md
+      - app/textbook/
+      - services/textbookService.ts
+      - constants/ev1DisplayContracts.ts
+      - generated/knowledge_nodes/internal-medicine-10/第二篇_呼吸系统疾病__第四章_支气管哮喘.normalized.json
+      - generated/knowledge_nodes/internal-medicine-10/第二篇_呼吸系统疾病__第八章_肺结核.normalized.json
+      - generated/display_contracts/internal-medicine-10
+      - scripts/export_phase1_evidence_lineage.py
+      - scripts/export_phase1_page_assets.py
+      - state/knowledge_ingestion.yaml
+      - docs/CURRENT_STATE.md
+    acceptance_criteria:
+      - Document Tree terminology is mapped to Catalog Node / section model in CONTEXT.md and is used consistently in docs and acceptance checks.
+      - Asthma section (第二篇 呼吸系统疾病 / 第四章 支气管哮喘) renders as structured textbook content in the App with stable hierarchy—not a flat knowledge card list.
+      - Pulmonary tuberculosis section (第二篇 呼吸系统疾病 / 第八章 肺结核) renders as structured textbook content with stable hierarchy including classification-tree cases.
+      - Each user-visible node in golden sections has traceable textbook evidence (page label and/or artifact linkage per ADR-009).
+      - In both golden sections, sampled evidence can return to a page image or equivalent original textbook context (Phase 1 visual evidence rules; no LLM-invented bbox); validate the pulmonary-tuberculosis structure tree before extending its page-image bundle.
+      - No concept graph, relation edges, or new disease-scope ingestion expansion is required to pass this object.
+      - Full remote EV1 upload, production Supabase writes, and unrelated Case Simulator changes remain out of scope until this object completes.
+    dependencies:
+      - knowledge_ingestion_convergence
+      - multi_textbook_pipeline_ir_stabilization
+      - multi_parser_rawspan_adapter_integration
+    adr_tags:
+      - catalog_node
+      - knowledge_detail
+      - evidence_artifact
+      - textbook_version
+      - detail_page
+    evidence:
+      - docs/architecture/phase1_phase2_gate.md
+      - docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md
+      - generated/ev1_release_gate.json
+      - generated/ev1_display_quality_report.json
+      - state/knowledge_ingestion.yaml
+    frozen: false
+    activated_at: "2026-06-26"
+    completed_at: null
+    blocked_reason: >
+      Paused (not completed) so multi_parser_rawspan_adapter_integration can land
+      Docling and RapidOCR adapters plus unified RawSpan parity tests against the
+      stabilized Document IR. Asthma and pulmonary tuberculosis bundles remain
+      unchanged; App-side state intact. Resumes automatically when
+      multi_parser_rawspan_adapter_integration closes.
+    reactivated_at: null
+    reactivation_reason: null
+
   - id: remote_supabase_validation
     title: Validate the deployed Supabase environment
     status: blocked
