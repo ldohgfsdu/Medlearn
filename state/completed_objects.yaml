@@ -1,5 +1,50 @@
 schema_version: 1
 objects:
+  - id: multi_parser_rawspan_adapter_integration
+    title: Integrate multi-parser RawSpan adapters (PyMuPDF, Docling, RapidOCR)
+    status: completed
+    objective: >
+      Connect PyMuPDF, Docling, and RapidOCR to the stabilized Document IR while
+      keeping every adapter pre-classification, in-memory, and source-bound.
+    scope:
+      - scripts/textbook_pipeline/adapters/__init__.py
+      - scripts/textbook_pipeline/adapters/pymupdf_adapter.py
+      - scripts/textbook_pipeline/adapters/docling_adapter.py
+      - scripts/textbook_pipeline/adapters/rapidocr_adapter.py
+      - scripts/textbook_pipeline/document_ir.py
+      - tests/test_pymupdf_adapter.py
+      - tests/test_docling_adapter.py
+      - tests/test_rapidocr_adapter.py
+      - tests/test_multi_parser_rawspan_parity.py
+      - docs/CURRENT_STATE.md
+    acceptance_criteria:
+      - All three adapters output RawSpan + PageIdentity + full source PDF SHA-256 only.
+      - Docling converts bottom-left bboxes to top-left and processes compact requested-page slices.
+      - RapidOCR renders requested pages in memory and maps pixel boxes back to top-left PDF coordinates.
+      - Parser diagnostics are retained but excluded from stable anchor identity.
+      - Unified real-page parity covers identity, text coverage, reading order, bbox bounds, duplicates, deterministic anchors, and documented divergence.
+      - No adapter writes generated/ data or performs classification, summarization, or DocumentNode construction.
+      - phase1_document_tree_golden_path_validation resumes after completion.
+    dependencies:
+      - multi_textbook_pipeline_ir_stabilization
+    adr_tags:
+      - textbook_pipeline
+      - textbook_version
+      - evidence_artifact
+    evidence:
+      - "PyMuPDF, Docling, RapidOCR, Document IR, and unified parity suite: 89 passed, 5 subtests passed."
+      - "Real internal-medicine page 62 Docling scan: 77 RawSpans with original page identity."
+      - "RapidOCR real page 62 rerun produces byte-identical anchor ID lists."
+      - "Three-parser unified parity test: 33 passed with comparable canonical text coverage and explicit divergence causes."
+      - "scripts/verify_p0_smoke.py: PASS (0 issues)."
+      - "scripts/verify_pipeline_closure.py: PASS (0 issues)."
+    frozen: true
+    activated_at: "2026-07-03"
+    completed_at: "2026-07-03"
+    blocked_reason: null
+    reactivated_at: null
+    reactivation_reason: null
+
   - id: multi_textbook_pipeline_ir_stabilization
     title: Multi-textbook pipeline IR stabilization
     status: completed

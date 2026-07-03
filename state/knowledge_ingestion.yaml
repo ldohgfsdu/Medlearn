@@ -1,15 +1,18 @@
 schema_version: 1
 active_object:
-  id: knowledge_ingestion_convergence
-  title: Converge extraction and upload knowledge_nodes
+  id: phase1_document_tree_golden_path_validation
+  title: Validate Document Tree golden-path reading experience in App
   status: active
   manifest: manifests/internal_medicine_ingestion.yaml
   pipeline_entrypoint: scripts/ingest_knowledge.py
-  notes: 'Production path: ingest_knowledge.py → V3 → knowledge_node_adapter → knowledge_nodes
+  notes: >
+    Phase: Document Tree golden-path reading experience (asthma + pulmonary tuberculosis).
+    Do not run full remote upload, orchestrator run-next, upload, backfill-p0, deploy,
+    migration, seed, or any remote mutation until golden-path App validation completes
+    and the user explicitly approves staged/canary upload.
 
-    + document_chunks + causal_chains (P0 section upload).
-
-    '
+    Production path after golden path + upload approval: EV1 normalized cache → staged/canary
+    upload → knowledge_nodes + document_chunks + causal_chains.
 extraction:
   status: verified_36_chapters
   verified_section_count: 36
@@ -17,7 +20,8 @@ extraction:
   manifest: manifests/internal_medicine_ingestion.yaml
   next_pending_section: 第四篇 消化系统疾病/第四章 胃炎
 production_ingestion:
-  status: accepted_if_db_verified
+  status: remote_upload_preflight_passed
+  upload_paused_reason: Remote upload is still paused until read-only preflight records current remote state and the user explicitly approves a write.
   contract: v3_accepted
   upload_pipeline: knowledge_nodes_plus_chunks_plus_causal_chains
   p0_reference_integrity: fixed_round1
@@ -32,9 +36,14 @@ production_ingestion:
   p0_backfill_completed: true
   p0_backfill_sections: 33
 app_integration:
-  status: pending_or_partial
+  status: golden_path_reading_experience_pending
   db_query_ready: true
   ui_visible: pending
+  textbook_reading_experience: pending
+  page_image_return_path: pending
+  golden_sections:
+    - 第二篇_呼吸系统疾病__第四章_支气管哮喘
+    - 第二篇_呼吸系统疾病__第八章_肺结核
   rag_related_chunks: enabled_after_p0_upload
 ollama_gpu_config:
   num_gpu: 999
@@ -52,7 +61,116 @@ current_section: 第四篇 消化系统疾病/第三章 食管癌
 last_upload_count: 4
 last_remote_count: 4
 last_error: null
-updated_at: '2026-06-17T15:56:07.384722+00:00'
+updated_at: '2026-06-26T00:00:00+00:00'
+quality_convergence:
+  status: completed_local_strict
+  phase: local_ev1_strict
+  upload_blocked: true
+  targets:
+    min_coverage: 0.99
+    quality_defect_total: 0
+    display_issue_total: 0
+    app_audit_strict: true
+  baseline:
+    recorded_at: '2026-06-24T17:40:30+00:00'
+    candidate_passed_strict: false
+    quality_defect_total: 0
+    coverage_min: 0.967032967032967
+    display_issue_total: 0
+    source_only_fallback: 34
+    remaining_evidence_only_runs: 161
+    app_audit_strict: null
+  history:
+  - recorded_at: '2026-06-25T02:15:00+00:00'
+    action: remediated_low_coverage_sections
+    sections_reprocessed: 13
+    candidate_passed_strict: true
+    quality_defect_total: 0
+    coverage_min: 0.992
+    display_issue_total: 0
+    release_gate_passed: 131
+    app_audit_strict: true
+    source_only_fallback_or_rerun: 130
+    notes: Re-extracted 13 low-coverage sections via EV1 evidence-first; no Supabase upload.
+  final:
+    recorded_at: '2026-06-25T02:15:00+00:00'
+    candidate_passed_strict: true
+    coverage_min: 0.992
+    quality_defect_total: 0
+    display_issue_total: 0
+    release_gate_sections_passed: 131
+    app_audit_strict: true
+    pulmonary_golden_chapter: pass
+    wrong_question_cases: pass
+    source_qa_book_missing: 0
+remote_upload_validation:
+  status: blocked_until_golden_path_app_validation
+  phase: read_only_preflight_complete
+  upload_blocked: true
+  blocked_until_object: phase1_document_tree_golden_path_validation
+  allowed_operations:
+  - local_ev1_quality_gates
+  - local_app_bundle_audit
+  - remote_read_integrity_checks
+  forbidden_operations:
+  - upload
+  - run-next
+  - backfill-p0
+  - deploy
+  - migration
+  - seed
+  - remote_mutation
+  targets:
+    normalized_cache_sections: 131
+    release_gate_sections: 131
+    source_qa_missing: 0
+    display_issue_total: 0
+  started_at: '2026-06-25T00:00:00+00:00'
+  last_read_only_preflight:
+    recorded_at: '2026-06-25T00:00:00+00:00'
+    candidate_quality:
+      sections: 131
+      coverage_min: 0.992
+      quality_defect_total: 0
+      passed: true
+    release_gate:
+      sections: 131
+      passed_sections: 131
+      failed_sections: 0
+      nodes: 19961
+    display_quality:
+      contracts: 131
+      nodes: 21294
+      issue_total: 0
+      warning_total: 0
+      passed: true
+    app_visible_source_qa:
+      sections: 131
+      items: 9117
+      evidence_only_visible: 9117
+      missing_from_display_contract: 0
+      pulmonary_golden_chapter: pass
+    remote_read_snapshot:
+      knowledge_nodes: 1544
+      v3_primary_ids: 0
+      orphan_related_refs: 0
+      orphan_causal_targets: 0
+      document_chunks: 1817
+      causal_chains_v3: 26
+    pipeline_closure_passed: true
+  expected_write_impact_if_approved:
+    operation: EV1 normalized cache re-upload to Supabase.
+    book_id: internal-medicine-10
+    knowledge_nodes_target_count: 19961
+    current_remote_knowledge_nodes_count: 1544
+    expected_behavior: Idempotent upsert of EV1 knowledge_nodes plus regenerated document_chunks and causal_chains for the same textbook version.
+    protected_boundary: No app-visible unsupported organized conclusions; needs_review/high-risk source-only material remains evidence-only.
+  stop_conditions_before_or_during_upload:
+  - Any local strict gate fails.
+  - Remote read snapshot reports v3 primary IDs, orphan references, or missing chunks/chains.
+  - Supabase credentials point to an unexpected project.
+  - Upload command would target a book_id other than internal-medicine-10.
+  - User has not explicitly approved the remote write in the current thread.
 real_llm_gate:
   target_section: 第二篇 呼吸系统疾病/第一章 总论
   checklist:

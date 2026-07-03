@@ -6,37 +6,40 @@
 ## Project
 
 - Name: `MedLearn`
-- Phase: `multi_parser_rawspan_adapter_integration`
+- Phase: `phase1_document_tree_golden_path`
 
 ## Active Object
 
-### `multi_parser_rawspan_adapter_integration`: Integrate multi-parser RawSpan adapters (PyMuPDF, Docling, RapidOCR)
+### `phase1_document_tree_golden_path_validation`: Validate Document Tree golden-path reading experience in App
 
-Connect three independent PDF parsers (PyMuPDF, Docling, RapidOCR) to the stabilized Document IR foundation. Each adapter outputs pre-classification RawSpan, page dimensions, and PDF page identity only. Adapters MUST NOT generate DocumentNode, perform subject detection or medical classification, produce summaries, or write generated/ data. The PyMuPDF adapter is already landed and verified; Docling and RapidOCR adapters plus unified RawSpan parity tests remain. When all three adapters pass parity, this object closes and phase1_document_tree_golden_path_validation resumes.
+Validate that locally accepted EV1 textbook knowledge can be consumed as a structured electronic textbook in the App—not merely queried from the database. Use asthma and pulmonary tuberculosis as golden-path sections only. Prove Document Tree → section → evidence/node → page-image return path before any full remote EV1 upload.
 
 
 **Scope**
 
-- `scripts/textbook_pipeline/adapters/__init__.py`
-- `scripts/textbook_pipeline/adapters/pymupdf_adapter.py`
-- `scripts/textbook_pipeline/adapters/docling_adapter.py`
-- `scripts/textbook_pipeline/adapters/rapidocr_adapter.py`
-- `scripts/textbook_pipeline/document_ir.py`
-- `tests/test_pymupdf_adapter.py`
-- `tests/test_docling_adapter.py`
-- `tests/test_rapidocr_adapter.py`
-- `tests/test_multi_parser_rawspan_parity.py`
+- `docs/architecture/phase1_phase2_gate.md`
+- `docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md`
+- `CONTEXT.md`
+- `app/textbook/`
+- `services/textbookService.ts`
+- `constants/ev1DisplayContracts.ts`
+- `generated/knowledge_nodes/internal-medicine-10/第二篇_呼吸系统疾病__第四章_支气管哮喘.normalized.json`
+- `generated/knowledge_nodes/internal-medicine-10/第二篇_呼吸系统疾病__第八章_肺结核.normalized.json`
+- `generated/display_contracts/internal-medicine-10`
+- `scripts/export_phase1_evidence_lineage.py`
+- `scripts/export_phase1_page_assets.py`
+- `state/knowledge_ingestion.yaml`
 - `docs/CURRENT_STATE.md`
 
 **Acceptance Criteria**
 
-- PyMuPDF adapter outputs RawSpan + PageIdentity + full source PDF SHA-256 only; no DocumentNode, no summary, no generated/ writes. Verified by real asthma page anchor ID stability test (byte-identical across reruns).
-- Docling adapter outputs the same RawSpan + PageIdentity + source PDF SHA-256 contract; no DocumentNode, no summary, no generated/ writes.
-- RapidOCR adapter outputs the same RawSpan + PageIdentity + source PDF SHA-256 contract; no DocumentNode, no summary, no generated/ writes.
-- Unified RawSpan parity tests prove that all three adapters, given the same asthma page fixture, produce RawSpan sets whose anchor IDs are deterministic and cross-parser comparable (or, where parsers diverge on span boundaries, the divergence is explicitly documented and tested).
-- No adapter writes generated/ data; all outputs are in-memory snapshots consumed by downstream IR construction.
-- No medical classification, subject detection, or summary is performed inside any adapter.
-- phase1_document_tree_golden_path_validation remains paused (not completed) for the duration of this object and is resumed only when this object closes.
+- Document Tree terminology is mapped to Catalog Node / section model in CONTEXT.md and is used consistently in docs and acceptance checks.
+- Asthma section (第二篇 呼吸系统疾病 / 第四章 支气管哮喘) renders as structured textbook content in the App with stable hierarchy—not a flat knowledge card list.
+- Pulmonary tuberculosis section (第二篇 呼吸系统疾病 / 第八章 肺结核) renders as structured textbook content with stable hierarchy including classification-tree cases.
+- Each user-visible node in golden sections has traceable textbook evidence (page label and/or artifact linkage per ADR-009).
+- In both golden sections, sampled evidence can return to a page image or equivalent original textbook context (Phase 1 visual evidence rules; no LLM-invented bbox); validate the pulmonary-tuberculosis structure tree before extending its page-image bundle.
+- No concept graph, relation edges, or new disease-scope ingestion expansion is required to pass this object.
+- Full remote EV1 upload, production Supabase writes, and unrelated Case Simulator changes remain out of scope until this object completes.
 
 ## Blocked
 
@@ -47,9 +50,7 @@ Connect three independent PDF parsers (PyMuPDF, Docling, RapidOCR) to the stabil
 
 ## Paused
 
-| ID | Title | Status | Pause Reason |
-|---|---|---|---|
-| phase1_document_tree_golden_path_validation | Validate Document Tree golden-path reading experience in App | paused | Paused (not completed) so multi_parser_rawspan_adapter_integration can land Docling and RapidOCR adapters plus unified RawSpan parity tests against the stabilized Document IR. Asthma and pulmonary tuberculosis bundles remain unchanged; App-side state intact. Resumes automatically when multi_parser_rawspan_adapter_integration closes.<br> |
+No paused objects.
 
 ## Completed
 
@@ -63,6 +64,7 @@ Connect three independent PDF parsers (PyMuPDF, Docling, RapidOCR) to the stabil
 | knowledge_v5_integration | Integrate experimental V5 knowledge pages | completed | 2026-06-13 |
 | local_demo_recovery | Restore a locally runnable demo | completed | 2026-06-14 |
 | mobile_ui_feedback_repair | Repair first mobile feedback issues | completed | 2026-06-21 |
+| multi_parser_rawspan_adapter_integration | Integrate multi-parser RawSpan adapters (PyMuPDF, Docling, RapidOCR) | completed | 2026-07-03 |
 | multi_textbook_pipeline_ir_stabilization | Multi-textbook pipeline IR stabilization | completed | 2026-07-03 |
 | project_governance_bootstrap | Project governance bootstrap | completed | 2026-06-13 |
 | respiratory_knowledge_query_mvp | Respiratory trustworthy knowledge lookup MVP | completed | 2026-06-14 |
@@ -79,9 +81,9 @@ No archived objects.
 
 ## Applicable Accepted ADRs
 
-- [ADR-004: Display Hierarchy vs Semantic Graph Separation](../docs/adr/ADR-004-display-graph-separation.md)
 - [ADR-005: Textbook Versions Own Their Catalog And Evidence](../docs/adr/ADR-005-textbook-version-boundaries.md)
 - [ADR-006: Textbooks Own Knowledge Aspect Structure](../docs/adr/ADR-006-textbook-owned-knowledge-aspects.md)
+- [ADR-007: Separate Catalog Position, Content Identity, And Detail Page](../docs/adr/ADR-007-separate-catalog-content-and-detail.md)
 - [ADR-008: Reuse Medical Concepts, Isolate Knowledge Detail Instances](../docs/adr/ADR-008-concept-reuse-detail-isolation.md)
 - [ADR-009: Preserve Text, Tables, Figures, And Captions As Evidence Artifacts](../docs/adr/ADR-009-multimodal-evidence-artifacts.md)
 - [ADR-011: Document Tree v1 As The Structural Source Of Truth](../docs/adr/ADR-011-document-tree-v1.md)
