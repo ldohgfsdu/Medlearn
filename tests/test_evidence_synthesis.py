@@ -9,7 +9,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from textbook_pipeline.evidence_artifact import make_artifact
 from textbook_pipeline.evidence_synthesis import (
+    SYNTHESIS_PROMPT,
     SynthesizedItem,
+    raw_item_is_source_supported,
+    synthesize_artifact,
     synthesize_artifacts,
     write_synthesis_cache,
 )
@@ -32,6 +35,80 @@ def _artifact(order: int):
 
 
 class EvidenceSynthesisCheckpointTests(unittest.TestCase):
+    def test_prompt_requires_content_to_be_directly_supported_by_evidence(self):
+        self.assertIn("content 必须被 evidence 直接支持", SYNTHESIS_PROMPT)
+        self.assertIn("禁止把标题、上位疾病名、知识面向、表头、图题、单位说明补进 content", SYNTHESIS_PROMPT)
+        self.assertIn("如果表格行列关系不清，返回空 items", SYNTHESIS_PROMPT)
+        self.assertIn('标记为 "needs_review"', SYNTHESIS_PROMPT)
+        self.assertIn('"risk_class":"standard|needs_review"', SYNTHESIS_PROMPT)
+
+    def test_raw_item_support_requires_content_inside_evidence(self):
+        artifact = make_artifact(
+            textbook_id="internal-medicine-10",
+            book_id="internal-medicine-10",
+            part_title="Part",
+            section_title="Section",
+            source_heading="Heading",
+            normalized_aspect=None,
+            source_order=1,
+            artifact_type="text_block",
+            raw_text="Minerals include macro elements and trace elements.",
+            page_start=1,
+            page_end=1,
+        )
+
+        ok, reason = raw_item_is_source_supported(
+            {
+                "content": "Minerals include macro elements",
+                "evidence": "macro elements and trace elements",
+            },
+            artifact,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(reason, "content_not_supported_by_evidence")
+
+    def test_synthesize_artifact_skips_items_that_exceed_evidence(self):
+        artifact = make_artifact(
+            textbook_id="internal-medicine-10",
+            book_id="internal-medicine-10",
+            part_title="Part",
+            section_title="Section",
+            source_heading="Heading",
+            normalized_aspect=None,
+            source_order=1,
+            artifact_type="text_block",
+            raw_text="Minerals include macro elements and trace elements.",
+            page_start=1,
+            page_end=1,
+        )
+
+        with patch(
+            "textbook_pipeline.evidence_synthesis.call_ollama_synthesis",
+            return_value=[
+                {
+                    "title": "Minerals",
+                    "parent_entity": None,
+                    "content": "Minerals include macro elements",
+                    "evidence": "macro elements and trace elements",
+                    "risk_class": "standard",
+                },
+                {
+                    "title": "Trace elements",
+                    "parent_entity": None,
+                    "content": "trace elements",
+                    "evidence": "macro elements and trace elements",
+                    "risk_class": "standard",
+                },
+            ],
+        ):
+            items, metrics = synthesize_artifact(artifact)
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].content, "trace elements")
+        self.assertEqual(metrics["skipped_items"], 1)
+        self.assertEqual(metrics["skipped_reasons"], {"content_not_supported_by_evidence": 1})
+
     def test_synthesize_artifacts_resumes_from_checkpoint(self):
         first = _artifact(0)
         second = _artifact(1)

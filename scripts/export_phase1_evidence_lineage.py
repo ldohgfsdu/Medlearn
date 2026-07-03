@@ -213,7 +213,7 @@ def collect_evidence_items() -> list[dict]:
 def build_source_locators_v0(
     evidence_by_id: dict[str, dict],
     page_map_by_pdf_page: dict[str, dict],
-    doc: fitz.Document,
+    doc: fitz.Document | None = None,
 ) -> dict:
     """Build SourceLocator records through explicit artifact_id join.
 
@@ -258,8 +258,15 @@ def build_source_locators_v0(
         raw_text = art.get("raw_text") or ei.get("text") or ""
 
         # Extract per-visual-line bboxes for multi-line evidence
-        page = doc.load_page(pm["pdfPageIndex"])
-        line_bboxes_pdf = extract_line_bboxes(page, raw_text, [float(x) for x in bbox])
+        line_bboxes_pdf = (
+            extract_line_bboxes(
+                doc.load_page(pm["pdfPageIndex"]),
+                raw_text,
+                [float(x) for x in bbox],
+            )
+            if doc is not None
+            else [[float(x) for x in bbox]]
+        )
         bbox_pdf_lines = [[float(v) for v in lb] for lb in line_bboxes_pdf]
         bbox_norm_lines = [
             bbox_to_norm_top_left(lb, w, h) for lb in bbox_pdf_lines

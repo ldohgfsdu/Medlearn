@@ -1,0 +1,209 @@
+registry_version: "1"
+hints:
+  clinical_medicine:
+    version: "1"
+    aspect_candidates:
+      - 定义
+      - 病因
+      - 发病机制
+      - 临床表现
+      - 检查
+      - 诊断
+      - 治疗
+      - 预后
+    preserve_structures:
+      - classification_tree
+      - table
+      - figure
+      - algorithm
+    summary_style: disease-oriented clinical outline
+    signals:
+      - 内科学
+      - 外科学
+      - 儿科学
+      - 妇产科学
+      - 临床医学
+    default_risk_rule_set:
+      id: clinical_medicine_default
+      version: "1"
+  physiology:
+    version: "1"
+    aspect_candidates:
+      - 结构基础
+      - 生理过程
+      - 作用机制
+      - 调节
+      - 指标
+      - 实验现象
+    preserve_structures:
+      - formula
+      - curve
+      - experimental_condition
+      - figure
+    summary_style: mechanism-regulation sequence
+    signals:
+      - 生理学
+      - 生理功能
+      - 稳态
+      - 调节机制
+    default_risk_rule_set:
+      id: physiology_default
+      version: "1"
+  pharmacology:
+    version: "1"
+    aspect_candidates:
+      - 药物分类
+      - 作用机制
+      - 药理作用
+      - 药代动力学
+      - 临床应用
+      - 不良反应
+      - 禁忌
+    preserve_structures:
+      - dose_table
+      - interaction_table
+      - chemical_structure
+      - figure
+    summary_style: drug-class comparison
+    signals:
+      - 药理学
+      - 药物作用
+      - 药代动力学
+      - 不良反应
+    default_risk_rule_set:
+      id: pharmacology_default
+      version: "1"
+  pathology:
+    version: "1"
+    aspect_candidates:
+      - 病因
+      - 发病机制
+      - 病理变化
+      - 形态学
+      - 结局
+      - 临床病理联系
+    preserve_structures:
+      - gross_image
+      - microscopy
+      - table
+      - figure
+    summary_style: cause-morphology-outcome sequence
+    signals:
+      - 病理学
+      - 病理变化
+      - 组织学
+      - 镜下
+    default_risk_rule_set:
+      id: pathology_default
+      version: "1"
+  anatomy:
+    version: "1"
+    aspect_candidates:
+      - 位置
+      - 形态
+      - 结构
+      - 毗邻
+      - 血供
+      - 淋巴
+      - 神经支配
+    preserve_structures:
+      - anatomical_figure
+      - spatial_relation
+      - table
+    summary_style: region and spatial relationships
+    signals:
+      - 解剖学
+      - 局部解剖
+      - 毗邻
+      - 神经支配
+    default_risk_rule_set:
+      id: anatomy_default
+      version: "1"
+  biochemistry:
+    version: "1"
+    aspect_candidates:
+      - 底物
+      - 酶
+      - 产物
+      - 反应步骤
+      - 调控
+      - 能量
+      - 临床联系
+    preserve_structures:
+      - pathway
+      - formula
+      - reaction_table
+      - figure
+    summary_style: pathway-input-regulation-output
+    signals:
+      - 生物化学
+      - 代谢通路
+      - 限速酶
+      - 底物
+    default_risk_rule_set:
+      id: biochemistry_default
+      version: "1"
+  microbiology:
+    version: "1"
+    aspect_candidates:
+      - 形态
+      - 培养
+      - 生物学特性
+      - 致病性
+      - 免疫
+      - 检测
+      - 防治
+    preserve_structures:
+      - microscopy
+      - culture_table
+      - life_cycle
+      - figure
+    summary_style: organism-characteristics-pathogenesis-detection
+    signals:
+      - 微生物学
+      - 细菌学
+      - 病毒学
+      - 培养特性
+    default_risk_rule_set:
+      id: microbiology_default
+      version: "1"
+  diagnostics:
+    version: "1"
+    aspect_candidates:
+      - 适用范围
+      - 检查方法
+      - 正常表现
+      - 异常表现
+      - 临床意义
+      - 局限
+    preserve_structures:
+      - waveform
+      - image
+      - reference_range_table
+      - algorithm
+    summary_style: method-result-interpretation-limitations
+    signals:
+      - 诊断学
+      - 体格检查
+      - 实验诊断
+      - 临床意义
+    default_risk_rule_set:
+      id: diagnostics_default
+      version: "1"
+  generic_textbook:
+    version: "1"
+    aspect_candidates:
+      - 原文主题
+      - 定义
+      - 组成
+      - 过程
+      - 特点
+    preserve_structures:
+      - table
+      - figure
+      - caption
+    summary_style: source-heading-preserving outline
+    signals: []
+    default_risk_rule_set:
+      id: generic_textbook_default
+      version: "1"

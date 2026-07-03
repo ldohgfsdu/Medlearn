@@ -1,0 +1,60 @@
+registry_version: "1"
+rule_sets:
+  clinical_medicine_default:
+    version: "1"
+    high_risk_aspects:
+      - 剂量
+      - 禁忌
+      - 适应证
+      - 首选
+      - 治疗方案
+      - 操作步骤
+  physiology_default:
+    version: "1"
+    high_risk_aspects:
+      - 实验条件
+      - 阈值
+      - 关键数值
+  pharmacology_default:
+    version: "1"
+    high_risk_aspects:
+      - 剂量
+      - 给药途径
+      - 相互作用
+      - 禁忌
+      - 不良反应
+      - 中毒
+  pathology_default:
+    version: "1"
+    high_risk_aspects:
+      - 分级
+      - 分期
+      - 诊断标准
+  anatomy_default:
+    version: "1"
+    high_risk_aspects:
+      - 手术入路
+      - 危险毗邻
+  biochemistry_default:
+    version: "1"
+    high_risk_aspects:
+      - 限速酶
+      - 关键数值
+      - 遗传缺陷
+  microbiology_default:
+    version: "1"
+    high_risk_aspects:
+      - 消毒
+      - 灭菌
+      - 生物安全
+      - 用药
+  diagnostics_default:
+    version: "1"
+    high_risk_aspects:
+      - 操作步骤
+      - 临界值
+      - 禁忌
+      - 风险
+  generic_textbook_default:
+    version: "1"
+    high_risk_aspects: []
