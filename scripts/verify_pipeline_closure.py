@@ -22,15 +22,18 @@ from textbook_pipeline.ingestion_contract import (
     resolve_pdf_parser_mode,
 )
 from verify_p0_smoke import (
-    check_local_normalized_caches,
-    check_remote_db,
-    check_state_manifest_consistency,
+    build_report as build_p0_report,
 )
 
 CONTRACT_PATH = SCRIPT_DIR / "textbook_pipeline" / "ingestion_contract.py"
 V3_RUNNER_PATH = SCRIPT_DIR / "textbook_pipeline" / "v3_runner.py"
 PIPELINE_V3_PATH = SCRIPT_DIR / "pipeline_v3_extract.py"
 INGEST_PATH = SCRIPT_DIR / "ingest_knowledge.py"
+ORCHESTRATOR_PATH = SCRIPT_DIR / "orchestrator.py"
+EXPORT_DISPLAY_CONTRACTS_PATH = SCRIPT_DIR / "export_ev1_display_contracts_ts.py"
+TEXTBOOK_SERVICE_PATH = PROJECT_ROOT / "services" / "textbookService.ts"
+DISPLAY_FIXTURE_PATH = PROJECT_ROOT / "constants" / "ev1DisplayContracts.ts"
+DISPLAY_FIXTURE_CHUNK_ROOT = PROJECT_ROOT / "constants" / "ev1DisplayContractsChunks"
 GUIDE_PATH = PROJECT_ROOT / "docs" / "PDF_EXTRACTION_GUIDE.md"
 INDEX_PATH = PROJECT_ROOT / "docs" / "PIPELINE_INDEX.md"
 
@@ -124,6 +127,67 @@ def check_docs_and_deprecation() -> dict[str, Any]:
     return {"issues": issues}
 
 
+def check_app_bundle_contract() -> dict[str, Any]:
+    issues: list[str] = []
+    ingest = _read(INGEST_PATH)
+    orchestrator = _read(ORCHESTRATOR_PATH)
+    exporter = _read(EXPORT_DISPLAY_CONTRACTS_PATH)
+    textbook_service = _read(TEXTBOOK_SERVICE_PATH)
+    fixture = _read(DISPLAY_FIXTURE_PATH)
+    fixture_chunks = [
+        _read(path) for path in sorted(DISPLAY_FIXTURE_CHUNK_ROOT.glob("chunk*.ts"))
+    ]
+
+    normalized_root = PROJECT_ROOT / "generated" / "knowledge_nodes" / "internal-medicine-10"
+    display_root = PROJECT_ROOT / "generated" / "display_contracts" / "internal-medicine-10"
+
+    if 'EV1_NORMALIZED_ROOT = GENERATED_ROOT' not in ingest:
+        issues.append("EV1 normalized root must follow generated/knowledge_nodes")
+    if '"display_contracts"' not in ingest or "EV1_DISPLAY_CONTRACT_ROOT" not in ingest:
+        issues.append("EV1 display contract root must be generated/display_contracts")
+    if "build-app-knowledge-bundle" not in orchestrator:
+        issues.append("orchestrator missing build-app-knowledge-bundle command")
+    if "audit-app-knowledge-quality" not in orchestrator:
+        issues.append("orchestrator missing audit-app-knowledge-quality command")
+    if "audit-app-knowledge-quality" not in _read(INDEX_PATH):
+        issues.append("pipeline index missing audit-app-knowledge-quality command")
+    if "generated\" / \"display_contracts\"" not in exporter:
+        issues.append("display contract exporter default root is not generated/display_contracts")
+    if '"group": node.get("group")' not in exporter:
+        issues.append("display contract exporter does not preserve grouped node metadata")
+    if "EV1_DISPLAY_CONTRACT_SECTIONS" not in textbook_service:
+        issues.append("textbookService no longer consumes the bundled display fixture")
+    if "Auto-generated from generated/display_contracts" not in fixture:
+        issues.append("frontend display fixture is not marked as generated/display_contracts")
+    if not fixture_chunks:
+        issues.append("frontend display fixture has no generated payload chunks")
+    if not any('\\"group\\":' in chunk for chunk in fixture_chunks):
+        issues.append("frontend display fixture is missing grouped node metadata")
+    if not normalized_root.exists():
+        issues.append(f"missing normalized app bundle source: {normalized_root.relative_to(PROJECT_ROOT)}")
+    if not display_root.exists():
+        issues.append(f"missing display contract app bundle source: {display_root.relative_to(PROJECT_ROOT)}")
+    if display_root.exists() and not any(display_root.glob("*.display_contract.json")):
+        issues.append(f"display contract root has no contracts: {display_root.relative_to(PROJECT_ROOT)}")
+    if display_root.exists():
+        grouped_contract_seen = False
+        for path in display_root.glob("*.display_contract.json"):
+            text = _read(path)
+            if '"render_type": "grouped"' in text and '"group"' in text:
+                grouped_contract_seen = True
+                break
+        if not grouped_contract_seen:
+            issues.append("display contract root has no grouped node metadata to validate")
+
+    return {
+        "normalized_root": str(normalized_root.relative_to(PROJECT_ROOT)),
+        "display_root": str(display_root.relative_to(PROJECT_ROOT)),
+        "fixture": str(DISPLAY_FIXTURE_PATH.relative_to(PROJECT_ROOT)),
+        "fixture_chunks": len(fixture_chunks),
+        "issues": issues,
+    }
+
+
 def check_coverage_gate() -> dict[str, Any]:
     issues: list[str] = []
     spec = importlib.util.spec_from_file_location(
@@ -157,28 +221,14 @@ def check_catalog_preflight() -> dict[str, Any]:
     return {"catalog_exists": catalog_path.exists(), "issues": issues}
 
 
-def main() -> int:
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv(PROJECT_ROOT / ".env")
-    except ImportError:
-        pass
-
-    parser = argparse.ArgumentParser(description="Pipeline closure verification")
-    parser.add_argument("--json", action="store_true")
-    args = parser.parse_args()
-
+def build_report(*, include_remote: bool = False) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "p0_smoke": {
-            "local_caches": check_local_normalized_caches(),
-            "state_manifest": check_state_manifest_consistency(),
-            "remote_db": check_remote_db(),
-        },
+        "p0_smoke": build_p0_report(include_remote=include_remote),
         "p1_parser": check_parser_consistency(),
         "p1_book_id": check_book_id_cli(),
         "p1_embedding": check_embedding_contract(),
         "p1_docs": check_docs_and_deprecation(),
+        "p1_app_bundle": check_app_bundle_contract(),
         "p2_coverage": check_coverage_gate(),
         "p2_catalog": check_catalog_preflight(),
     }
@@ -195,6 +245,29 @@ def main() -> int:
     report["passed"] = len(all_issues) == 0
     report["issue_count"] = len(all_issues)
     report["issues"] = all_issues
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Pipeline closure verification")
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--remote",
+        action="store_true",
+        help="Load .env and include Supabase closure checks",
+    )
+    args = parser.parse_args()
+
+    if args.remote:
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(PROJECT_ROOT / ".env")
+        except ImportError:
+            pass
+
+    report = build_report(include_remote=args.remote)
+    all_issues = report["issues"]
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))

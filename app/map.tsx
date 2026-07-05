@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -7,50 +7,47 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  type StyleProp,
-  type TextStyle,
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { Stack, type Href, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
+import {
+  buildTextbookSectionRoute,
+  buildTextbookUnitRoute,
+  chapterHasCatalogOutlineUnits,
+  shouldOpenChapterCatalog,
+} from '@/utils/routeBuilders'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme'
+import { BorderRadius, Colors, FontFamily, Spacing, Typography } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
+import { FLOATING_TAB_BAR_BASE_HEIGHT } from './(tabs)/_layout'
 import { INTERNAL_MEDICINE_CATALOG_PARTS } from '@/constants/internalMedicineCatalog'
-import { getSectionDetail, getTextbookTree } from '@/services/textbookService'
 import {
-  buildChapterStudyUnits,
+  formatTextbookPageReference,
+  getSectionDetail,
+  getTextbookTree,
+} from '@/services/textbookService'
+import {
+  buildChapterCatalogStudyUnits,
   buildTextbookKnowledgeMap,
-  type StudyGroup,
+  resolveCatalogOutlineUnit,
   type StudyUnit,
   type TextbookMapChapter,
   type TextbookMapPart,
   type TextbookMapSubject,
 } from '@/utils/textbookStudy'
 import {
-  extractChapterLabel,
-  extractSectionUnitEntity,
   formatSectionUnitTitle,
   type TextbookCatalogChapter,
-  type TextbookCatalogSubsection,
-  type TextbookCatalogUnit,
 } from '@/utils/knowledgeTree'
 
-export const options = { headerTitle: '知识地图' }
+export const options = { headerTitle: '知识地图', headerShadowVisible: false }
 
-type ExpandedState = Record<string, boolean>
-
-type CatalogEntryTarget = {
+type ActiveChapterContext = {
+  part: TextbookCatalogPartView
   chapter: TextbookCatalogChapter
   mapChapter: TextbookMapChapter | null
-  subsection?: TextbookCatalogSubsection
-  unit?: TextbookCatalogUnit
-}
-
-type CatalogTitleParts = {
-  ordinal: string | null
-  title: string
 }
 
 function cleanText(value: string | null | undefined): string {
@@ -59,22 +56,6 @@ function cleanText(value: string | null | undefined): string {
 
 function normalizeText(value: string): string {
   return cleanText(value).replace(/\s+/g, '').replace(/[|｜　]/g, '')
-}
-
-function stripOrdinal(value: string): string {
-  return cleanText(value)
-    .replace(/^第[一二三四五六七八九十百零〇\d]+篇\s*/u, '')
-    .replace(/^第[一二三四五六七八九十百零〇\d]+章\s*/u, '')
-    .replace(/^第[一二三四五六七八九十百零〇\d]+节\s*[|｜]?\s*/u, '')
-    .replace(/^[一二三四五六七八九十百零〇\d]+[、.．]\s*/u, '')
-    .trim()
-}
-
-function splitCatalogTitle(value: string): CatalogTitleParts {
-  const title = cleanText(value).replace(/\s*[|｜]\s*/u, ' ')
-  const match = title.match(/^(第[一二三四五六七八九十百零〇\d]+[篇章节])\s*(.+)$/u)
-  if (!match) return { ordinal: null, title }
-  return { ordinal: match[1], title: match[2].trim() }
 }
 
 function filterCatalog(map: TextbookMapSubject, query: string): TextbookCatalogPartView[] {
@@ -115,40 +96,6 @@ interface TextbookCatalogPartView {
   }[]
 }
 
-function catalogUnitLeafTitle(unit: TextbookCatalogUnit): CatalogTitleParts {
-  return splitCatalogTitle(formatSectionUnitTitle(unit.title))
-}
-
-function chapterLeafTitle(chapter: TextbookCatalogChapter): string {
-  return extractChapterLabel(chapter.title) || stripOrdinal(chapter.title)
-}
-
-function subsectionIsRedundant(unit: TextbookCatalogUnit, subsection: TextbookCatalogSubsection): boolean {
-  return normalizeText(stripOrdinal(extractSectionUnitEntity(unit.title))) === normalizeText(subsection.title)
-}
-
-function groupsForSubsection(unit: StudyUnit, subsectionTitle: string): StudyGroup[] {
-  const normalized = normalizeText(subsectionTitle)
-  return unit.groups.filter((group) => normalizeText(stripOrdinal(group.title)).includes(normalized)
-    || normalized.includes(normalizeText(stripOrdinal(group.title))))
-}
-
-function findMatchingUnit(units: StudyUnit[], options: {
-  chapterTitle: string
-  subsectionTitle?: string
-  unitTitle?: string
-}): StudyUnit | null {
-  const unitTitle = options.unitTitle ? normalizeText(extractSectionUnitEntity(options.unitTitle)) : ''
-  const subsectionTitle = options.subsectionTitle ? normalizeText(options.subsectionTitle) : ''
-  const chapterTitle = normalizeText(chapterLeafTitle({ title: options.chapterTitle }))
-
-  return units.find((unit) => unitTitle && normalizeText(unit.title).includes(unitTitle))
-    ?? units.find((unit) => subsectionTitle && normalizeText(unit.title).includes(subsectionTitle))
-    ?? units.find((unit) => chapterTitle && normalizeText(unit.title).includes(chapterTitle))
-    ?? units[0]
-    ?? null
-}
-
 function EmptyState({ text, title }: { text: string; title: string }) {
   return (
     <View style={styles.stateBlock}>
@@ -159,201 +106,190 @@ function EmptyState({ text, title }: { text: string; title: string }) {
   )
 }
 
-function TreeChevron({ expanded, visible }: { expanded: boolean; visible: boolean }) {
-  if (!visible) return <View style={styles.chevronSlot} />
-  return (
-    <View style={styles.chevronSlot}>
-      <Ionicons
-        name={expanded ? 'chevron-down' : 'chevron-forward'}
-        size={16}
-        color={Colors.textTertiary}
-      />
-    </View>
-  )
+function chapterKey(partTitle: string, chapterTitle: string): string {
+  return `chapter:${partTitle}:${chapterTitle}`
 }
 
-function TreeMarker({ kind = 'leaf' }: { kind?: 'leaf' | 'branch' }) {
-  return (
-    <View style={styles.markerSlot}>
-      <View style={[styles.leafDot, kind === 'branch' && styles.branchDot]} />
-    </View>
-  )
-}
-
-function CatalogTitle({
-  numberOfLines,
-  parts,
-  style,
+function ChapterOutlineMeta({
+  catalog,
+  mapChapter,
 }: {
-  numberOfLines?: number
-  parts: CatalogTitleParts
-  style: StyleProp<TextStyle>
+  catalog: TextbookCatalogChapter
+  mapChapter: TextbookMapChapter
 }) {
-  if (!parts.ordinal) {
+  const catalogUnitCount = catalog.units?.length ?? 0
+
+  if (catalogUnitCount > 0) {
     return (
-      <Text numberOfLines={numberOfLines} style={style}>
-        {parts.title}
+      <Text style={styles.rowMeta}>
+        {catalogUnitCount}节
+        {mapChapter.pageRange ? ` · ${formatTextbookPageReference(mapChapter.pageRange, 'pdf')}` : ''}
       </Text>
     )
   }
 
   return (
-    <View style={styles.catalogTitleRow}>
-      <Text style={[style, styles.catalogTitleOrdinal]}>{parts.ordinal}</Text>
-      <View style={styles.catalogTitleNameColumn}>
-        <Text numberOfLines={numberOfLines} style={[style, styles.catalogTitleName]}>
-          {parts.title}
-        </Text>
-      </View>
-    </View>
+    <Text style={styles.rowMeta}>
+      独立章节
+      {mapChapter.pageRange ? ` · ${formatTextbookPageReference(mapChapter.pageRange, 'pdf')}` : ''}
+    </Text>
   )
 }
 
-function ContentStatusTag({ available }: { available: boolean }) {
-  return (
-    <View style={[styles.statusTag, available ? styles.statusTagReady : styles.statusTagMuted]}>
-      <Text style={[styles.statusTagText, available ? styles.statusTagTextReady : styles.statusTagTextMuted]}>
-        {available ? '可学习' : '暂无内容'}
-      </Text>
-    </View>
-  )
+type ChapterOutlineEntry =
+  | { kind: 'leaf'; key: string; title: string; studyUnit: StudyUnit | null }
+  | {
+      kind: 'group'
+      key: string
+      title: string
+      subsections: { title: string; studyUnit: StudyUnit | null }[]
+    }
+
+function resolveChapterOutline(
+  catalogUnits: TextbookCatalogChapter['units'],
+  studyUnits: StudyUnit[],
+): ChapterOutlineEntry[] {
+  if (!catalogUnits?.length) {
+    return studyUnits.map((studyUnit) => ({
+      kind: 'leaf' as const,
+      key: studyUnit.id,
+      title: studyUnit.title,
+      studyUnit,
+    }))
+  }
+  return catalogUnits.map((catalogUnit) => {
+    const subs = catalogUnit.subsections ?? []
+    const title = formatSectionUnitTitle(catalogUnit.title)
+    if (subs.length >= 2) {
+      return {
+        kind: 'group' as const,
+        key: catalogUnit.title,
+        title,
+        subsections: subs.map((sub) => ({
+          title: sub.title,
+          studyUnit: resolveCatalogOutlineUnit(sub.title, studyUnits),
+        })),
+      }
+    }
+    const leafTitle = subs[0]?.title ?? catalogUnit.title
+    const studyUnit = resolveCatalogOutlineUnit(leafTitle, studyUnits)
+      ?? resolveCatalogOutlineUnit(catalogUnit.title, studyUnits)
+    return { kind: 'leaf' as const, key: catalogUnit.title, title, studyUnit }
+  })
 }
 
-function ChapterFocusPanel({
+function ChapterUnitList({
   chapter,
-  expanded,
   mapChapter,
-  onOpen,
-  onToggle,
-  openingKey,
 }: {
   chapter: TextbookCatalogChapter
-  expanded: ExpandedState
-  mapChapter: TextbookMapChapter | null
-  onOpen: (target: CatalogEntryTarget) => Promise<void>
-  onToggle: (key: string) => void
-  openingKey: string | null
+  mapChapter: TextbookMapChapter
 }) {
-  const units = chapter.units ?? []
-  const hasCatalogUnits = units.length > 0
-  const available = Boolean(mapChapter)
-  const chapterOpening = openingKey?.startsWith(`${mapChapter?.id}:`)
-  const leafMeta = available ? '进入知识点详情' : '暂未整理'
-  const sectionMeta = available ? '进入知识点详情' : '暂未整理'
+  const router = useRouter()
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['textbookSection', mapChapter.id, 'study-units'],
+    queryFn: () => getSectionDetail(mapChapter.id),
+    staleTime: 300_000,
+  })
+  const studyUnits = useMemo(
+    () => data ? buildChapterCatalogStudyUnits(data) : [],
+    [data],
+  )
+  const outlineEntries = useMemo(
+    () => resolveChapterOutline(chapter.units, studyUnits),
+    [chapter.units, studyUnits],
+  )
+
+  const openUnit = (unitId: string) => {
+    router.push(buildTextbookUnitRoute(mapChapter.id, unitId, { from: 'map', via: 'map-inline' }))
+  }
+
+  const renderUnitRow = (
+    title: string,
+    studyUnit: StudyUnit | null,
+    key: string,
+    isLast: boolean,
+  ) => (
+    <TouchableOpacity
+      key={key}
+      style={[
+        styles.chapterUnitRow,
+        isLast && styles.chapterUnitRowLast,
+      ]}
+      activeOpacity={0.68}
+      disabled={!studyUnit}
+      onPress={() => studyUnit && openUnit(studyUnit.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`进入${title}`}
+    >
+      <View style={styles.chapterUnitCopy}>
+        <Text style={[styles.chapterUnitTitle, !studyUnit && styles.chapterTitleMuted]}>
+          {title}
+        </Text>
+        <Text style={styles.chapterUnitMeta}>
+          {studyUnit
+            ? `${formatTextbookPageReference(studyUnit.pageLabel, 'source')} · ${studyUnit.itemCount}条`
+            : '内容尚未接入'}
+        </Text>
+      </View>
+      {studyUnit ? (
+        <Ionicons name="arrow-forward" size={12} color={Colors.primary[600]} />
+      ) : null}
+    </TouchableOpacity>
+  )
 
   return (
-    <View style={styles.focusPanel}>
-      <View style={styles.focusHeader}>
-        <View style={styles.focusHeaderCopy}>
-          <Text style={styles.focusEyebrow}>
-            {hasCatalogUnits ? `本章目录 · ${units.length} 节` : '独立章节 · 1 个入口'}
-          </Text>
+    <View style={styles.chapterUnitList}>
+      {isLoading ? (
+        <View style={styles.chapterUnitState}>
+          <ActivityIndicator size="small" color={Colors.primary[700]} />
+          <Text style={styles.chapterUnitStateText}>正在读取本章小节</Text>
         </View>
-        <ContentStatusTag available={available} />
-      </View>
-
-      {!available ? (
-        <Text style={styles.focusNotice}>当前仅保留目录结构，内容整理后开放详情。</Text>
       ) : null}
 
-      {!hasCatalogUnits ? (
-        <TouchableOpacity
-          style={styles.focusLeafRow}
-          activeOpacity={0.74}
-          disabled={!available || Boolean(openingKey)}
-          onPress={() => onOpen({ chapter, mapChapter })}
-        >
-          <TreeMarker />
-          <View style={styles.rowCopy}>
-            <Text style={styles.focusLeafTitle}>{chapterLeafTitle(chapter)}</Text>
-            <Text style={styles.rowMeta}>{leafMeta}</Text>
-          </View>
-          {chapterOpening ? (
-            <ActivityIndicator size="small" color={Colors.primary[700]} />
-          ) : available ? (
-            <Ionicons name="arrow-forward" size={15} color={available ? Colors.primary[700] : Colors.textTertiary} />
-          ) : null}
-        </TouchableOpacity>
+      {error ? (
+        <Text style={styles.chapterUnitStateText}>本章小节暂时无法读取</Text>
       ) : null}
 
-      {hasCatalogUnits ? units.map((unit) => {
-        const subsections = unit.subsections ?? []
-        const shouldExpandSubsections = subsections.length > 1
-          || (subsections.length === 1 && !subsectionIsRedundant(unit, subsections[0]))
-        const unitKey = `unit:${chapter.title}:${unit.title}`
-        const unitExpanded = Boolean(expanded[unitKey])
-        const unitOpening = openingKey?.includes(unit.title)
-
-        return (
-          <View key={unit.title} style={styles.focusGroup}>
-            <TouchableOpacity
-              style={[styles.focusLeafRow, shouldExpandSubsections && unitExpanded && styles.focusLeafRowOpen]}
-              activeOpacity={0.74}
-              disabled={!shouldExpandSubsections && (!available || Boolean(openingKey))}
-              onPress={() => (
-                shouldExpandSubsections
-                  ? onToggle(unitKey)
-                  : onOpen({ chapter, mapChapter, unit, subsection: subsections[0] })
-              )}
-            >
-              <TreeMarker kind={shouldExpandSubsections ? 'branch' : 'leaf'} />
-              <View style={styles.rowCopy}>
-                <CatalogTitle parts={catalogUnitLeafTitle(unit)} style={styles.focusLeafTitle} />
-                <Text style={styles.rowMeta}>
-                  {shouldExpandSubsections ? `${subsections.length} 小节` : leafMeta}
-                </Text>
-              </View>
-              {unitOpening ? (
-                <ActivityIndicator size="small" color={Colors.primary[700]} />
-              ) : shouldExpandSubsections ? (
-                <Ionicons
-                  name={unitExpanded ? 'chevron-down' : 'chevron-forward'}
-                  size={17}
-                  color={Colors.textTertiary}
-                />
-              ) : available ? (
-                <Ionicons name="arrow-forward" size={15} color={Colors.primary[700]} />
-              ) : null}
-            </TouchableOpacity>
-
-            {unitExpanded && shouldExpandSubsections ? subsections.map((subsection, index) => {
-              const subsectionOpening = openingKey?.includes(subsection.title)
-              return (
-                <TouchableOpacity
-                  key={`${unit.title}:${subsection.title}`}
-                  style={styles.focusSubRow}
-                  activeOpacity={0.74}
-                  disabled={!available || Boolean(openingKey)}
-                  onPress={() => onOpen({ chapter, mapChapter, unit, subsection })}
-                >
-                  <TreeMarker />
-                  <View style={styles.rowCopy}>
-                    <Text style={styles.subsectionTitle}>{subsection.title}</Text>
-                    <Text style={styles.rowMeta}>{sectionMeta}</Text>
-                  </View>
-                  {subsectionOpening ? (
-                    <ActivityIndicator size="small" color={Colors.primary[700]} />
-                  ) : available ? (
-                    <Ionicons name="arrow-forward" size={15} color={available ? Colors.primary[700] : Colors.textTertiary} />
-                  ) : null}
-                </TouchableOpacity>
-              )
-            }) : null}
-          </View>
+      {data ? outlineEntries.map((entry, index) => {
+        if (entry.kind === 'group') {
+          const isLastGroup = index === outlineEntries.length - 1
+          return (
+            <View key={entry.key} style={styles.chapterUnitGroup}>
+              <Text style={styles.chapterUnitGroupTitle}>{entry.title}</Text>
+              {entry.subsections.map((sub, subIndex) => renderUnitRow(
+                sub.title,
+                sub.studyUnit,
+                `${entry.key}-${sub.title}`,
+                isLastGroup && subIndex === entry.subsections.length - 1,
+              ))}
+            </View>
+          )
+        }
+        return renderUnitRow(
+          entry.title,
+          entry.studyUnit,
+          entry.key,
+          index === outlineEntries.length - 1,
         )
       }) : null}
     </View>
   )
 }
 
+function studyUnitsQueryKey(sectionId: string) {
+  return ['textbookSection', sectionId, 'study-units'] as const
+}
+
 export default function KnowledgeMapScreen() {
   const router = useRouter()
-  const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
+  const insets = useSafeAreaInsets()
+  const openingChapterRef = useRef(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [expanded, setExpanded] = useState<ExpandedState>({ book: true })
-  const [activeChapterKey, setActiveChapterKey] = useState<string | null>(null)
-  const [openingKey, setOpeningKey] = useState<string | null>(null)
+  const [expandedPartKey, setExpandedPartKey] = useState<string | null>('part:第一篇 绪论')
+  const [activeChapterKey, setActiveChapterKey] = useState<string | null>('chapter:第一篇 绪论:绪论')
+  const [expandedChapterKey, setExpandedChapterKey] = useState<string | null>(null)
 
   const { data, error, isFetching, isLoading, refetch } = useQuery({
     queryKey: ['knowledgeMap', 'internal-medicine-10', 'ev1-display-contract'],
@@ -362,86 +298,102 @@ export default function KnowledgeMapScreen() {
   })
 
   const map = useMemo(() => data ? buildTextbookKnowledgeMap(data) : null, [data])
+  const catalogParts = useMemo(() => map ? filterCatalog(map, '') : [], [map])
   const parts = useMemo(() => map ? filterCatalog(map, searchQuery) : [], [map, searchQuery])
+  const activeContext = (() : ActiveChapterContext | null => {
+    if (!activeChapterKey) return null
+    for (const part of catalogParts) {
+      const match = part.chapters.find(({ catalog }) => chapterKey(part.title, catalog.title) === activeChapterKey)
+      if (match) {
+        return {
+          part,
+          chapter: match.catalog,
+          mapChapter: match.mapChapter,
+        }
+      }
+    }
+    return null
+  })()
 
-  const toggle = (key: string) => {
-    setExpanded((current) => ({ ...current, [key]: !current[key] }))
+  const togglePart = (part: TextbookCatalogPartView) => {
+    const key = `part:${part.title}`
+    if (expandedPartKey === key) {
+      setExpandedPartKey(null)
+      return
+    }
+
+    setExpandedPartKey(key)
+    const firstAvailable = part.chapters.find(({ mapChapter }) => Boolean(mapChapter)) ?? part.chapters[0]
+    if (firstAvailable) {
+      const firstKey = chapterKey(part.title, firstAvailable.catalog.title)
+      setActiveChapterKey(firstKey)
+      setExpandedChapterKey((firstAvailable.catalog.units?.length ?? 0) > 0 ? firstKey : null)
+    }
   }
 
-  const selectChapter = (key: string) => {
-    setActiveChapterKey((current) => (current === key ? null : key))
-  }
-
-  const openCatalogEntry = async ({
-    chapter,
-    mapChapter,
-    subsection,
-    unit,
-  }: CatalogEntryTarget) => {
-    if (!mapChapter) return
-
-    const openingId = `${mapChapter.id}:${unit?.title ?? chapter.title}:${subsection?.title ?? ''}`
-    setOpeningKey(openingId)
+  const openChapterFromMap = async (mapChapter: TextbookMapChapter | null) => {
+    if (!mapChapter || openingChapterRef.current) return
+    openingChapterRef.current = true
     try {
-      const detail = await queryClient.fetchQuery({
-        queryKey: ['knowledgeMapChapterDetail', mapChapter.id],
-        queryFn: () => getSectionDetail(mapChapter.id),
-        staleTime: 300_000,
-      })
-      if (!detail) return
-
-      const studyUnits = buildChapterStudyUnits(detail)
-      const targetUnit = findMatchingUnit(studyUnits, {
-        chapterTitle: chapter.title,
-        subsectionTitle: subsection?.title,
-        unitTitle: unit?.title,
-      })
-      if (!targetUnit) return
-
-      const matchedGroup = subsection ? groupsForSubsection(targetUnit, subsection.title)[0] : null
-      const targetItemId = matchedGroup?.items[0]?.id
-      router.push({
-        pathname: '/textbook/[sectionId]/unit/[unitId]',
-        params: {
-          sectionId: mapChapter.id,
-          unitId: targetUnit.id,
+      const queryKey = studyUnitsQueryKey(mapChapter.id)
+      let detail = queryClient.getQueryData<Awaited<ReturnType<typeof getSectionDetail>>>(queryKey)
+      if (!detail) {
+        detail = await queryClient.fetchQuery({
+          queryKey,
+          queryFn: () => getSectionDetail(mapChapter.id),
+          staleTime: 300_000,
+        })
+      }
+      if (!detail) {
+        router.push(buildTextbookSectionRoute(mapChapter.id, 'map'))
+        return
+      }
+      const studyUnits = buildChapterCatalogStudyUnits(detail)
+      if (!shouldOpenChapterCatalog(studyUnits.length)) {
+        const singleUnit = studyUnits[0]
+        if (!singleUnit) {
+          router.push(buildTextbookSectionRoute(mapChapter.id, 'map'))
+          return
+        }
+        router.push(buildTextbookUnitRoute(mapChapter.id, singleUnit.id, {
           from: 'map',
-          ...(targetItemId ? { targetItemId } : {}),
-        },
-      } as unknown as Href)
+          via: 'catalog',
+        }))
+        return
+      }
+      router.push(buildTextbookSectionRoute(mapChapter.id, 'map'))
     } finally {
-      setOpeningKey(null)
+      openingChapterRef.current = false
     }
   }
 
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.topBar, { paddingTop: insets.top + Spacing.xs }]}>
-        <Pressable
-          style={({ pressed }) => [styles.topIconButton, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="返回"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)' as Href))}
-        >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.topTitle}>知识地图</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="搜索教材目录，例如 呼吸系统、肺部感染"
+            placeholder="搜索章节或关键词..."
             placeholderTextColor={Colors.textTertiary}
             returnKeyType="search"
           />
           {searchQuery.length > 0 ? (
-            <TouchableOpacity style={styles.clearSearch} activeOpacity={0.7} onPress={() => setSearchQuery('')}>
+            <TouchableOpacity
+              style={styles.clearSearch}
+              activeOpacity={0.7}
+              onPress={() => setSearchQuery('')}
+              accessibilityRole="button"
+              accessibilityLabel="清除搜索"
+            >
               <Ionicons name="close" size={17} color={Colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
@@ -466,92 +418,168 @@ export default function KnowledgeMapScreen() {
         ) : null}
 
         {map ? (
-          <View style={styles.treeCard}>
-            <Pressable
-              style={({ pressed }) => [styles.bookRow, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: Boolean(expanded.book) }}
-              onPress={() => toggle('book')}
-            >
-              <TreeChevron expanded={Boolean(expanded.book)} visible />
+          <View style={styles.catalog}>
+            <View style={styles.bookRow}>
               <View style={styles.bookIcon}>
-                <Ionicons name="library-outline" size={20} color={Colors.primary[700]} />
+                <Ionicons name="library-outline" size={20} color={Colors.primary[600]} />
               </View>
-              <View style={styles.rowCopy}>
+              <View style={styles.bookCopy}>
                 <Text style={styles.bookTitle}>{map.title}</Text>
-                <Text style={styles.rowMeta}>{map.partCount} 篇 · {map.chapterCount} 章 · 教材目录</Text>
+                <Text style={styles.bookMeta}>{map.partCount} 篇 · {map.chapterCount} 章</Text>
               </View>
-            </Pressable>
+            </View>
 
-            {expanded.book ? parts.map((part, partIndex) => {
-              const partKey = `part:${part.title}`
-              const partExpanded = Boolean(expanded[partKey])
-              return (
-                <View key={part.title}>
-                  <Pressable
-                    style={({ pressed }) => [styles.partRow, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: partExpanded }}
-                    onPress={() => toggle(partKey)}
-                  >
-                    <TreeChevron expanded={partExpanded} visible={part.chapters.length > 0} />
-                    <View style={styles.treeLine} />
-                    <View style={styles.rowCopy}>
-                      <Text style={styles.partTitle}>{part.title}</Text>
-                      <Text style={styles.rowMeta}>
-                        {part.mapPart?.chapterCount ?? part.chapters.length} 章{part.mapPart?.pageRange ? ` · p.${part.mapPart.pageRange}` : ''}
+            <View style={styles.partList}>
+              {parts.map((part) => {
+                const partKey = `part:${part.title}`
+                const partExpanded = expandedPartKey === partKey
+                const partIsCurrent = activeContext?.part.title === part.title
+
+                if (!partExpanded) {
+                  return (
+                    <Pressable
+                      key={part.title}
+                      style={({ pressed }) => [styles.collapsedPartRow, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: false }}
+                      onPress={() => togglePart(part)}
+                    >
+                      <View style={styles.partMarkerBar} />
+                      <Text style={styles.collapsedPartTitle} numberOfLines={1}>
+                        {part.title}
                       </Text>
-                    </View>
-                  </Pressable>
+                      <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
+                    </Pressable>
+                  )
+                }
 
-                  {partExpanded ? part.chapters.map(({ catalog, mapChapter }) => {
-                    const chapterKey = `chapter:${part.title}:${catalog.title}`
-                    const chapterActive = activeChapterKey === chapterKey
-                    const units = catalog.units ?? []
-                    const hasCatalogUnits = units.length > 0
-                    return (
-                      <View key={catalog.title}>
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.chapterRow,
-                            chapterActive && styles.chapterRowActive,
-                            pressed && styles.pressed,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityState={{ expanded: chapterActive }}
-                          onPress={() => selectChapter(chapterKey)}
-                        >
-                          <TreeChevron expanded={chapterActive} visible />
-                          <View style={styles.chapterIndent} />
-                          <View style={styles.chapterDot} />
-                          <View style={styles.rowCopyWithTag}>
-                            <Text numberOfLines={!mapChapter ? 2 : undefined} style={styles.chapterTitle}>{catalog.title}</Text>
-                            <Text style={styles.rowMeta}>
-                              {hasCatalogUnits ? `${units.length} 节` : '独立章节'}
-                              {mapChapter?.pageRange ? ` · p.${mapChapter.pageRange}` : ''}
-                            </Text>
+                return (
+                  <View key={part.title} style={styles.expandedPartCard}>
+                    <Pressable
+                      style={({ pressed }) => [styles.expandedPartHeader, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: true }}
+                      onPress={() => togglePart(part)}
+                    >
+                      <View style={[styles.partMarkerBar, styles.partMarkerBarActive]} />
+                      <Text
+                        style={styles.expandedPartTitle}
+                        numberOfLines={1}
+                      >
+                        {part.title}
+                      </Text>
+                      {partIsCurrent ? (
+                        <Text style={styles.currentBadge}>当前篇章</Text>
+                      ) : null}
+                    </Pressable>
+
+                    {partIsCurrent && activeContext ? (
+                      <Text
+                        numberOfLines={1}
+                        style={styles.breadcrumb}
+                        accessibilityLabel={`当前位置：${map.title}，${part.title}，${activeContext.chapter.title}`}
+                      >
+                        {map.title} / {part.title} / {activeContext.chapter.title}
+                      </Text>
+                    ) : null}
+
+                    <View style={styles.chapterList}>
+                      {part.chapters.map(({ catalog, mapChapter }) => {
+                        const key = chapterKey(part.title, catalog.title)
+                        const chapterActive = activeChapterKey === key
+                        const hasCatalogUnits = chapterHasCatalogOutlineUnits(catalog)
+                        const available = Boolean(mapChapter)
+                        const chapterExpanded = expandedChapterKey === key
+                        const chapterChevron = chapterActive && available && hasCatalogUnits && chapterExpanded
+                          ? 'chevron-down'
+                          : 'chevron-forward'
+
+                        return (
+                          <View
+                            key={catalog.title}
+                            style={[
+                              styles.chapterBlock,
+                              catalog.title === part.chapters[part.chapters.length - 1]?.catalog.title
+                                && !(chapterActive && chapterExpanded)
+                                && styles.chapterBlockLast,
+                            ]}
+                          >
+                            <Pressable
+                              style={({ pressed }) => [
+                                styles.chapterRow,
+                                pressed && styles.pressed,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityState={{
+                                selected: chapterActive,
+                                expanded: hasCatalogUnits ? chapterExpanded : undefined,
+                              }}
+                              onPress={() => {
+                                if (!available) {
+                                  setActiveChapterKey(key)
+                                  setExpandedChapterKey(null)
+                                  return
+                                }
+                                if (!hasCatalogUnits) {
+                                  void openChapterFromMap(mapChapter)
+                                  return
+                                }
+                                setActiveChapterKey(key)
+                                setExpandedChapterKey(chapterExpanded ? null : key)
+                              }}
+                              accessibilityLabel={
+                                !available
+                                  ? `${catalog.title}暂无内容`
+                                  : !hasCatalogUnits
+                                    ? `进入${catalog.title}`
+                                    : `展开${catalog.title}`
+                              }
+                            >
+                              <View
+                                style={[
+                                  styles.chapterMarkerBar,
+                                  chapterActive && available && styles.chapterMarkerBarActive,
+                                ]}
+                              />
+                              <View style={styles.rowCopy}>
+                                <Text
+                                  numberOfLines={!available ? 2 : 1}
+                                  style={[
+                                    styles.chapterTitle,
+                                    chapterActive && available && styles.chapterTitleActive,
+                                    !available && styles.chapterTitleMuted,
+                                  ]}
+                                >
+                                  {catalog.title}
+                                </Text>
+                                {mapChapter ? (
+                                  <ChapterOutlineMeta catalog={catalog} mapChapter={mapChapter} />
+                                ) : (
+                                  <Text style={styles.rowMeta}>暂无内容</Text>
+                                )}
+                              </View>
+                              {chapterActive && !available ? (
+                                <Text style={styles.chapterStatus}>暂无内容</Text>
+                              ) : (
+                                <Ionicons
+                                  name={chapterChevron}
+                                  size={14}
+                                  color={chapterActive && available ? Colors.primary[600] : Colors.textTertiary}
+                                />
+                              )}
+                            </Pressable>
+
+                            {chapterActive && chapterExpanded && mapChapter ? (
+                              <ChapterUnitList chapter={catalog} mapChapter={mapChapter} />
+                            ) : null}
                           </View>
-                          {!mapChapter ? <ContentStatusTag available={false} /> : null}
-                        </Pressable>
-
-                        {chapterActive ? (
-                          <ChapterFocusPanel
-                            chapter={catalog}
-                            expanded={expanded}
-                            mapChapter={mapChapter}
-                            onOpen={openCatalogEntry}
-                            onToggle={toggle}
-                            openingKey={openingKey}
-                          />
-                        ) : null}
-                      </View>
-                    )
-                  }) : null}
-
-                  {partIndex < parts.length - 1 ? <View style={styles.partDivider} /> : null}
-                </View>
-              )
-            }) : null}
+                        )
+                      })}
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
           </View>
         ) : null}
 
@@ -568,43 +596,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  topBar: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Layout.screenPaddingX,
-    paddingBottom: Spacing.xs,
-    gap: Spacing.md,
-    backgroundColor: Colors.background,
-  },
-  topTitle: {
-    flex: 1,
-    fontSize: 28,
-    lineHeight: 34,
-    color: Colors.textPrimary,
-    fontWeight: '800',
-  },
-  topIconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
   pressed: {
     opacity: 0.72,
     transform: [{ scale: 0.99 }],
   },
   content: {
     paddingHorizontal: Layout.screenPaddingX,
-    paddingBottom: Layout.screenPaddingBottom,
-    gap: Spacing.md,
+    paddingTop: Spacing.base,
+    // paddingBottom 由 inline（FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg）提供，
+    // 为浮动 TabBar 留出 safe area。
+    gap: Spacing.base,
   },
   searchBox: {
-    minHeight: 46,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
@@ -621,146 +625,240 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   clearSearch: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: -Spacing.sm,
   },
-  treeCard: {
-    overflow: 'hidden',
-    borderRadius: Layout.cardRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+  // -- 临床编辑目录 --
+  catalog: {
+    gap: Spacing.md,
   },
   bookRow: {
-    minHeight: 70,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
+    gap: Spacing.md,
+    padding: Spacing.base,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
   },
   bookIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary[50],
   },
-  bookTitle: {
-    ...Typography.titleMedium,
-    color: Colors.textPrimary,
+  bookCopy: {
+    flex: 1,
+    minWidth: 0,
   },
-  partRow: {
-    minHeight: 58,
+  bookTitle: {
+    ...Typography.titleSmall,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    fontFamily: FontFamily.serif,
+  },
+  bookMeta: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
+  partList: {
+    gap: Spacing.xs,
+    paddingTop: Spacing.xs,
+  },
+  collapsedPartRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  partTitle: {
+  collapsedPartTitle: {
+    flex: 1,
+    minWidth: 0,
+    ...Typography.titleSmall,
     fontSize: 16,
-    lineHeight: 22,
-    color: Colors.textPrimary,
-    fontWeight: '700',
+    lineHeight: 20,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    fontFamily: FontFamily.serif,
   },
-  partDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 48,
+  expandedPartCard: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.background,
+    overflow: 'hidden',
+    marginVertical: Spacing.xs,
+  },
+  expandedPartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  partMarkerBar: {
+    width: 3,
+    height: 18,
+    borderRadius: 2,
     backgroundColor: Colors.border,
   },
-  chapterRow: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingLeft: Spacing.sm,
-    paddingRight: Spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
-  },
-  chapterRowActive: {
-    backgroundColor: Colors.surface,
-    borderLeftColor: Colors.primary[500],
-  },
-  chapterIndent: {
-    width: 10,
-    alignSelf: 'stretch',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: Colors.border,
-  },
-  chapterDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary[300],
-  },
-  chapterTitle: {
-    ...Typography.titleSmall,
-    color: Colors.textPrimary,
-  },
-  leafRow: {
-    minHeight: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingLeft: Spacing.md,
-    paddingRight: Spacing.md,
-  },
-  leafIndent: {
-    width: 44,
-    alignSelf: 'stretch',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: Colors.border,
-  },
-  leafIndentSmall: {
-    width: 22,
-    alignSelf: 'stretch',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: Colors.border,
-  },
-  leafDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+  partMarkerBarActive: {
     backgroundColor: Colors.primary[600],
   },
-  branchDot: {
-    backgroundColor: Colors.primary[400],
-  },
-  leafTitle: {
-    fontSize: 15,
-    lineHeight: 22,
+  expandedPartTitle: {
+    flex: 1,
+    minWidth: 0,
+    ...Typography.titleSmall,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '500',
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontFamily: FontFamily.serif,
   },
-  subsectionRow: {
-    minHeight: 50,
+  currentBadge: {
+    ...Typography.labelSmall,
+    color: Colors.primary[600],
+    backgroundColor: Colors.primary[50],
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  breadcrumb: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    paddingHorizontal: Spacing.base,
+    paddingBottom: Spacing.sm,
+  },
+  chapterList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
+  chapterBlock: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  chapterBlockLast: {
+    borderBottomWidth: 0,
+  },
+  chapterRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+  },
+  chapterMarkerBar: {
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+    backgroundColor: Colors.border,
+  },
+  chapterMarkerBarActive: {
+    backgroundColor: Colors.primary[600],
+  },
+  chapterTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.textSecondary,
+    fontFamily: FontFamily.serif,
+  },
+  chapterTitleActive: {
+    color: Colors.textPrimary,
+  },
+  chapterTitleMuted: {
+    color: Colors.textTertiary,
+  },
+  chapterStatus: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+  },
+  chapterUnitList: {
+    marginLeft: 22,
+    paddingLeft: Spacing.lg,
+    paddingRight: Spacing.base,
+    paddingBottom: Spacing.sm,
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.border,
+  },
+  chapterUnitState: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingLeft: Spacing.md,
     paddingRight: Spacing.md,
   },
-  subsectionIndent: {
-    width: 72,
-    alignSelf: 'stretch',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: Colors.border,
+  chapterUnitStateText: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    paddingVertical: Spacing.md,
   },
-  subsectionOrdinal: {
-    width: 22,
+  chapterUnitRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  chapterUnitRowLast: {
+    borderBottomWidth: 0,
+  },
+  chapterUnitGroup: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  chapterUnitGroupTitle: {
+    ...Typography.bodySmall,
+    fontSize: 13,
+    lineHeight: 18,
+    color: Colors.textTertiary,
+    fontFamily: FontFamily.serif,
+    fontWeight: '600',
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  chapterUnitCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  chapterUnitTitle: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    fontFamily: FontFamily.serif,
+  },
+  chapterUnitMeta: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
+  enterAction: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    marginRight: Spacing.xs,
+  },
+  enterActionText: {
     ...Typography.labelMedium,
     color: Colors.primary[700],
-    fontWeight: '800',
-  },
-  subsectionTitle: {
-    ...Typography.bodyMedium,
-    color: Colors.textPrimary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   rowCopy: {
     flex: 1,
@@ -775,152 +873,6 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     color: Colors.textTertiary,
     marginTop: 2,
-  },
-  catalogTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-    minWidth: 0,
-  },
-  catalogTitleOrdinal: {
-    width: 56,
-    flexShrink: 0,
-    marginRight: Spacing.sm,
-  },
-  catalogTitleNameColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  catalogTitleName: {
-    flexShrink: 1,
-  },
-  statusTag: {
-    minHeight: 24,
-    justifyContent: 'center',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    borderWidth: 1,
-    flexShrink: 0,
-    marginLeft: Spacing.xs,
-  },
-  statusTagReady: {
-    backgroundColor: Colors.primary[50],
-    borderColor: Colors.primary[100],
-  },
-  statusTagMuted: {
-    backgroundColor: Colors.neutral[100],
-    borderColor: Colors.neutral[200],
-  },
-  statusTagText: {
-    ...Typography.labelSmall,
-    fontWeight: '700',
-  },
-  statusTagTextReady: {
-    color: Colors.primary[700],
-  },
-  statusTagTextMuted: {
-    color: Colors.textSecondary,
-  },
-  focusPanel: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.primary[100],
-    backgroundColor: Colors.surface,
-    overflow: 'hidden',
-  },
-  focusHeader: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.primary[50],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.primary[100],
-  },
-  focusHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  focusEyebrow: {
-    ...Typography.labelSmall,
-    color: Colors.primary[700],
-    fontWeight: '800',
-  },
-  focusTitle: {
-    fontSize: 17,
-    lineHeight: 23,
-    color: Colors.textPrimary,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  focusNotice: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
-  },
-  focusGroup: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
-  },
-  focusLeafRow: {
-    minHeight: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  focusLeafRowOpen: {
-    backgroundColor: Colors.neutral[50],
-  },
-  focusLeafTitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
-  focusSubRow: {
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingLeft: Spacing.xl,
-    paddingRight: Spacing.md,
-    paddingVertical: Spacing.xs,
-    backgroundColor: Colors.neutral[50],
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
-  },
-  markerSlot: {
-    width: 20,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chevronSlot: {
-    width: 20,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  treeLine: {
-    width: 8,
-    alignSelf: 'stretch',
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: Colors.border,
-  },
-  disabledRow: {
-    opacity: 1,
-  },
-  disabledText: {
-    color: Colors.textSecondary,
   },
   stateBlock: {
     minHeight: 160,
@@ -955,6 +907,6 @@ const styles = StyleSheet.create({
   retryText: {
     ...Typography.labelLarge,
     color: Colors.surface,
-    fontWeight: '700',
+    fontWeight: '500',
   },
 })

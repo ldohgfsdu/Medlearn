@@ -13,7 +13,7 @@ import {
 import { Link, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const RESEND_SECONDS = 60
@@ -94,7 +94,7 @@ export default function RegisterScreen() {
       setEmail(normalizedEmail)
       setStep('verification')
       setCountdown(RESEND_SECONDS)
-    } catch (e) {
+    } catch {
       setError('网络错误，请检查连接后重试')
     } finally {
       setLoading(false)
@@ -118,7 +118,7 @@ export default function RegisterScreen() {
       }
 
       router.replace('/(tabs)')
-    } catch (e) {
+    } catch {
       setError('网络错误，请检查连接后重试')
     } finally {
       setLoading(false)
@@ -137,7 +137,7 @@ export default function RegisterScreen() {
         return
       }
       setCountdown(RESEND_SECONDS)
-    } catch (e) {
+    } catch {
       setError('网络错误，请检查连接后重试')
     } finally {
       setResending(false)
@@ -152,7 +152,7 @@ export default function RegisterScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={styles.logoWrap}>
-            <Ionicons name="school-outline" size={38} color={Colors.primary[500]} />
+            <Ionicons name="school-outline" size={38} color={Colors.primary[700]} />
           </View>
           <Text style={styles.title}>
             {step === 'details' ? '创建账号' : '验证邮箱'}
@@ -214,7 +214,11 @@ export default function RegisterScreen() {
                   secureTextEntry={!showPassword}
                   textContentType="newPassword"
                 />
-                <TouchableOpacity onPress={() => setShowPassword((shown) => !shown)}>
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => setShowPassword((shown) => !shown)}
+                >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
@@ -259,14 +263,20 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.verificationActions}>
-                <TouchableOpacity onPress={() => {
-                  setStep('details')
-                  setCode('')
-                  setError('')
-                }}>
+                <TouchableOpacity
+                  style={styles.secondaryActionButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => {
+                    setStep('details')
+                    setCode('')
+                    setError('')
+                  }}
+                >
                   <Text style={styles.secondaryAction}>修改邮箱</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  style={styles.secondaryActionButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   onPress={handleResend}
                   disabled={countdown > 0 || resending}
                 >
@@ -301,13 +311,13 @@ export default function RegisterScreen() {
             activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={Colors.surface} />
             ) : (
               <>
                 <Ionicons
                   name={step === 'details' ? 'mail-outline' : 'checkmark-circle-outline'}
                   size={20}
-                  color="#fff"
+                  color={Colors.surface}
                 />
                 <Text style={styles.buttonText}>
                   {step === 'details' ? '发送验证码' : '验证并注册'}
@@ -337,6 +347,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'center',
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     padding: Spacing['2xl'],
   },
   header: {
@@ -351,12 +364,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.base,
-    ...Shadows.level2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   title: {
     ...Typography.titleLarge,
     color: Colors.textPrimary,
     fontSize: 25,
+    fontFamily: FontFamily.sans,
   },
   subtitle: {
     ...Typography.bodyMedium,
@@ -384,6 +399,12 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     paddingVertical: Spacing.md,
   },
+  eyeButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   codeInputWrap: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
@@ -395,6 +416,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 32,
     fontWeight: '600',
+    fontFamily: FontFamily.sans,
     letterSpacing: 12,
     textAlign: 'center',
     paddingVertical: Spacing.xl,
@@ -404,10 +426,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xs,
   },
+  secondaryActionButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xs,
+  },
   secondaryAction: {
     ...Typography.bodyMedium,
-    color: Colors.primary[500],
-    fontWeight: '600',
+    color: Colors.primary[700],
+    fontWeight: '500',
   },
   actionDisabled: {
     color: Colors.textTertiary,
@@ -418,33 +445,34 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
+    borderColor: Colors.errorBorder,
+    backgroundColor: Colors.errorBg,
     padding: Spacing.md,
   },
   errorText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.error,
     flex: 1,
+    lineHeight: 21,
   },
   button: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    backgroundColor: Colors.primary[500],
+    backgroundColor: Colors.primary[700],
     borderRadius: BorderRadius.lg,
     padding: Spacing.base,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 54,
     marginTop: Spacing.xs,
-    ...Shadows.level1,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     ...Typography.labelLarge,
-    color: '#fff',
+    color: Colors.surface,
+    fontWeight: '600',
     fontSize: 16,
   },
   linkButton: {
@@ -456,7 +484,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   linkHighlight: {
-    color: Colors.primary[500],
+    color: Colors.primary[700],
     fontWeight: '600',
   },
 })

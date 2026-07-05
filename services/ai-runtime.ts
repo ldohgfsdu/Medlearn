@@ -23,6 +23,16 @@ interface InvokeOptions {
   onSlowResponse?: () => void
 }
 
+function extractAIErrorMessage(detail: string): string {
+  if (!detail.trim()) return ''
+  try {
+    const parsed = JSON.parse(detail) as { error?: { message?: string } }
+    return parsed.error?.message?.trim() ?? detail.trim()
+  } catch {
+    return detail.trim()
+  }
+}
+
 async function invokeViaProxy(
   messages: AIMessage[],
   options: InvokeOptions,
@@ -72,6 +82,56 @@ async function invokeDirect(
   let timeoutId: ReturnType<typeof setTimeout> | null = null
 
   try {
+    if (settings.provider === 'anthropic') {
+      const system = messages
+        .filter((message) => message.role === 'system')
+        .map((message) => message.content)
+        .join('\n\n')
+      const anthropicMessages = messages
+        .filter((message) => message.role !== 'system')
+        .map((message) => ({
+          role: message.role === 'assistant' ? 'assistant' : 'user',
+          content: message.content,
+        }))
+
+      const request = fetch(`${settings.chatBaseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.chatApiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: settings.chatModel,
+          max_tokens: options.maxTokens ?? 2_000,
+          temperature: options.temperature ?? 0.7,
+          ...(system ? { system } : {}),
+          messages: anthropicMessages,
+        }),
+      })
+
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('AI_REQUEST_TIMEOUT')), 30_000)
+      })
+
+      const response = (await Promise.race([request, timeout])) as Response
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '')
+        const message = extractAIErrorMessage(detail)
+        throw new Error(`AI_API_ERROR: HTTP ${response.status}${message ? ` · ${message.slice(0, 180)}` : ''}`)
+      }
+
+      const data = (await response.json()) as {
+        content?: Array<{ type?: string; text?: string }>
+      }
+      const content = data.content
+        ?.map((block) => block.text)
+        .filter((text): text is string => Boolean(text))
+        .join('\n')
+        .trim()
+      return { choices: [{ message: { content } }] }
+    }
+
     const request = fetch(`${settings.chatBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -96,7 +156,8 @@ async function invokeDirect(
     const response = (await Promise.race([request, timeout])) as Response
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
-      throw new Error(`AI_API_ERROR: HTTP ${response.status}${detail ? ` · ${detail.slice(0, 120)}` : ''}`)
+      const message = extractAIErrorMessage(detail)
+      throw new Error(`AI_API_ERROR: HTTP ${response.status}${message ? ` · ${message.slice(0, 180)}` : ''}`)
     }
 
     const data = (await response.json()) as AIResponse

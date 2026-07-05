@@ -12,14 +12,38 @@ const APPROVED_TEMPLATE_FIELDS =
   'chief_complaint,difficulty,demographics,patient_world,ground_truth,is_active,review_status'
 
 interface HistoryField {
+  id?: string
   field?: string
   answer?: string
   patientVoice?: string
+  importance?: 'critical' | 'important' | 'optional'
 }
 
 interface PatientWorld {
   chiefComplaint?: string
   history?: Record<string, HistoryField[]>
+  physicalExam?: Record<string, { findings?: Array<ExamFinding | string> }>
+  investigations?: Record<string, InvestigationResult>
+}
+
+interface ExamFinding {
+  name?: string
+  value?: string
+  isAbnormal?: boolean
+  significance?: string
+}
+
+interface InvestigationResult {
+  testName?: string
+  result?: string
+  unit?: string
+  reference?: string
+  interpretation?: string
+}
+
+interface CasePatientIntent {
+  intentType?: 'ask_history' | 'physical_exam' | 'order_test' | 'hint'
+  target?: string
 }
 
 interface AIUsage {
@@ -58,9 +82,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function flattenHistory(patientWorld: PatientWorld): Array<{
+  id?: string
   field: string
   answer: string
   patientVoice: string
+  importance?: 'critical' | 'important' | 'optional'
 }> {
   return Object.values(patientWorld.history ?? {})
     .flat()
@@ -71,10 +97,144 @@ function flattenHistory(patientWorld: PatientWorld): Array<{
         typeof item.patientVoice === 'string',
     )
     .map((item) => ({
+      id: item.id,
       field: item.field,
       answer: item.answer,
       patientVoice: item.patientVoice,
+      importance: item.importance,
     }))
+}
+
+function parseIntent(raw: unknown): CasePatientIntent | null {
+  if (!raw || typeof raw !== 'object') return null
+  const record = raw as Record<string, unknown>
+  const intentType = record.intentType
+  if (
+    intentType !== 'ask_history' &&
+    intentType !== 'physical_exam' &&
+    intentType !== 'order_test' &&
+    intentType !== 'hint'
+  ) {
+    return null
+  }
+  return {
+    intentType,
+    target: typeof record.target === 'string' ? record.target : undefined,
+  }
+}
+
+function findHistoryField(target: string | undefined, patientWorld: PatientWorld): ReturnType<typeof flattenHistory>[number] | null {
+  if (!target) return null
+  const fields = flattenHistory(patientWorld)
+  const resolvedTarget = HISTORY_TARGET_ALIASES[target] ?? target
+  const targetLower = resolvedTarget.toLowerCase()
+  return (
+    fields.find((field) => field.id === resolvedTarget) ||
+    fields.find((field) => field.field.toLowerCase() === targetLower) ||
+    fields.find((field) =>
+      field.field.toLowerCase().includes(targetLower) ||
+      targetLower.includes(field.field.toLowerCase())
+    ) ||
+    null
+  )
+}
+
+function formatFinding(finding: ExamFinding | string): string {
+  if (typeof finding === 'string') return finding
+  const name = finding.name ?? 'Finding'
+  const value = finding.value ?? ''
+  const abnormal = finding.isAbnormal ? ' abnormal' : ''
+  const significance = finding.significance ? ` (${finding.significance})` : ''
+  return `${name}: ${value}${abnormal}${significance}`.trim()
+}
+
+function resolveStructuredIntent(
+  intent: CasePatientIntent | null,
+  patientWorld: PatientWorld,
+  revealed: { historyFields?: string[] } | null,
+): Response | null {
+  if (!intent) return null
+
+  if (intent.intentType === 'ask_history') {
+    const field = findHistoryField(intent.target, patientWorld)
+    if (!field) return null
+    return jsonResponse({
+      response: field.patientVoice,
+      source: 'preset',
+      revealed: { historyFieldId: field.id ?? intent.target ?? field.field },
+    })
+  }
+
+  if (intent.intentType === 'physical_exam') {
+    const target = intent.target
+    if (!target) return jsonResponse({ response: '医生，您想检查什么？', source: 'preset' })
+    const exam = patientWorld.physicalExam?.[target]
+    if (!exam) return jsonResponse({ response: '这个部位我没有异常发现。', source: 'preset' })
+    const findings = (exam.findings ?? []).map(formatFinding).join('\n')
+    return jsonResponse({
+      response: findings ? `【查体结果】\n${findings}` : '这个部位我没有异常发现。',
+      source: 'preset',
+      revealed: { examId: target },
+    })
+  }
+
+  if (intent.intentType === 'order_test') {
+    const target = intent.target
+    if (!target) return jsonResponse({ response: '医生，您想开什么检查？', source: 'preset' })
+    const test = patientWorld.investigations?.[target]
+    if (!test) return jsonResponse({ response: '这个检查我们医院暂时做不了。', source: 'preset' })
+    const lines = [`【${test.testName ?? target}】`]
+    if (test.result) lines.push(test.result)
+    if (test.unit) lines[lines.length - 1] = `${lines[lines.length - 1]} ${test.unit}`
+    if (test.reference) lines[lines.length - 1] = `${lines[lines.length - 1]} (参考值: ${test.reference})`
+    if (test.interpretation) lines.push(`解读: ${test.interpretation}`)
+    return jsonResponse({
+      response: lines.join('\n'),
+      source: 'preset',
+      revealed: { testId: target },
+    })
+  }
+
+  if (intent.intentType === 'hint') {
+    const revealedHistoryFields = new Set(
+      Array.isArray(revealed?.historyFields) ? revealed.historyFields : [],
+    )
+    const field = flattenHistory(patientWorld).find((item) =>
+      item.id &&
+      !revealedHistoryFields.has(item.id) &&
+      (item.importance === 'critical' || item.importance === 'important')
+    )
+    if (!field) {
+      return jsonResponse({
+        response: '提示：回看已经获得的病史、查体和检查结果，找出能够同时解释最多异常的线索。',
+        source: 'preset',
+      })
+    }
+    return jsonResponse({
+      response: `提示：可以进一步询问“${field.field}”，但仍需要你自己判断它的意义。`,
+      source: 'preset',
+      revealed: { hintFieldId: field.id },
+    })
+  }
+
+  return null
+}
+
+function canUseStructuredIntent(intent: CasePatientIntent | null, phase: string): boolean {
+  if (!intent) return true
+  if (intent.intentType === 'ask_history') {
+    return ['intro', 'history', 'exam'].includes(phase)
+  }
+  if (intent.intentType === 'physical_exam') {
+    return ['history', 'exam'].includes(phase)
+  }
+  if (intent.intentType === 'order_test') {
+    return ['exam', 'tests'].includes(phase)
+  }
+  if (intent.intentType === 'hint') {
+    return ['intro', 'history', 'exam', 'tests'].includes(phase)
+  }
+  return false
 }
 
 interface AIOverride {
@@ -98,6 +258,25 @@ const ALLOWED_AI_HOSTS = [
   'api.openai.com',
   'api.siliconflow.cn',
 ]
+
+const HISTORY_TARGET_ALIASES: Record<string, string> = {
+  hpi_onset: 'onset',
+  hpi_duration: 'duration',
+  hpi_location: 'site',
+  hpi_character: 'character',
+  hpi_radiation: 'radiation',
+  hpi_severity: 'severity',
+  hpi_aggravating: 'aggravating',
+  hpi_relieving: 'relieving',
+  hpi_associated: 'associated',
+  hpi_previous: 'previous',
+  pmh_diseases: 'past_medical',
+  medications: 'medications',
+  allergies: 'allergies',
+  social_smoking: 'smoking',
+  social_alcohol: 'alcohol',
+  family_history: 'family',
+}
 
 function isAllowedBaseUrl(url: string): boolean {
   try {
@@ -173,6 +352,7 @@ serve(async (request) => {
     const payload = await request.json()
     sessionId = typeof payload?.sessionId === 'string' ? payload.sessionId : ''
     const question = typeof payload?.question === 'string' ? payload.question.trim() : ''
+    const intent = parseIntent(payload?.intent)
     const aiOverride = parseAIOverride(payload?.ai_override)
     const resolvedApiKey = aiOverride?.api_key || AI_API_KEY
     const resolvedBaseUrl = aiOverride?.base_url || AI_BASE_URL
@@ -192,7 +372,7 @@ serve(async (request) => {
     const { data: session, error: sessionError } = await admin
       .from('case_sessions')
       .select(
-        `id,user_id,case_id,status,current_phase,total_tokens,total_cost,case_templates(${APPROVED_TEMPLATE_FIELDS})`,
+        `id,user_id,case_id,status,current_phase,revealed,total_tokens,total_cost,case_templates(${APPROVED_TEMPLATE_FIELDS})`,
       )
       .eq('id', sessionId)
       .eq('user_id', user.id)
@@ -221,6 +401,17 @@ serve(async (request) => {
     caseId = session.case_id
     chiefComplaint = template.chief_complaint ?? null
     difficulty = template.difficulty ?? null
+
+    if (!canUseStructuredIntent(intent, session.current_phase)) {
+      return jsonResponse({ error: 'Action is not allowed in the current case phase' }, 409)
+    }
+
+    const structured = resolveStructuredIntent(
+      intent,
+      template.patient_world as PatientWorld,
+      session.revealed as { historyFields?: string[] } | null,
+    )
+    if (structured) return structured
 
     const injectionPattern = detectPromptInjection(question)
     if (injectionPattern) {

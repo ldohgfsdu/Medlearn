@@ -1,52 +1,22 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const fs = require('node:fs')
 const path = require('node:path')
-const vm = require('node:vm')
-const ts = require('typescript')
-
-const moduleCache = new Map()
-
-function loadTypeScriptModule(filePath) {
-  const resolved = path.resolve(filePath)
-  if (moduleCache.has(resolved)) return moduleCache.get(resolved)
-
-  const source = fs.readFileSync(resolved, 'utf8')
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-      esModuleInterop: true,
-    },
-  }).outputText
-
-  const module = { exports: {} }
-  const wrapper = vm.runInNewContext(`(function (require, module, exports) { ${output} })`)
-  const localRequire = (id) => {
-    if (id === '@/constants/phase1PageImageAssets') {
-      return {
-        PHASE1_PAGE_IMAGE_ASSETS: { im10_page_64: 1 },
-        PHASE1_ASTHMA_PAGE_LABELS: ['64'],
-      }
-    }
-    if (id.startsWith('@/')) {
-      const base = path.join(__dirname, '..', id.slice(2))
-      const withTs = `${base}.ts`
-      return loadTypeScriptModule(fs.existsSync(withTs) ? withTs : base)
-    }
-    return require(id)
-  }
-  wrapper(localRequire, module, module.exports)
-  moduleCache.set(resolved, module.exports)
-  return module.exports
-}
+const { loadTypeScriptModule } = require('./loadTsModule')
 
 const {
   PHASE1_ASTHMA_SECTION_ID,
   buildPageViewerPayload,
   locatorIdsForEvidenceArtifact,
   isPhase1VisualEvidenceSection,
-} = loadTypeScriptModule(path.join(__dirname, '..', 'services', 'phase1VisualEvidenceService.ts'))
+} = loadTypeScriptModule(
+  path.join(__dirname, '..', 'services', 'phase1VisualEvidenceService.ts'),
+  {
+    '@/constants/phase1PageImageAssets': {
+      PHASE1_PAGE_IMAGE_ASSETS: { im10_page_33: 1 },
+      PHASE1_ASTHMA_PAGE_LABELS: ['33'],
+    },
+  },
+)
 
 test('phase1 visual evidence section is asthma only', () => {
   assert.equal(isPhase1VisualEvidenceSection(PHASE1_ASTHMA_SECTION_ID), true)
@@ -56,11 +26,12 @@ test('phase1 visual evidence section is asthma only', () => {
   )
 })
 
-test('BDT locator on p64 resolves PageViewer payload', () => {
+test('BDT locator keeps PDF page 64 separate from printed textbook page 33', () => {
   const locatorId = 'loc_ev1_57068078e29b9153d70d'
-  const payload = buildPageViewerPayload([locatorId], '64')
+  const payload = buildPageViewerPayload([locatorId], '33')
   assert.ok(payload, 'expected non-null payload for known BDT locator')
-  assert.equal(payload.pageLabel, '64')
+  assert.equal(payload.pageLabel, '33')
+  assert.equal(payload.locators[0].pdfPageIndex, 63)
   assert.equal(typeof payload.imageSource, 'number')
   assert.ok(payload.locators.length >= 1)
   const b = payload.locators[0].bboxNorm

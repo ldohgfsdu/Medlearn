@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-
-export const options = { headerTitle: '评分报告' }
 import {
   View,
   Text,
@@ -10,8 +8,8 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native'
+import { appAlert } from '@/lib/app-dialog'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
@@ -31,10 +29,13 @@ import {
   Typography,
   Spacing,
   BorderRadius,
+  FontFamily,
   Shadows,
   getGrade,
   getMasteryColor,
 } from '@/constants/theme'
+
+export const options = { headerTitle: '评分报告' }
 
 export default function ScoreScreen() {
   const router = useRouter()
@@ -109,7 +110,7 @@ export default function ScoreScreen() {
         },
       })
     } catch {
-      Alert.alert('启动失败', '暂时无法重做该病例，请稍后再试。')
+      appAlert('启动失败', '暂时无法重做该病例，请稍后再试。')
       setRetrying(false)
     }
   }
@@ -117,7 +118,7 @@ export default function ScoreScreen() {
   const submitMedicalIssue = async () => {
     if (!sessionId || !user || submittingIssue) return
     if (!issueDescription.trim()) {
-      Alert.alert('提示', '请简单描述你发现的问题')
+      appAlert('提示', '请简单描述你发现的问题')
       return
     }
 
@@ -150,9 +151,9 @@ export default function ScoreScreen() {
 
       setIssueDescription('')
       setReportModalVisible(false)
-      Alert.alert('已提交', '谢谢反馈，我们会在医学审核流程中处理这个问题。')
+      appAlert('已提交', '谢谢反馈，我们会在医学审核流程中处理这个问题。')
     } catch {
-      Alert.alert('提交失败', '请稍后再试')
+      appAlert('提交失败', '请稍后再试')
     } finally {
       setSubmittingIssue(false)
     }
@@ -411,7 +412,10 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     fontSize: 64,
-    fontWeight: 'bold',
+    lineHeight: 68,
+    fontWeight: '600',
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
   },
   scoreUnit: {
     ...Typography.bodyMedium,
@@ -422,8 +426,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   heroNote: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: 'rgba(255, 253, 249, 0.52)',
+    lineHeight: 21,
     marginTop: Spacing.sm,
   },
   // 维度
@@ -432,7 +437,8 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
-    ...Shadows.level1,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   dimensionRow: {
     flexDirection: 'row',
@@ -498,8 +504,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   detailFeedback: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textSecondary,
+    lineHeight: 21,
   },
   listItem: {
     ...Typography.bodyMedium,
@@ -554,7 +561,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
-    ...Shadows.level2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   issueTitle: {
     ...Typography.titleLarge,

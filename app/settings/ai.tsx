@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ToastAndroid,
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
@@ -21,19 +21,19 @@ import {
   type AISettings,
   type EmbeddingProvider,
 } from '@/lib/ai-settings'
+import { appAlert } from '@/lib/app-dialog'
 import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
 
 export const options = { headerTitle: 'AI 设置' }
 
-const PROVIDER_OPTIONS: Array<{ id: AIProviderPreset; label: string; note: string }> = [
-  { id: 'server', label: '服务端默认', note: '使用 Medlearn 部署的模型与配额' },
-  { id: 'deepseek', label: 'DeepSeek', note: '填写你自己的 DeepSeek API Key' },
-  { id: 'openai', label: 'OpenAI 兼容', note: 'OpenAI / 硅基流动 / 其他兼容接口' },
-  { id: 'custom', label: '自定义', note: '自行填写 Base URL 与模型名' },
+const PROVIDER_OPTIONS: { id: AIProviderPreset; label: string; note: string }[] = [
+  { id: 'openai', label: 'OpenAI', note: '使用 OpenAI 官方兼容接口与模型名' },
+  { id: 'anthropic', label: 'Anthropic', note: '使用 Claude Messages API 与 Anthropic 官方模型名' },
+  { id: 'custom', label: '自定义兼容', note: 'DeepSeek、硅基流动或其他 OpenAI 兼容网关' },
 ]
 
-const EMBED_OPTIONS: Array<{ id: EmbeddingProvider; label: string; note: string }> = [
+const EMBED_OPTIONS: { id: EmbeddingProvider; label: string; note: string }[] = [
   { id: 'ollama', label: '本地 Ollama', note: '推荐 bge-m3，用于费曼/RAG 检索' },
   { id: 'proxy', label: '服务端代理', note: '使用远程 embedding-proxy' },
 ]
@@ -42,13 +42,32 @@ function FieldLabel({ children }: { children: string }) {
   return <Text style={styles.fieldLabel}>{children}</Text>
 }
 
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT)
+    return
+  }
+  appAlert(message)
+}
+
 export default function AISettingsScreen() {
   const { settings, loading, saving, testing, testResult, save, reset, testConnection } =
     useAISettings()
   const [draft, setDraft] = useState<AISettings | null>(null)
   const [showApiKey, setShowApiKey] = useState(false)
 
-  const activeDraft = useMemo(() => normalizeAISettings(draft ?? settings), [draft, settings])
+  const activeDraft = useMemo(() => {
+    const normalized = normalizeAISettings(draft ?? settings)
+    if (normalized.provider === 'server') {
+      return normalizeAISettings({
+        ...normalized,
+        provider: 'custom',
+        chatBaseUrl: normalized.chatBaseUrl || 'https://api.deepseek.com/v1',
+        chatModel: normalized.chatModel || 'deepseek-chat',
+      })
+    }
+    return normalized
+  }, [draft, settings])
   const usesCustom = activeDraft.provider !== 'server'
   const storageLabel = getAISettingsStorageLabel()
 
@@ -57,7 +76,7 @@ export default function AISettingsScreen() {
   }
 
   const selectProvider = (provider: AIProviderPreset) => {
-    if (provider === 'deepseek' || provider === 'openai') {
+    if (provider === 'openai' || provider === 'anthropic') {
       patchDraft({
         provider,
         chatBaseUrl: AI_PROVIDER_PRESETS[provider].chatBaseUrl,
@@ -72,14 +91,14 @@ export default function AISettingsScreen() {
     try {
       await save(activeDraft)
       setDraft(null)
-      Alert.alert('已保存', `配置已写入${storageLabel}，立即生效。`)
+      showToast(`已保存到${storageLabel}`)
     } catch (error) {
-      Alert.alert('保存失败', error instanceof Error ? error.message : '请稍后重试')
+      appAlert('保存失败', error instanceof Error ? error.message : '请稍后重试')
     }
   }
 
   const handleReset = () => {
-    Alert.alert('恢复默认', '将清除本地 AI 配置并恢复为服务端默认设置。', [
+    appAlert('恢复默认', '将清除本地 AI 配置并恢复为服务端默认设置。', [
       { text: '取消', style: 'cancel' },
       {
         text: '恢复',
@@ -95,8 +114,9 @@ export default function AISettingsScreen() {
   const handleTest = async () => {
     try {
       await testConnection(activeDraft)
-    } catch (error) {
-      Alert.alert('连接失败', error instanceof Error ? error.message : '请检查配置')
+      showToast('连接成功')
+    } catch {
+      // 失败原因已写入页面内提示，避免系统弹窗遮挡配置表单。
     }
   }
 
@@ -125,7 +145,7 @@ export default function AISettingsScreen() {
           <View style={styles.heroCopy}>
             <Text style={styles.heroTitle}>模型与密钥</Text>
             <Text style={styles.heroText}>
-              API Key 仅保存在{storageLabel}，不会上传到 Medlearn 账号。病例患者对话、智能问答、费曼评估都会读取这里的配置。
+              API Key 仅保存在{storageLabel}，不会上传到 MedLearn 账号。智能问答、费曼评估会读取这里的配置；病例患者对话使用 OpenAI 或自定义兼容配置。DeepSeek 请使用自定义兼容。
             </Text>
           </View>
         </View>
@@ -184,7 +204,7 @@ export default function AISettingsScreen() {
               style={styles.input}
               value={activeDraft.chatBaseUrl}
               onChangeText={(chatBaseUrl) => patchDraft({ chatBaseUrl })}
-              placeholder="https://api.deepseek.com/v1"
+              placeholder={activeDraft.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.deepseek.com/v1'}
               placeholderTextColor={Colors.textTertiary}
               autoCapitalize="none"
               autoCorrect={false}
@@ -195,15 +215,37 @@ export default function AISettingsScreen() {
               style={styles.input}
               value={activeDraft.chatModel}
               onChangeText={(chatModel) => patchDraft({ chatModel })}
-              placeholder="deepseek-chat"
+              placeholder={activeDraft.provider === 'anthropic' ? 'claude-3-5-haiku-latest' : 'deepseek-chat'}
               placeholderTextColor={Colors.textTertiary}
               autoCapitalize="none"
               autoCorrect={false}
             />
 
             <Text style={styles.helperText}>
-              DeepSeek 常用：`deepseek-chat` / `deepseek-reasoner`。OpenAI 兼容服务请填写对应模型 ID。
+              DeepSeek 请放在“自定义兼容”里，并按服务商要求填写精确模型 ID，例如 deepseek-chat、deepseek-reasoner 或网关提供的模型名。Anthropic 会使用 Claude Messages API。
             </Text>
+
+            {testResult && (
+              <View style={styles.testResult}>
+                <Ionicons name="information-circle-outline" size={18} color={Colors.primary[700]} />
+                <Text style={styles.testResultText}>{testResult}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.primaryButton, (saving || testing) && styles.buttonDisabled]}
+              onPress={handleTest}
+              disabled={saving || testing}
+            >
+              {testing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="pulse-outline" size={18} color="#fff" />
+                  <Text style={styles.primaryButtonText}>测试连接</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         )}
 
@@ -258,28 +300,6 @@ export default function AISettingsScreen() {
             </View>
           )}
         </View>
-
-        {testResult && (
-          <View style={styles.testResult}>
-            <Ionicons name="information-circle-outline" size={18} color={Colors.primary[700]} />
-            <Text style={styles.testResultText}>{testResult}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.primaryButton, (saving || testing) && styles.buttonDisabled]}
-          onPress={handleTest}
-          disabled={saving || testing}
-        >
-          {testing ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="pulse-outline" size={18} color="#fff" />
-              <Text style={styles.primaryButtonText}>测试连接</Text>
-            </>
-          )}
-        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.buttonDisabled]}
@@ -344,12 +364,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.primary[900],
-    lineHeight: 20,
+    lineHeight: 23,
   },
   sectionTitle: {
-    ...Typography.labelLarge,
+    ...Typography.titleSmall,
     color: Colors.textSecondary,
     marginTop: Spacing.sm,
     marginLeft: 4,
@@ -405,10 +425,10 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   choiceNote: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textSecondary,
     marginTop: 2,
-    lineHeight: 18,
+    lineHeight: 22,
   },
   fieldLabel: {
     ...Typography.labelMedium,
@@ -417,7 +437,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   input: {
-    backgroundColor: Colors.neutral[100],
+    // 输入框统一暖纸面色系，避免系统默认蓝色背景；focus 态通过边框区分。
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
@@ -441,9 +462,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   helperText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textTertiary,
-    lineHeight: 18,
+    lineHeight: 22,
     marginTop: Spacing.sm,
   },
   embedFields: {
@@ -463,10 +484,10 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   testResultText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textPrimary,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   primaryButton: {
     flexDirection: 'row',
@@ -498,12 +519,12 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...Typography.labelLarge,
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   saveButtonText: {
     ...Typography.labelLarge,
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
   },
   resetButtonText: {
     ...Typography.labelMedium,

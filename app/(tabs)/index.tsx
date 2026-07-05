@@ -1,11 +1,27 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Text,
+  TextInput,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { type Href, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
 import { useHomeStats, useKnowledgeLibraryStats, useRecentSessions } from '@/hooks/useKnowledge'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import {
+  loadWrongQuestionRecords,
+  locateWrongQuestion,
+  saveWrongQuestionRecord,
+} from '@/services/wrongQuestionService'
+import type { WrongQuestionCandidate } from '@/utils/wrongQuestionIntake'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
+import { FLOATING_TAB_BAR_BASE_HEIGHT } from './_layout'
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -63,34 +79,95 @@ export default function HomeScreen() {
   const { data: stats } = useHomeStats(user?.id)
   const { data: libraryStats } = useKnowledgeLibraryStats()
   const { data: recentSessions } = useRecentSessions(user?.id)
+  const [wrongQuestionText, setWrongQuestionText] = useState('')
+  const [wrongQuestionCandidates, setWrongQuestionCandidates] = useState<WrongQuestionCandidate[]>([])
+  const [locatingWrongQuestion, setLocatingWrongQuestion] = useState(false)
+  const [wrongQuestionError, setWrongQuestionError] = useState('')
+  const [savedCandidateIds, setSavedCandidateIds] = useState<Record<string, boolean>>({})
+  const [wrongQuestionExpanded, setWrongQuestionExpanded] = useState(false)
 
   const completedToday = stats?.completedToday ?? 0
   const dailyMinimumMet = completedToday > 0
 
+  useEffect(() => {
+    loadWrongQuestionRecords()
+      .then((records) => {
+        setSavedCandidateIds(Object.fromEntries(records.map((record) => [record.candidate.id, true])))
+      })
+      .catch(() => setSavedCandidateIds({}))
+  }, [])
+
+  const openWrongQuestionCandidate = (candidate: WrongQuestionCandidate) => {
+    router.push({
+      pathname: '/textbook/[sectionId]/unit/[unitId]',
+      params: {
+        sectionId: candidate.sectionId,
+        unitId: candidate.unitId,
+        targetItemId: candidate.itemId || candidate.id.split(':').pop(),
+        from: 'wrong-question',
+      },
+    } as unknown as Href)
+  }
+
+  const runWrongQuestionLocate = async () => {
+    const question = wrongQuestionText.trim()
+    if (question.length < 4 || locatingWrongQuestion) return
+
+    setLocatingWrongQuestion(true)
+    setWrongQuestionError('')
+    try {
+      const candidates = await locateWrongQuestion(question)
+      setWrongQuestionCandidates(candidates)
+      if (candidates.length === 0) {
+        setWrongQuestionError('没有找到带教材证据和页码的候选位置，请换成更接近题干的关键词。')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setWrongQuestionError(message || '错题定位暂时不可用，请稍后重试。')
+    } finally {
+      setLocatingWrongQuestion(false)
+    }
+  }
+
+  const saveWrongQuestionCandidate = async (candidate: WrongQuestionCandidate) => {
+    const question = wrongQuestionText.trim()
+    if (!question) return
+    const records = await saveWrongQuestionRecord(question, candidate)
+    setSavedCandidateIds(Object.fromEntries(records.map((record) => [record.candidate.id, true])))
+  }
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.lg }]}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + Spacing.lg,
+          // 为浮动 Pill TabBar 留出 safe area padding，避免末尾内容被遮挡。
+          paddingBottom: FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.brandRow}>
         <View>
           <Text style={styles.brand}>MedLearn</Text>
         </View>
-        <TouchableOpacity style={styles.avatarButton} onPress={() => router.push('/(tabs)/profile')}>
+        <TouchableOpacity
+          style={styles.avatarButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => router.push('/(tabs)/profile')}
+        >
           <Text style={styles.avatarText}>{nickname.slice(0, 1)}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.greetingRow}>
-        <View style={styles.greetingCopy}>
-          <Text style={styles.greeting}>{getGreeting()}，{nickname}</Text>
-          <Text style={styles.greetingSub}>今天只设一个下限：完成 1 个病例。做完就算完成，想继续就继续。</Text>
-        </View>
+        <Text style={styles.greeting}>{getGreeting()}，{nickname}</Text>
         <View style={[styles.dailyState, dailyMinimumMet && styles.dailyStateDone]}>
           <Ionicons
             name={dailyMinimumMet ? 'checkmark-circle' : 'ellipse-outline'}
-            size={16}
+            size={14}
             color={dailyMinimumMet ? Colors.success : Colors.textTertiary}
           />
           <Text style={[styles.dailyStateText, dailyMinimumMet && styles.dailyStateTextDone]}>
@@ -104,15 +181,13 @@ export default function HomeScreen() {
         activeOpacity={0.9}
         onPress={() => router.push('/(tabs)/cases')}
       >
-        <View style={styles.heroOrbLarge} />
-        <View style={styles.heroOrbSmall} />
         <View style={styles.heroTopRow}>
           <View style={styles.heroLabel}>
             <View style={styles.heroLabelDot} />
             <Text style={styles.heroLabelText}>{dailyMinimumMet ? '今日已完成' : '今日下限'}</Text>
           </View>
           {dailyMinimumMet ? (
-            <Ionicons name="checkmark-circle" size={28} color="rgba(216, 235, 224, 0.35)" />
+            <Ionicons name="checkmark-circle" size={28} color={Colors.success} />
           ) : null}
         </View>
         <Text style={styles.heroTitle}>
@@ -132,36 +207,148 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
+      {/* 错题定位 - 可折叠 */}
+      <TouchableOpacity
+        style={styles.wrongQuestionToggle}
+        activeOpacity={0.65}
+        onPress={() => setWrongQuestionExpanded((v) => !v)}
+      >
+        <View style={styles.wrongQuestionToggleLeft}>
+          <Ionicons name="locate-outline" size={18} color={Colors.primary[700]} />
+          <Text style={styles.wrongQuestionToggleTitle}>错题定位</Text>
+        </View>
+        <View style={styles.wrongQuestionToggleRight}>
+          <Text style={styles.wrongQuestionToggleHint}>粘贴题干定位教材证据</Text>
+          <Ionicons
+            name={wrongQuestionExpanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={Colors.neutral[400]}
+          />
+        </View>
+      </TouchableOpacity>
+
+      {wrongQuestionExpanded ? (
+        <View style={styles.wrongQuestionPanel}>
+          <TextInput
+            style={styles.wrongQuestionInput}
+            testID="home-wrong-question-input"
+            value={wrongQuestionText}
+            onChangeText={setWrongQuestionText}
+            placeholder="例如：肺炎链球菌肺炎的诊断依据、治疗或鉴别点"
+            placeholderTextColor={Colors.textTertiary}
+            multiline
+            maxLength={500}
+            textAlignVertical="top"
+          />
+          <TouchableOpacity
+            style={[
+              styles.locateButton,
+              (wrongQuestionText.trim().length < 4 || locatingWrongQuestion) && styles.locateButtonDisabled,
+            ]}
+            testID="home-wrong-question-locate-button"
+            activeOpacity={0.78}
+            disabled={wrongQuestionText.trim().length < 4 || locatingWrongQuestion}
+            onPress={runWrongQuestionLocate}
+          >
+            {locatingWrongQuestion ? (
+              <ActivityIndicator size="small" color={Colors.surface} />
+            ) : (
+              <Ionicons name="search-outline" size={17} color={Colors.surface} />
+            )}
+            <Text style={styles.locateButtonText}>
+              {locatingWrongQuestion ? '正在定位' : '定位教材证据'}
+            </Text>
+          </TouchableOpacity>
+          {wrongQuestionError ? <Text style={styles.wrongQuestionError}>{wrongQuestionError}</Text> : null}
+          {wrongQuestionCandidates.length > 0 ? (
+            <View style={styles.candidateList}>
+              {wrongQuestionCandidates.slice(0, 2).map((candidate, index) => (
+                <View
+                  key={candidate.id}
+                  style={styles.candidateRow}
+                  testID={index === 0 ? 'home-wrong-question-candidate' : undefined}
+                >
+                  <View style={styles.candidateCopy}>
+                    <Text style={styles.candidateTitle} numberOfLines={2}>
+                      {candidate.itemTitle || candidate.groupTitle}
+                    </Text>
+                    <Text style={styles.candidateMeta} numberOfLines={1}>
+                      {candidate.unitTitle} · {candidate.pageLabel}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.candidateSaveButton}
+                    activeOpacity={0.72}
+                    testID={index === 0 ? 'wrong-question-save-candidate-button' : `wrong-question-save-candidate-button-${index}`}
+                    onPress={() => saveWrongQuestionCandidate(candidate)}
+                  >
+                    <Ionicons
+                      name={savedCandidateIds[candidate.id] ? 'checkmark-circle' : 'add-circle-outline'}
+                      size={17}
+                      color={savedCandidateIds[candidate.id] ? Colors.success : Colors.primary[700]}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.candidateOpenButton}
+                    activeOpacity={0.78}
+                    testID={index === 0 ? 'wrong-question-open-candidate-button' : `wrong-question-open-candidate-button-${index}`}
+                    onPress={() => openWrongQuestionCandidate(candidate)}
+                  >
+                    <Text style={styles.candidateOpenText}>打开</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={styles.queueInlineButton}
+            activeOpacity={0.72}
+            onPress={() => router.push('/wrong-questions' as Href)}
+          >
+            <Text style={styles.queueInlineText}>查看弱点队列</Text>
+            <Ionicons name="arrow-forward" size={14} color={Colors.primary[700]} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>知识库</Text>
+        <Text style={styles.sectionTitle}>学习工具</Text>
         <Text style={styles.sectionCount}>
           {libraryStats?.totalNodes ?? 0} 个知识点
         </Text>
       </View>
 
+      {/* 知识浏览 */}
       <View style={styles.toolList}>
         <TouchableOpacity
-          style={[styles.toolRow, styles.toolRowBorder]}
+          style={styles.toolRow}
           activeOpacity={0.65}
           onPress={() => router.push(KNOWLEDGE_ITEM.route)}
         >
-          <View style={styles.toolIcon}>
-            <Ionicons name={KNOWLEDGE_ITEM.icon} size={21} color={Colors.primary[700]} />
+          <View style={[styles.toolIcon, styles.toolIconInfo]}>
+            <Ionicons name={KNOWLEDGE_ITEM.icon} size={21} color={Colors.info} />
           </View>
           <View style={styles.toolCopy}>
             <Text style={styles.toolTitle}>{KNOWLEDGE_ITEM.title}</Text>
             <Text style={styles.toolSubtitle}>
               {libraryStats?.totalNodes
-                ? `已收录 ${libraryStats.totalNodes} 个知识点，按篇章展开阅读`
+                ? `${libraryStats.totalNodes} 个知识点 · 按篇章展开`
                 : KNOWLEDGE_ITEM.subtitle}
             </Text>
           </View>
-          <Ionicons name="arrow-forward" size={17} color={Colors.neutral[400]} />
+          <View style={styles.toolArrow}>
+            <Ionicons name="arrow-forward" size={17} color={Colors.neutral[400]} />
+          </View>
         </TouchableOpacity>
+      </View>
+
+      {/* 训练操作 */}
+      <Text style={styles.subSectionLabel}>训练</Text>
+      <View style={styles.toolList}>
         {TRAIN_ITEMS.map((item, index) => (
           <TouchableOpacity
             key={item.title}
-            style={[styles.toolRow, index < TRAIN_ITEMS.length - 1 ? styles.toolRowBorder : undefined]}
+            style={[styles.toolRow, index < TRAIN_ITEMS.length - 1 && styles.toolRowBorder]}
             activeOpacity={0.65}
             onPress={() => router.push(item.route)}
           >
@@ -172,7 +359,9 @@ export default function HomeScreen() {
               <Text style={styles.toolTitle}>{item.title}</Text>
               <Text style={styles.toolSubtitle}>{item.subtitle}</Text>
             </View>
-            <Ionicons name="arrow-forward" size={17} color={Colors.neutral[400]} />
+            <View style={styles.toolArrow}>
+              <Ionicons name="arrow-forward" size={17} color={Colors.neutral[400]} />
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -217,7 +406,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Layout.screenPaddingX,
-    paddingBottom: Layout.screenPaddingBottom,
+    // paddingBottom 由 inline（FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.md）提供，
+    // 为浮动 TabBar 留出 safe area。
   },
   brandRow: {
     flexDirection: 'row',
@@ -226,46 +416,38 @@ const styles = StyleSheet.create({
     marginBottom: Layout.sectionGap,
   },
   brand: {
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 16,
-    fontWeight: '800',
-    letterSpacing: 2.2,
-    color: Colors.primary[700],
+    fontWeight: '600',
+    color: Colors.ink,
+    fontFamily: FontFamily.sans,
   },
   avatarButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.ink,
   },
   avatarText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#F7F0E5',
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.surface,
   },
   greetingRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.lg,
-  },
-  greetingCopy: {
-    flex: 1,
-    paddingRight: Spacing.base,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Layout.sectionGap,
   },
   greeting: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '800',
-    letterSpacing: -0.6,
+    // 问候语降级：让 Hero 成为首屏唯一视觉焦点，问候语退为次级信息。
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '600',
     color: Colors.textPrimary,
-  },
-  greetingSub: {
-    ...Typography.bodyMedium,
-    color: Colors.textSecondary,
-    marginTop: Spacing.sm,
-    lineHeight: 21,
+    fontFamily: FontFamily.sans,
   },
   dailyState: {
     flexDirection: 'row',
@@ -289,34 +471,148 @@ const styles = StyleSheet.create({
   },
   dailyStateTextDone: {
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  wrongQuestionToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingHorizontal: Spacing.base,
+    backgroundColor: Colors.surface,
+    borderRadius: Layout.cardRadius,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.sm,
+  },
+  wrongQuestionToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  wrongQuestionToggleTitle: {
+    ...Typography.titleSmall,
+    color: Colors.textPrimary,
+  },
+  wrongQuestionToggleRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  wrongQuestionToggleHint: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
   },
   hero: {
     overflow: 'hidden',
-    backgroundColor: Colors.ink,
+    backgroundColor: Colors.surface,
     borderRadius: Layout.cardRadius,
     padding: Layout.heroPadding,
-    marginBottom: Layout.sectionGap,
-    ...Shadows.level1,
-  },
-  heroOrbLarge: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    right: -50,
-    top: -45,
+    // Hero 与下方模块间距大于普通 sectionGap，强化唯一焦点感
+    marginBottom: Layout.sectionGap + Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(216, 235, 224, 0.16)',
+    borderColor: Colors.border,
   },
-  heroOrbSmall: {
-    position: 'absolute',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    right: 16,
-    bottom: -36,
-    backgroundColor: 'rgba(226, 122, 87, 0.14)',
+  wrongQuestionPanel: {
+    gap: Spacing.md,
+    padding: Spacing.base,
+    borderRadius: Layout.cardRadius,
+    borderWidth: 1,
+    // 展开面板不使用提示态青绿边框，统一用 border；只有输入框 focus 才用 ink
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    marginBottom: Layout.sectionGap,
+  },
+  wrongQuestionInput: {
+    minHeight: 78,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.inputBg,
+    color: Colors.textPrimary,
+    ...Typography.bodyMedium,
+  },
+  locateButton: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primary[700],
+  },
+  locateButtonDisabled: {
+    opacity: 0.48,
+  },
+  locateButtonText: {
+    ...Typography.labelLarge,
+    color: Colors.surface,
+    fontWeight: '600',
+  },
+  wrongQuestionError: {
+    ...Typography.bodyMedium,
+    color: Colors.error,
+    lineHeight: 21,
+  },
+  candidateList: {
+    gap: Spacing.sm,
+  },
+  candidateRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  candidateCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  candidateTitle: {
+    ...Typography.titleSmall,
+    fontFamily: FontFamily.serif,
+    color: Colors.textPrimary,
+  },
+  candidateMeta: {
+    ...Typography.labelSmall,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  candidateSaveButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  candidateOpenButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primary[700],
+  },
+  candidateOpenText: {
+    ...Typography.labelMedium,
+    color: Colors.surface,
+    fontWeight: '600',
+  },
+  queueInlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    minHeight: 44,
+    paddingVertical: Spacing.sm,
+  },
+  queueInlineText: {
+    ...Typography.labelMedium,
+    color: Colors.primary[700],
+    fontWeight: '600',
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -336,21 +632,21 @@ const styles = StyleSheet.create({
   },
   heroLabelText: {
     ...Typography.labelMedium,
-    color: '#D8EBE0',
-    letterSpacing: 0.8,
+    color: Colors.textSecondary,
+    fontFamily: FontFamily.sans,
   },
   heroTitle: {
     fontSize: 22,
-    lineHeight: 29,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    color: '#FFFDF9',
+    lineHeight: 28,
+    fontWeight: '600',
+    color: Colors.ink,
     marginTop: Spacing.md,
+    fontFamily: FontFamily.sans,
   },
   heroSubtitle: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: 'rgba(255, 253, 249, 0.66)',
+    ...Typography.bodyMedium,
+    color: Colors.textSecondary,
+    fontFamily: FontFamily.sans,
     marginTop: Spacing.sm,
   },
   heroActionRow: {
@@ -364,7 +660,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: '#E7DCC9',
+    backgroundColor: Colors.accent,
     paddingHorizontal: Spacing.base,
     height: 44,
     borderRadius: BorderRadius.full,
@@ -372,11 +668,13 @@ const styles = StyleSheet.create({
   heroButtonText: {
     ...Typography.labelLarge,
     color: Colors.ink,
-    fontWeight: '700',
+    fontFamily: FontFamily.sans,
+    fontWeight: '600',
   },
   heroMeta: {
     ...Typography.labelSmall,
-    color: 'rgba(255, 253, 249, 0.52)',
+    color: Colors.textTertiary,
+    fontFamily: FontFamily.sans,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -402,9 +700,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   toolRow: {
-    minHeight: Layout.listRowHeight,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: Spacing.xs,
   },
   toolRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -417,23 +716,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary[50],
-    marginRight: Spacing.md,
+    marginRight: Spacing.sm,
+  },
+  toolIconInfo: {
+    // 降饱和：从青蓝 rgba(52,124,145,0.08) 改为 primary[50] 灰绿，与墨绿主色统一
+    backgroundColor: Colors.primary[50],
   },
   toolCopy: {
     flex: 1,
+    minWidth: 0,
+    paddingRight: Spacing.xs,
   },
   toolTitle: {
     ...Typography.titleSmall,
     color: Colors.textPrimary,
   },
   toolSubtitle: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textTertiary,
+    lineHeight: 21,
     marginTop: 2,
+    flexShrink: 1,
+  },
+  toolArrow: {
+    width: 28,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   seeAll: {
     ...Typography.labelMedium,
     color: Colors.primary[700],
+    minHeight: 44,
+    paddingHorizontal: Spacing.xs,
+    textAlignVertical: 'center',
+  },
+  subSectionLabel: {
+    ...Typography.labelMedium,
+    color: Colors.textTertiary,
+    fontWeight: '500',
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   recentList: {
     backgroundColor: Colors.surface,
@@ -464,9 +786,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reviewText: {
-    ...Typography.bodyMedium,
+    ...Typography.titleMedium,
     color: Colors.textPrimary,
-    fontWeight: '600',
   },
   reviewTime: {
     ...Typography.labelSmall,

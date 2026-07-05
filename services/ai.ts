@@ -43,6 +43,13 @@ export interface EvaluateWithRAGOptions {
 
 export type { AIMessage }
 
+export const GENERIC_AI_CHAT_DISABLED_MESSAGE =
+  'MedLearn 当前不提供开放式医学问答。请通过教材搜索进入有页码和证据的知识内容，或进入病例训练进行受约束的患者互动。'
+
+export function isGenericAIChatEnabled(): boolean {
+  return process.env.EXPO_PUBLIC_ENABLE_GENERIC_AI_CHAT === 'true'
+}
+
 /**
  * 通用医学学习对话（非严格 RAG 评估场景）
  * 默认走 ai-proxy；若在「AI 设置」中配置了自有 Key，则直连对应模型。
@@ -51,6 +58,10 @@ export async function sendChatMessage(
   history: AIMessage[],
   onSlowResponse?: () => void
 ): Promise<string> {
+  if (!isGenericAIChatEnabled()) {
+    return GENERIC_AI_CHAT_DISABLED_MESSAGE
+  }
+
   const result = await invokeChatCompletion(
     [
       {

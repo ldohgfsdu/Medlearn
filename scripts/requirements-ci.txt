@@ -1,0 +1,9 @@
+# Deterministic CI baseline. Heavy optional parser runtimes (Docling and
+# RapidOCR) are integration-tested in their dedicated environments.
+PyMuPDF==1.27.2.3
+Pillow==12.2.0
+PyYAML==6.0.3
+pytest==9.1.0
+python-dotenv==1.2.2
+requests==2.34.2
+supabase==2.31.0

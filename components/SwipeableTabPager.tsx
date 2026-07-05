@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
   },
   pager: {
     flex: 1,

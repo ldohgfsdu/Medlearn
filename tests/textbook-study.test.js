@@ -2,40 +2,10 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const vm = require('node:vm')
-const ts = require('typescript')
-
-const moduleCache = new Map()
-
-function loadTypeScriptModule(filePath) {
-  const resolved = path.resolve(filePath)
-  if (moduleCache.has(resolved)) return moduleCache.get(resolved)
-
-  const source = fs.readFileSync(resolved, 'utf8')
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-      esModuleInterop: true,
-    },
-  }).outputText
-
-  const module = { exports: {} }
-  const wrapper = vm.runInNewContext(`(function (require, module, exports) { ${output} })`)
-  const localRequire = (id) => {
-    if (id.startsWith('@/')) {
-      const base = path.join(__dirname, '..', id.slice(2))
-      const withTs = `${base}.ts`
-      return loadTypeScriptModule(fs.existsSync(withTs) ? withTs : base)
-    }
-    return require(id)
-  }
-  wrapper(localRequire, module, module.exports)
-  moduleCache.set(resolved, module.exports)
-  return module.exports
-}
+const { loadTypeScriptModule } = require('./loadTsModule')
 
 const {
+  buildChapterCatalogStudyUnits,
   buildChapterStudyGroups,
   buildChapterStudyUnits,
   buildTextbookKnowledgeMap,
@@ -45,6 +15,7 @@ const {
 } = loadTypeScriptModule(path.join(__dirname, '..', 'utils', 'textbookStudy.ts'))
 const {
   evidencePageLabel,
+  formatTextbookPageReference,
 } = loadTypeScriptModule(path.join(__dirname, '..', 'services', 'textbookService.ts'))
 
 function section(overrides) {
@@ -80,6 +51,7 @@ function node(overrides) {
       pageEnd: overrides.pageEnd ?? overrides.pageStart ?? 77,
       sourceOrder: overrides.sourceOrder ?? 0,
       pageLabel: overrides.pageLabel ?? 'p.77',
+      pageReferenceKind: overrides.pageReferenceKind ?? 'pdf',
     }],
     evidenceExcerpt: overrides.evidenceText ?? '',
     evidenceFull: overrides.evidenceText ?? overrides.content ?? overrides.title,
@@ -103,6 +75,13 @@ test('evidencePageLabel uses the app display page range format', () => {
   assert.equal(evidencePageLabel({ page_start: 83, page_end: 83 }), 'p.83')
   assert.equal(evidencePageLabel({ page_start: 83, page_end: 84 }), 'p.83-84')
   assert.equal(evidencePageLabel({ page_start: null, page_end: null }), 'p.?')
+})
+
+test('formatTextbookPageReference keeps PDF and printed page identities distinct', () => {
+  assert.equal(formatTextbookPageReference('p.62-70', 'pdf'), 'PDF 页 62-70')
+  assert.equal(formatTextbookPageReference('31', 'printed'), '教材页 31')
+  assert.equal(formatTextbookPageReference('p.31-69', 'source'), '来源页 31-69')
+  assert.equal(formatTextbookPageReference('', 'source'), '页码待确认')
 })
 
 test('buildTextbookKnowledgeMap orders parts and chapters by textbook sequence', () => {
@@ -1252,18 +1231,18 @@ test('buildChapterStudyUnits uses textbook catalog units for pulmonary infection
   assert.equal(
     JSON.stringify(units.map((unit) => unit.title)),
     JSON.stringify([
-      '第一节 肺炎概述',
-      '第二节 细菌性肺炎',
-      '第三节 病毒性肺炎',
-      '第四节 肺炎支原体肺炎、衣原体肺炎与肺军团病',
-      '第五节 肺真菌病',
+      '肺炎',
+      '肺炎链球菌肺炎',
+      '病毒性肺炎',
+      '肺炎支原体肺炎',
+      '肺真菌病',
     ]),
   )
   assert.equal(units[1].groups[0].title, '肺炎链球菌肺炎')
 })
 
 test('buildChapterStudyUnits splits oversized pulmonary catalog units by evidence groups', () => {
-  const catalogTitle = '\u7b2c\u4e00\u8282 \u80ba\u708e\u6982\u8ff0'
+  const catalogTitle = '\u80ba\u708e'
   const topics = ['CAP', 'HAP', 'VAP', 'ABPA']
   const detail = {
     textbookTitle: 'Internal Medicine',
@@ -1292,6 +1271,7 @@ test('buildChapterStudyUnits splits oversized pulmonary catalog units by evidenc
   }
 
   const units = buildChapterStudyUnits(detail)
+  const catalogOutlineUnits = buildChapterCatalogStudyUnits(detail)
 
   assert.equal(units.length, 4)
   assert.equal(
@@ -1299,6 +1279,9 @@ test('buildChapterStudyUnits splits oversized pulmonary catalog units by evidenc
     JSON.stringify(topics.map((topic) => `${catalogTitle} · ${topic}`)),
   )
   assert.equal(JSON.stringify(units.map((unit) => unit.itemCount)), JSON.stringify([10, 10, 10, 10]))
+  assert.equal(catalogOutlineUnits.length, 1)
+  assert.equal(catalogOutlineUnits[0].title, catalogTitle)
+  assert.equal(catalogOutlineUnits[0].itemCount, 40)
   assert.ok(units.every((unit) => unit.itemCount <= 36))
   assert.equal(findChapterStudyUnit(detail, units[2].id)?.title, `${catalogTitle} · VAP`)
 
@@ -1310,7 +1293,6 @@ test('buildChapterStudyUnits splits oversized pulmonary catalog units by evidenc
 })
 
 test('buildChapterStudyUnits folds noisy pulmonary catalog group titles into nearby study units', () => {
-  const catalogTitle = '\u7b2c\u56db\u8282 \u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e\u3001\u8863\u539f\u4f53\u80ba\u708e\u4e0e\u80ba\u519b\u56e2\u75c5'
   const sectionTitle = '\u7b2c\u516d\u7ae0 \u80ba\u90e8\u611f\u67d3\u6027\u75be\u75c5'
   const topicRuns = [
     ['ECMO\u6a21\u5f0f\u9009\u62e9', 2],
@@ -1358,17 +1340,17 @@ test('buildChapterStudyUnits folds noisy pulmonary catalog group titles into nea
   const unitTitles = units.map((unit) => unit.title)
 
   assert.equal(JSON.stringify(unitTitles), JSON.stringify([
-    `${catalogTitle} · \u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e`,
-    `${catalogTitle} · \u8863\u539f\u4f53\u80ba\u708e`,
-    `${catalogTitle} · \u6cbb\u7597`,
+    '\u4e25\u91cd\u6025\u6027\u547c\u5438\u7efc\u5408\u5f81',
+    '\u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e',
+    '\u8863\u539f\u4f53\u80ba\u708e',
   ]))
-  assert.equal(units[0].itemCount, 21)
-  assert.equal(units[1].itemCount, 19)
+  assert.equal(units[0].itemCount, 2)
+  assert.equal(units[1].itemCount, 15)
+  assert.equal(units[2].itemCount, 15)
   assert.ok(unitTitles.every((title) => !/ECMO|RBD|\u75c5\u56e0\u548c|SARS|\u00b7 \u80ba\u708e$/u.test(title)))
 })
 
 test('buildChapterStudyUnits chunks oversized pulmonary catalog study groups', () => {
-  const catalogTitle = '\u7b2c\u56db\u8282 \u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e\u3001\u8863\u539f\u4f53\u80ba\u708e\u4e0e\u80ba\u519b\u56e2\u75c5'
   const sectionTitle = '\u7b2c\u516d\u7ae0 \u80ba\u90e8\u611f\u67d3\u6027\u75be\u75c5'
   const detail = {
     textbookTitle: 'Internal Medicine',
@@ -1392,10 +1374,19 @@ test('buildChapterStudyUnits chunks oversized pulmonary catalog study groups', (
         sourceOrder: 351 + index,
         sourceHeading: sectionTitle,
       })),
+      ...Array.from({ length: 5 }, (_, index) => node({
+        id: `legionella-overview-${index}`,
+        title: '\u80ba\u519b\u56e2\u75c5',
+        evidenceText: `legionella overview evidence ${index + 1}.`,
+        pageStart: 91,
+        pageLabel: 'p.91',
+        sourceOrder: 356 + index,
+        sourceHeading: sectionTitle,
+      })),
       ...Array.from({ length: 50 }, (_, index) => node({
         id: `treatment-${index}`,
-        title: '\u6cbb\u7597',
-        evidenceText: `treatment source evidence ${index + 1}.`,
+        title: '\u80ba\u519b\u56e2\u75c5',
+        evidenceText: `legionella treatment source evidence ${index + 1}.`,
         groupTopic: 'treatment',
         publicationState: 'evidence_only',
         renderType: 'evidence_only',
@@ -1409,10 +1400,13 @@ test('buildChapterStudyUnits chunks oversized pulmonary catalog study groups', (
 
   const units = buildChapterStudyUnits(detail)
 
-  assert.equal(JSON.stringify(units.map((unit) => unit.itemCount)), JSON.stringify([5, 24, 24, 2]))
+  assert.equal(JSON.stringify(units.map((unit) => unit.itemCount)), JSON.stringify([5, 5, 24, 24, 2]))
   assert.ok(units.every((unit) => unit.itemCount <= 36))
-  assert.equal(units[1].title, `${catalogTitle} · \u6cbb\u7597`)
-  assert.equal(units[2].title, `${catalogTitle} · \u6cbb\u7597`)
+  assert.equal(units[0].title, '\u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e')
+  assert.equal(units[1].title, '\u80ba\u519b\u56e2\u75c5')
+  assert.equal(units[2].title, '\u80ba\u519b\u56e2\u75c5 \u00b7 \u6cbb\u7597')
+  assert.equal(units[3].title, '\u80ba\u519b\u56e2\u75c5 \u00b7 \u6cbb\u7597')
+  assert.equal(units[4].title, '\u80ba\u519b\u56e2\u75c5 \u00b7 \u6cbb\u7597')
 })
 
 test('deriveCatalogSubsectionsFromStudyGroups expands redundant fungal catalog subsection from evidence groups', () => {
@@ -1475,4 +1469,63 @@ test('buildChapterStudyGroups removes leading source aspect brackets from displa
 
   assert.equal(groups[0].items[0].body, 'Normal body text.')
   assert.match(groups[0].items[0].evidence[0].text, /^\u3010/)
+})
+
+test('buildChapterCatalogStudyUnits splits catalog JSON units for acute URI chapter', () => {
+  const contractPath = path.join(
+    __dirname,
+    '..',
+    'generated',
+    'display_contracts',
+    'internal-medicine-10',
+    '第二篇_呼吸系统疾病__第二章_急性上呼吸道感染和急性气管_支气管炎.display_contract.json',
+  )
+  if (!fs.existsSync(contractPath)) return
+
+  const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'))
+  const detail = {
+    textbookTitle: '内科学（第10版）',
+    systemTitle: '呼吸系统疾病',
+    partTitle: contract.part_title,
+    section: {
+      id: 'resp-2',
+      partTitle: contract.part_title,
+      sectionTitle: contract.section_title,
+      pageRange: '49-53',
+      pageStart: 49,
+      pageEnd: 53,
+      nodeCount: contract.node_count,
+    },
+    nodes: contract.nodes.map((node) => ({
+      id: node.id,
+      title: node.display.title,
+      content: node.display.body,
+      renderType: node.render_type,
+      publicationState: node.publication_state,
+      listItems: (node.display.items ?? []).map((item) => ({
+        title: item.title,
+        body: item.body,
+        pageLabel: item.page_label,
+        publicationState: item.publication_state,
+      })),
+      evidenceItems: (node.evidence_items ?? []).map((item) => ({
+        artifactId: item.artifact_id,
+        text: item.text,
+        pageStart: item.page_start,
+        pageEnd: item.page_end,
+        sourceOrder: item.source_order,
+        pageLabel: item.page_label || `p.${item.page_start}`,
+      })),
+      evidenceFull: (node.evidence_items ?? []).map((item) => item.text).join('\n'),
+      pageLabel: node.display.page_label,
+      sourceHeading: node.display.source_heading,
+      groupTopic: node.group?.topic || '',
+    })),
+  }
+
+  const units = buildChapterCatalogStudyUnits(detail)
+  assert.ok(units.length >= 2, `expected at least 2 catalog units, got ${units.length}`)
+  assert.ok(units.every((unit) => unit.itemCount > 0))
+  assert.ok(units.some((unit) => unit.title.includes('急性上呼吸道感染')))
+  assert.ok(units.some((unit) => unit.title.includes('急性气管支气管炎')))
 })

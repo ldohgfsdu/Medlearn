@@ -1,17 +1,15 @@
 import React, { useState, useMemo } from 'react'
-
-export const options = { headerTitle: '考试' }
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { appAlert } from '@/lib/app-dialog'
 import { useExamSession } from '@/hooks/useExam'
 import { useAuth } from '@/hooks/useAuth'
 import { calculateScore } from '@/services/exam'
@@ -23,6 +21,8 @@ import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
 import { uniqueWeakNodeIds } from '@/utils/learningFeedback'
 import { supabase } from '@/lib/supabase'
 import { resolveTarget } from '@/utils/routeBuilders'
+
+export const options = { headerTitle: '考试' }
 
 /** 多选题位掩码工具 */
 function toggleBit(mask: number, bit: number): number {
@@ -67,7 +67,7 @@ export default function ExamScreen() {
       .eq('id', nodeId)
       .maybeSingle()
     if (error) {
-      Alert.alert('无法打开', '知识目标读取失败，请稍后重试。')
+      appAlert('无法打开', '知识目标读取失败，请稍后重试。')
       return
     }
     const target = data ? resolveTarget(data) : null
@@ -93,20 +93,20 @@ export default function ExamScreen() {
 
   const handleStart = async () => {
     if (nodeIds.length === 0) {
-      Alert.alert('提示', '请先选择知识点范围')
+      appAlert('提示', '请先选择知识点范围')
       return
     }
     try {
       await startExam(nodeIds, questionCount, difficulty)
     } catch (e: any) {
-      Alert.alert('生成失败', e.message || '请检查网络连接后重试')
+      appAlert('生成失败', e.message || '请检查网络连接后重试')
     }
   }
 
   const handleFinish = async () => {
     const unanswered = totalQuestions - answeredCount
     if (unanswered > 0) {
-      Alert.alert(
+      appAlert(
         '提示',
         `还有 ${unanswered} 题未作答，确定提交吗？`,
         [
@@ -126,7 +126,7 @@ export default function ExamScreen() {
         setExamResult(result)
       }
     } catch (e: any) {
-      Alert.alert('提交失败', e.message || '请重试')
+      appAlert('提交失败', e.message || '请重试')
     }
   }
 
@@ -136,7 +136,7 @@ export default function ExamScreen() {
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.setupContent} showsVerticalScrollIndicator={false}>
           <View style={pageStyles.pageIntro}>
-            <Text style={pageStyles.pageIntroTitle}>{nodeTitle}</Text>
+            <Text style={pageStyles.pageIntroTitleReading}>{nodeTitle}</Text>
             <Text style={pageStyles.pageIntroText}>
               {nodeIds.length > 0
                 ? `围绕 ${nodeIds.length} 个知识点生成一轮短测。先作答，再根据错题决定下一步。`
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#FFFDF9',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   startBtn: {
     flexDirection: 'row',
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   startBtnText: {
     ...Typography.labelLarge,
     color: '#FFFDF9',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   setupFootnote: {
     ...Typography.labelSmall,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   },
   questionDotTextCurrent: {
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   questionDotTextAnswered: {
     color: Colors.primary[600],
@@ -682,7 +682,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.base,
-    ...Shadows.level1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
     marginBottom: Spacing.base,
   },
   questionHeader: {
@@ -749,7 +750,7 @@ const styles = StyleSheet.create({
   },
   optionLabelSelected: {
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   optionText: {
     flex: 1,
@@ -819,8 +820,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   scoreValue: {
-    ...Typography.displayLarge,
+    ...Typography.numberXL,
     fontSize: 64,
+    lineHeight: 68,
   },
   scoreGrade: {
     ...Typography.titleMedium,
@@ -843,7 +845,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.base,
-    ...Shadows.level1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
     marginBottom: Spacing.md,
   },
   wrongHeader: {
@@ -915,7 +918,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    ...Shadows.level1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
     marginBottom: Spacing.sm,
   },
   weakItemIcon: {

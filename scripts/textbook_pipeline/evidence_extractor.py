@@ -24,9 +24,21 @@ PART_RE = re.compile(r"第[一二三四五六七八九十百零〇\d]+篇")
 CHAPTER_RE = re.compile(r"第[一二三四五六七八九十百零〇\d]+章")
 SECTION_RE = re.compile(r"第[一二三四五六七八九十百零〇\d]+节")
 SUBHEADING_RE = re.compile(
-    r"^(?:【(.+?)】|(?:（[一二三四五六七八九十]+）)"
-    r"|[一二三四五六七八九十]+[、.．])"
+    r"^(?:【(.+?)】|(?:（[一二三四五六七八九十百]+）)"
+    r"|[一二三四五六七八九十百]+[、.．])"
 )
+
+# Mixed （x） title + body: shortest title run until body sentence starts.
+PAREN_HEADING_PREFIX_RE = re.compile(
+    r"^([（(][一二三四五六七八九十百]+[）)]\s*"
+    r"(?:[\u4e00-\u9fff（()）、・·，%％／/]|[A-Za-z0-9])+?)"
+    r"(?=\s+[\u4e00-\u9fff]{2,}|\s*。|$)",
+    re.UNICODE,
+)
+
+BRACKET_HEADING_SPLIT_RE = re.compile(r"^【([^】]+)】\s*(.*)$", re.DOTALL)
+
+ARABIC_NUMBERED_RE = re.compile(r"^\d+\.\s")
 
 # Known aspect normalization mapping
 ASPECT_NORMALIZE: dict[str, str] = {
@@ -126,6 +138,69 @@ def _is_structural_heading_text(text: str) -> bool:
         return True
 
     return False
+
+
+def _is_structural_prefix(text: str) -> bool:
+    """Prefix-shaped headings bypass the large-font gate entirely."""
+    stripped = text.strip()
+    if stripped.startswith("【"):
+        return True
+    return bool(SUBHEADING_RE.match(stripped))
+
+
+def _is_arabic_numbered_block(text: str) -> bool:
+    return bool(ARABIC_NUMBERED_RE.match(text.strip()))
+
+
+def _block_is_heading_flag(text: str, max_size: float, body_size: float) -> bool:
+    """Whether this block updates the heading stack (not necessarily heading-only)."""
+    stripped = text.strip()
+    if _is_arabic_numbered_block(stripped):
+        return False
+    is_large = max_size >= body_size * 1.35 and len(stripped) <= 80
+    is_structural_prefix = _is_structural_prefix(stripped)
+    return is_structural_prefix or (
+        is_large and _is_structural_heading_text(stripped)
+    )
+
+
+def _canonical_heading_label(heading_part: str) -> str:
+    """Heading label stored on the stack / source_heading."""
+    t = heading_part.strip().replace("\n", " ")
+    bracket = re.match(r"^【([^】]+)】", t)
+    if bracket:
+        return bracket.group(1).strip()
+    t = re.sub(r"^[（(][一二三四五六七八九十百]+[）)]\s*", "", t).strip()
+    return t or heading_part.strip()
+
+
+def _split_heading_body(text: str) -> tuple[str | None, str]:
+    """Split a block into (heading_prefix, body). heading_prefix None => body-only block."""
+    t = text.strip().replace("\n", " ")
+    if not t:
+        return None, ""
+
+    if t.startswith("【"):
+        match = BRACKET_HEADING_SPLIT_RE.match(t)
+        if match:
+            inner = match.group(1).strip()
+            body = match.group(2).strip()
+            return f"【{inner}】", body
+        return t, ""
+
+    if _is_arabic_numbered_block(t):
+        return None, t
+
+    paren = PAREN_HEADING_PREFIX_RE.match(t)
+    if paren:
+        heading_part = paren.group(1).strip()
+        body_part = t[paren.end() :].strip()
+        return heading_part, body_part
+
+    if SUBHEADING_RE.match(t) and len(t) <= 60 and "。" not in t:
+        return t, ""
+
+    return None, t
 
 
 def _block_text(block: dict[str, Any]) -> tuple[str, float]:
@@ -230,12 +305,21 @@ def extract_page_artifacts(
                 continue
 
             text, max_size = _block_text(block)
-            if not text or len(text) < 10:
+            stripped = text.strip() if text else ""
+            if not stripped:
+                continue
+            # Short structural headings (e.g. （三） 肺功能检查) must not be dropped.
+            if len(stripped) < 10 and not _is_structural_prefix(stripped):
                 continue
 
-            # Detect heading: must be large font AND match structural heading patterns
-            is_large = max_size >= body_size * 1.35 and len(text) <= 80
-            is_heading = is_large and _is_structural_heading_text(text)
+            # Heading: structural prefix bypasses large-font; otherwise large + pattern.
+            is_large = max_size >= body_size * 1.35 and len(stripped) <= 80
+            is_structural_prefix = _is_structural_prefix(stripped)
+            is_heading = is_structural_prefix or (
+                is_large and _is_structural_heading_text(stripped)
+            )
+            if _is_arabic_numbered_block(stripped):
+                is_heading = False
 
             artifacts.append({
                 "text": text,
@@ -301,17 +385,25 @@ def extract_section_evidence(
                 text = art["text"]
                 art_type = art["artifact_type"]
                 bbox = art.get("bbox")
+                max_size = float(art.get("font_size") or 0.0)
 
-                # Update heading context
-                if art.get("is_heading"):
-                    current_heading = text.strip()
-                    # Don't create artifact for heading-only blocks
-                    if len(text.strip()) < 5:
-                        continue
+                if art_type == "text_block":
+                    flat_text = text.strip().replace("\n", " ")
 
-                # Skip very short non-table content
-                if art_type == "text_block" and len(text.strip()) < 15:
-                    continue
+                    if _block_is_heading_flag(flat_text, max_size, body_size):
+                        heading_part, body_part = _split_heading_body(flat_text)
+                        if heading_part:
+                            current_heading = _canonical_heading_label(heading_part)
+                        if body_part and len(body_part.strip()) >= 15:
+                            emit_text = body_part.strip()
+                        else:
+                            continue
+                    else:
+                        if len(text.strip()) < 15:
+                            continue
+                        emit_text = text
+                else:
+                    emit_text = text
 
                 locator = EvidenceLocator(
                     page=pn,
@@ -328,7 +420,7 @@ def extract_section_evidence(
                     normalized_aspect=_normalize_aspect(current_heading),
                     source_order=source_order,
                     artifact_type=art_type,
-                    raw_text=text,
+                    raw_text=emit_text,
                     page_start=pn,
                     page_end=pn,
                     locator=locator,

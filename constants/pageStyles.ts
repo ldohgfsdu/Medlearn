@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native'
-import { BorderRadius, Colors, Typography, Spacing } from '@/constants/theme'
+import { BorderRadius, Colors, Typography, Spacing, FontFamily } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
 
 /** 跨页面复用的紧凑移动端样式 */
@@ -18,6 +18,12 @@ export const pageStyles = StyleSheet.create({
   },
   pageIntroTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
+    color: Colors.textPrimary,
+  },
+  pageIntroTitleReading: {
+    ...Typography.titleLarge,
+    fontFamily: FontFamily.serif,
     color: Colors.textPrimary,
   },
   pageIntroText: {
@@ -77,7 +83,7 @@ export const pageStyles = StyleSheet.create({
   primaryBtnText: {
     ...Typography.labelLarge,
     color: Colors.surface,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   secondaryBtn: {
     minHeight: 48,

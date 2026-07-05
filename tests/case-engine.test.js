@@ -27,7 +27,10 @@ const { canPerformAction, canTransition, isValidPhase } = loadTypeScriptModule(
     '@/constants/vindicate': vindicate,
     './intent-parser': { intentParser },
     './analytics': { trackCaseEvent: async () => {} },
-    './case-patient': { requestCasePatientResponse: async () => '' },
+    './case-patient': {
+      requestCasePatientResponse: async () => '',
+      requestCasePatientTurn: async () => ({ response: '', source: 'preset' }),
+    },
   },
 )
 

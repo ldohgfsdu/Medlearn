@@ -11,6 +11,8 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
+from .paragraph_reconstruction import normalize_display_text
+
 
 DISPLAY_CONTRACT_VERSION = "ev1-display-contract-0.1.0"
 MAX_EVIDENCE_ONLY_GROUP_BODY_CHARS = 720
@@ -21,6 +23,7 @@ class DisplayContractOptions:
     merge_adjacent_same_heading: bool = True
     include_evidence_only: bool = True
     group_related_items: bool = True
+    apply_display_normalization: bool = True
 
 
 def _clean_text(value: Any) -> str:
@@ -139,12 +142,21 @@ def _source_span(row: dict[str, Any]) -> dict[str, Any]:
     return source if isinstance(source, dict) else {}
 
 
-def _evidence_item_from_source(source: dict[str, Any], *, fallback_order: Any = 0) -> dict[str, Any]:
+def _evidence_item_from_source(
+    source: dict[str, Any],
+    *,
+    fallback_order: Any = 0,
+    apply_display_normalization: bool = True,
+) -> dict[str, Any]:
     page_start = source.get("page_start")
     page_end = source.get("page_end") or page_start
+    raw_text = _clean_text(source.get("evidence"))
+    display_text = normalize_display_text(raw_text) if apply_display_normalization else raw_text
     return {
         "artifact_id": _clean_text(source.get("artifact_id")),
-        "text": _clean_text(source.get("evidence")),
+        "text": display_text,
+        "raw_text": raw_text,
+        "display_text": display_text,
         "page_start": page_start,
         "page_end": page_end,
         "source_order": source.get("source_order", fallback_order),
@@ -159,7 +171,11 @@ def _node_title(row: dict[str, Any], source: dict[str, Any]) -> str:
     )
 
 
-def _organized_view_node(row: dict[str, Any]) -> dict[str, Any]:
+def _organized_view_node(
+    row: dict[str, Any],
+    *,
+    apply_display_normalization: bool = True,
+) -> dict[str, Any]:
     source = _source_span(row)
     page_start = source.get("page_start")
     page_end = source.get("page_end") or page_start
@@ -168,7 +184,13 @@ def _organized_view_node(row: dict[str, Any]) -> dict[str, Any]:
         or _clean_text(source.get("normalized_aspect"))
         or _clean_text(row.get("sub_chapter"))
     )
-    evidence_item = _evidence_item_from_source(source, fallback_order=row.get("order_num", 0))
+    evidence_item = _evidence_item_from_source(
+        source,
+        fallback_order=row.get("order_num", 0),
+        apply_display_normalization=apply_display_normalization,
+    )
+    raw_body = _clean_text(row.get("content"))
+    display_body = normalize_display_text(raw_body) if apply_display_normalization else raw_body
     row_id = _clean_text(row.get("id"))
     return {
         "id": f"view-{row_id}",
@@ -177,7 +199,8 @@ def _organized_view_node(row: dict[str, Any]) -> dict[str, Any]:
         "quality_badges": ["textbook_grounded", "page_bound"],
         "display": {
             "title": _node_title(row, source),
-            "body": _clean_text(row.get("content")),
+            "body": display_body,
+            "raw_body": raw_body,
             "page_label": _page_label(page_start, page_end),
             "source_heading": source_heading,
         },
@@ -248,6 +271,10 @@ def _merge_nodes(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     ]
     display = dict(left.get("display") or {})
     display["body"] = _join_fragments(display.get("body", ""), right.get("display", {}).get("body", ""))
+    display["raw_body"] = _join_fragments(
+        display.get("raw_body", display.get("body", "")),
+        right.get("display", {}).get("raw_body", right.get("display", {}).get("body", "")),
+    )
     if evidence_items:
         first_page = evidence_items[0].get("page_start")
         last_page = evidence_items[-1].get("page_end") or evidence_items[-1].get("page_start")
@@ -1373,28 +1400,6 @@ def group_related_view_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]
         current = []
         current_bucket = None
 
-    def _merge_grouped_into(prev: dict[str, Any], node: dict[str, Any]) -> None:
-        prev_display = prev.setdefault('display', {})
-        node_display = node.get('display', {})
-        prev_items = prev_display.get('items', [])
-        node_items = node_display.get('items', [])
-        existing_titles = {item.get('title') for item in prev_items}
-        for item in node_items:
-            if item.get('title') not in existing_titles:
-                prev_items.append(item)
-                existing_titles.add(item.get('title'))
-        prev_display['items'] = prev_items
-        prev_ei = prev.get('evidence_items', [])
-        node_ei = node.get('evidence_items', [])
-        existing_eids = {ei.get('artifact_id') for ei in prev_ei}
-        for ei in node_ei:
-            if ei.get('artifact_id') not in existing_eids:
-                prev_ei.append(ei)
-        prev['evidence_items'] = prev_ei
-        prev_sn = prev.get('source_node_ids', [])
-        node_sn = node.get('source_node_ids', [])
-        prev['source_node_ids'] = list(dict.fromkeys([*prev_sn, *node_sn]))
-
     for node in nodes:
         if current_bucket == "classification" and current and _classification_group_has_tb_intro(current):
             page = _first_page(node)
@@ -1438,24 +1443,12 @@ def group_related_view_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]
             current_bucket = bucket
 
     flush()
-    # Merge grouped nodes with same display title (look back past non-grouped nodes)
-    merged_grouped: list[dict[str, Any]] = []
-    for node in grouped:
-        if node.get('render_type') != 'grouped':
-            merged_grouped.append(node)
-            continue
-        merge_target_idx: int | None = None
-        for prev_idx in range(len(merged_grouped) - 1, -1, -1):
-            prev = merged_grouped[prev_idx]
-            if prev.get('render_type') == 'grouped':
-                if prev.get('display', {}).get('title') == node.get('display', {}).get('title'):
-                    merge_target_idx = prev_idx
-                break
-        if merge_target_idx is not None:
-            _merge_grouped_into(merged_grouped[merge_target_idx], node)
-        else:
-            merged_grouped.append(node)
-    return merged_grouped
+    # A repeated display title is not structural evidence that two groups share
+    # the same content identity. In particular, treatment headings repeat for
+    # adjacent diseases. Looking back across an intervening node used to merge
+    # those independent source runs and could bind high-risk evidence to the
+    # wrong disease. Only the contiguous grouping pass above is authoritative.
+    return grouped
 
 
 def _evidence_only_view_node(item: dict[str, Any]) -> dict[str, Any] | None:
@@ -1508,7 +1501,14 @@ def build_display_contract_payload(
     nodes = normalized_payload.get("nodes") or []
     if not isinstance(nodes, list):
         nodes = []
-    view_nodes = [_organized_view_node(row) for row in nodes if isinstance(row, dict)]
+    view_nodes = [
+        _organized_view_node(
+            row,
+            apply_display_normalization=options.apply_display_normalization,
+        )
+        for row in nodes
+        if isinstance(row, dict)
+    ]
     if options.merge_adjacent_same_heading:
         view_nodes = merge_adjacent_view_nodes(view_nodes)
 

@@ -1,19 +1,40 @@
-schema_version: 1
+schema_version: 2
+
+# Routing semantics (schema v2):
+#   - `skill`         : primary skill for the route (string, required)
+#   - `priority`      : higher wins when multiple routes match (int, default 50)
+#   - `also_apply`    : additional skills to apply alongside the primary
+#                       (list); use for cross-cutting tasks
+#   - `inherits_default`: when true (default), merge `default.read` and
+#                       `default.checks` into this route; set false to opt out
+#   - `triggers`      : match keywords; English and Chinese both supported
+#   - `adr_tags`      : ADR-INDEX filter tags for this route
+#
+# Route matching: pick the highest-priority route whose triggers match. Then
+# load `default.read` + `default.checks` (unless `inherits_default: false`),
+# the route's own `read`/`checks`, the primary `skill`, and any `also_apply`
+# skills. A task may legitimately end up applying more than one skill.
+
 default:
   skill: medlearn-agent-coding
+  inherits_default: false  # default is the base; nothing to inherit from itself
   read:
     - AGENTS.md
     - docs/PROJECT_CONSTITUTION.md
     - docs/MVP_PRD_V2.md
     - docs/CURRENT_STATE.md
     - docs/ADR_INDEX.yaml
+    - state/active_object.yaml
     - CONTEXT.md
   checks:
     - checklists/no-regression-rules.md
 
 routes:
   ui:
-    triggers: [screen, component, navigation, layout, styling, accessibility]
+    triggers: [screen, component, navigation, layout, styling, accessibility,
+               屏幕, 组件, 导航, 布局, 样式, 界面, 交互, 触摸目标, 可访问性]
+    priority: 60
+    inherits_default: true
     skill: medlearn-review-ui
     read:
       - docs/DESIGN_CONTEXT.md
@@ -24,7 +45,11 @@ routes:
       - checklists/app-integration-gate.md
 
   ingestion:
-    triggers: [textbook, extraction, ingestion, catalog, knowledge_nodes, document_chunks, causal_chains]
+    triggers: [textbook, extraction, ingestion, catalog, knowledge_nodes,
+               document_chunks, causal_chains, backfill, pipeline,
+               教材, 课本, 提取, 入库, 目录, 知识节点, 文档块, 因果链, 回填, 管线]
+    priority: 70
+    inherits_default: true
     skill: medlearn-review-ingestion
     read:
       - docs/PIPELINE_INDEX.md
@@ -42,12 +67,19 @@ routes:
       - reading experience
       - textbook hierarchy
       - classification tree
+      - 文档树
+      - 金色路径
+      - 阅读体验
+      - 教材层级
+      - 分类树
+    priority: 80
+    inherits_default: true
     skill: medlearn-review-ui
+    also_apply:
+      - medlearn-review-ingestion
     read:
       - docs/architecture/phase1_phase2_gate.md
-      - state/active_object.yaml
       - state/knowledge_ingestion.yaml
-      - CONTEXT.md
     adr_tags: [catalog_node, knowledge_detail, evidence_artifact, detail_page]
     checks:
       - checklists/phase1-golden-path-acceptance.md
@@ -63,13 +95,21 @@ routes:
       - bbox
       - source locator
       - return path
+      - 页面图像
+      - 高亮
+      - 源定位
+      - 回跳路径
+    priority: 90
+    inherits_default: true
     skill: medlearn-phase1-visual-evidence
+    also_apply:
+      - medlearn-review-ui
+      - medlearn-review-ingestion
     read:
       - docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md
       - docs/PIPELINE_INDEX.md
       - docs/PDF_PARSER_ARCHITECTURE.md
       - docs/adr/ADR-009-multimodal-evidence-artifacts.md
-      - state/active_object.yaml
       - state/knowledge_ingestion.yaml
     adr_tags: [evidence_artifact, knowledge_detail, detail_page]
     checks:
@@ -77,28 +117,42 @@ routes:
       - checklists/app-integration-gate.md
 
   medical_content:
-    triggers: [medical_claim, evidence, page_reference, treatment, dosage, contraindication, case_content]
+    triggers: [medical_claim, evidence, page_reference, treatment, dosage,
+               contraindication, case_content,
+               医学声明, 证据, 页码引用, 治疗, 剂量, 禁忌, 病例内容]
+    priority: 85
+    inherits_default: true
     skill: medlearn-validate-medical-content
+    also_apply:
+      - medlearn-review-ingestion
     read:
       - docs/adr/ADR-006-textbook-owned-knowledge-aspects.md
       - docs/adr/ADR-009-multimodal-evidence-artifacts.md
       - docs/adr/ADR-010-transactional-review-consistency.md
+      - state/knowledge_ingestion.yaml
     checks:
       - checklists/evidence-copy-eval.md
       - checklists/production-acceptance.md
 
   training:
-    triggers: [sft, lora, dataset, checkpoint, adapter, stage_evaluation]
+    triggers: [sft, lora, dataset, checkpoint, adapter, stage_evaluation,
+               训练, 微调, 数据集, 检查点, 适配器, 阶段评估]
+    priority: 75
+    inherits_default: true
     skill: medlearn-evaluate-training-stage
     read:
       - training/README.md
       - training/data_cleaning_rules.yaml
       - training/curriculum/README.md
+      - state/training_dataset.yaml
     checks:
       - checklists/evidence-copy-eval.md
 
   release:
-    triggers: [production, deploy, release, acceptance]
+    triggers: [production, deploy, release, acceptance,
+               生产, 部署, 发布, 验收]
+    priority: 95
+    inherits_default: true
     skill: medlearn-agent-coding
     read:
       - docs/E2E_ACCEPTANCE_CHECKLIST.md
@@ -108,7 +162,10 @@ routes:
       - checklists/no-regression-rules.md
 
   documentation:
-    triggers: [documentation, docs, vitepress, obsidian, site, changelog, faq, handoff]
+    triggers: [documentation, docs, vitepress, obsidian, site, changelog, faq, handoff,
+               文档, 站点, 变更日志, 常见问题, 交接]
+    priority: 55
+    inherits_default: true
     skill: medlearn-agent-coding
     read:
       - docs/OBSIDIAN_VAULT.md

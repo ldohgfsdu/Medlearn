@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
+
   ScrollView,
   StyleSheet,
   Text,
@@ -27,7 +27,8 @@ import {
   knowledgeNodeText,
 } from '@/utils/diseaseKnowledge'
 import { parseContentPoints } from '@/utils/structuredContent'
-import { Colors, Spacing, Typography, BorderRadius } from '@/constants/theme'
+import { appAlert } from '@/lib/app-dialog'
+import { Colors, FontFamily, Spacing, Typography, BorderRadius } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
 
 type TabKey = 'knowledge' | 'reasoning' | 'training'
@@ -288,7 +289,7 @@ function TrainingTab({ name, nodes }: { name: string; nodes: DiseaseKnowledgeNod
         ])
       }
     } catch (error) {
-      Alert.alert('评估失败', error instanceof Error && error.message === 'TEXTBOOK_NOT_FOUND'
+      appAlert('评估失败', error instanceof Error && error.message === 'TEXTBOOK_NOT_FOUND'
         ? '当前疾病尚未关联可检索的教材原文。'
         : 'AI 评估暂时不可用，请稍后重试。')
     } finally {
@@ -421,48 +422,48 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, backgroundColor: Colors.background },
   header: { paddingHorizontal: Layout.screenPaddingX, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
-  back: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
+  back: { flexDirection: 'row', alignItems: 'center', minHeight: 44, marginBottom: Spacing.sm },
   backText: { ...Typography.labelMedium, color: Colors.textSecondary },
   backLink: { ...Typography.labelLarge, color: Colors.primary[700], marginTop: Spacing.md },
   breadcrumb: { ...Typography.labelSmall, color: Colors.textTertiary },
-  title: { ...Typography.titleLarge, color: Colors.textPrimary, marginTop: Spacing.xs },
-  aliases: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: 2 },
+  title: { ...Typography.titleLarge, fontFamily: FontFamily.serif, color: Colors.textPrimary, marginTop: Spacing.xs },
+  aliases: { ...Typography.bodyMedium, color: Colors.textTertiary, lineHeight: 21, marginTop: 2 },
   intro: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 23, marginTop: Spacing.sm },
   tabScroll: { flex: 1 },
   tabContent: { padding: Layout.screenPaddingX, paddingBottom: Layout.screenPaddingBottom },
   card: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Layout.cardRadius, padding: Layout.cardPadding, marginBottom: Spacing.sm },
-  cardHeader: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { ...Typography.titleSmall, color: Colors.textPrimary, flex: 1 },
+  cardHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { ...Typography.titleSmall, fontFamily: FontFamily.serif, color: Colors.textPrimary, flex: 1 },
   cardBody: { ...Typography.bodyMedium, color: Colors.textPrimary, lineHeight: 24, marginTop: Spacing.sm },
   knowledgeItem: { paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   knowledgeItemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border, marginTop: Spacing.sm },
   knowledgeItemHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   knowledgeItemNumber: { ...Typography.labelMedium, color: Colors.primary[700], minWidth: 18 },
-  knowledgeItemTitle: { ...Typography.labelLarge, color: Colors.textPrimary, flex: 1 },
+  knowledgeItemTitle: { ...Typography.labelLarge, fontFamily: FontFamily.serif, color: Colors.textPrimary, flex: 1 },
   knowledgeItemBody: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 23, marginTop: Spacing.xs, marginLeft: 26 },
   evidenceBlock: { marginTop: Spacing.sm, marginLeft: 26, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border, paddingTop: Spacing.sm },
-  evidenceToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: 32 },
+  evidenceToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: 44 },
   evidenceToggleText: { ...Typography.labelMedium, color: Colors.primary[700], flex: 1 },
-  evidenceText: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 21, marginTop: Spacing.xs },
-  evidencePending: { ...Typography.bodySmall, color: Colors.textTertiary, lineHeight: 21, marginTop: Spacing.sm, fontStyle: 'italic' },
-  hint: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 20, marginTop: Spacing.xs, marginBottom: Spacing.sm },
-  bullet: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 20, marginTop: 3 },
+  evidenceText: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22, marginTop: Spacing.xs },
+  evidencePending: { ...Typography.bodyMedium, color: Colors.textTertiary, lineHeight: 22, marginTop: Spacing.sm, fontStyle: 'italic' },
+  hint: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22, marginTop: Spacing.xs, marginBottom: Spacing.sm },
+  bullet: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22, marginTop: 3 },
   progress: { ...Typography.labelMedium, color: Colors.primary[700], marginBottom: Spacing.sm },
-  reasonPrompt: { ...Typography.titleMedium, color: Colors.textPrimary, marginBottom: Spacing.md },
+  reasonPrompt: { ...Typography.titleMedium, fontFamily: FontFamily.serif, color: Colors.textPrimary, marginBottom: Spacing.md },
   option: { minHeight: 46, justifyContent: 'center', paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.lg, marginBottom: Spacing.sm },
   optionSelected: { borderColor: Colors.primary[500], backgroundColor: Colors.primary[50] },
   optionCorrect: { borderColor: Colors.success, backgroundColor: '#ECFDF5' },
   optionText: { ...Typography.bodyMedium, color: Colors.textPrimary },
-  feedbackError: { ...Typography.bodySmall, color: Colors.error, marginTop: Spacing.sm },
+  feedbackError: { ...Typography.bodyMedium, color: Colors.error, lineHeight: 21, marginTop: Spacing.sm },
   explanation: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22, marginTop: Spacing.md },
   input: { minHeight: 180, padding: Spacing.base, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.lg, backgroundColor: Colors.surface, ...Typography.bodyMedium, color: Colors.textPrimary, marginBottom: Spacing.md },
   primaryButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.full, backgroundColor: Colors.primary[700], marginTop: Spacing.md },
-  primaryButtonText: { ...Typography.labelLarge, color: '#fff', fontWeight: '700' },
-  secondaryButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.full, backgroundColor: Colors.ink, marginTop: Spacing.md },
-  secondaryButtonText: { ...Typography.labelMedium, color: '#fff', fontWeight: '700' },
+  primaryButtonText: { ...Typography.labelLarge, color: '#fff', fontWeight: '600' },
+  secondaryButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.full, backgroundColor: Colors.ink, marginTop: Spacing.md },
+  secondaryButtonText: { ...Typography.labelMedium, color: '#fff', fontWeight: '600' },
   disabled: { opacity: 0.5 },
   score: { ...Typography.titleLarge, color: Colors.primary[700], textAlign: 'center' },
   empty: { minHeight: 240, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   emptyTitle: { ...Typography.titleMedium, color: Colors.textPrimary, marginTop: Spacing.md, textAlign: 'center' },
-  emptyDetail: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: Spacing.xs, textAlign: 'center' },
+  emptyDetail: { ...Typography.bodyMedium, color: Colors.textTertiary, lineHeight: 21, marginTop: Spacing.xs, textAlign: 'center' },
 })

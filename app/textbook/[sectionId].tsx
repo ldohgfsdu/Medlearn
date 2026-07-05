@@ -1,156 +1,262 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
+import { TextbookEditorial, TextbookEditorialFonts } from '@/constants/textbookEditorial'
 import { Colors, Spacing, Typography } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
+import { buildKnowledgeMapRoute, buildTextbookUnitRoute } from '@/utils/routeBuilders'
+import { INTERNAL_MEDICINE_CATALOG_PARTS } from '@/constants/internalMedicineCatalog'
 import {
+  formatTextbookPageReference,
   getRespiratorySectionTitle,
   getSectionDetail,
-  type TextbookKnowledgeNode,
 } from '@/services/textbookService'
+import {
+  buildChapterCatalogStudyUnits,
+  resolveCatalogOutlineUnit,
+  type StudyUnit,
+} from '@/utils/textbookStudy'
+import {
+  formatSectionUnitTitle,
+  type TextbookCatalogChapter,
+  type TextbookCatalogUnit,
+} from '@/utils/knowledgeTree'
 
-const BADGE_LABELS: Record<string, string> = {
-  textbook_grounded: '教材依据',
-  page_bound: '页码绑定',
-  conservative_fallback: '原文降级',
-  merged: '相邻合并',
-  grouped: '同类聚合',
-  'group:classification': '分类',
-  'group:treatment': '治疗',
+type CatalogOutlineSubsection = {
+  title: string
+  studyUnit: StudyUnit | null
 }
 
-function badgeLabel(value: string): string {
-  return BADGE_LABELS[value] ?? value
+type CatalogOutlineEntry = {
+  catalogUnit: TextbookCatalogUnit
+  kind: 'leaf' | 'group'
+  studyUnit: StudyUnit | null
+  subsections: CatalogOutlineSubsection[]
 }
 
-function renderTypeLabel(node: TextbookKnowledgeNode): string {
-  if (node.renderType === 'evidence_only') return '教材原文'
-  if (node.renderType === 'grouped') return '聚合条目'
-  if (node.renderType === 'merged') return '合并知识点'
-  return '整理知识点'
+function normalizeCatalogText(value: string): string {
+  return value.replace(/\s+/g, '').replace(/[|｜　]/g, '')
 }
 
-function KnowledgeNodeItem({ node, isLast }: { node: TextbookKnowledgeNode; isLast: boolean }) {
-  const [expanded, setExpanded] = useState(node.renderType === 'evidence_only')
-  const evidenceText = expanded ? node.evidenceFull : node.evidenceExcerpt
-  const isEvidenceOnly = node.renderType === 'evidence_only'
-  const isGrouped = node.renderType === 'grouped'
+function findCatalogChapter(sectionTitle: string): TextbookCatalogChapter | null {
+  for (const part of INTERNAL_MEDICINE_CATALOG_PARTS) {
+    const chapter = part.sections.find(
+      (candidate) => normalizeCatalogText(candidate.title) === normalizeCatalogText(sectionTitle),
+    )
+    if (chapter) return chapter
+  }
+  return null
+}
 
-  return (
-    <View style={[
-      styles.nodeItem,
-      isEvidenceOnly && styles.evidenceOnlyItem,
-      isGrouped && styles.groupedItem,
-      !isLast && styles.nodeDivider,
-    ]}>
-      <View style={styles.nodeHeader}>
-        <View style={styles.nodeTitleBlock}>
-          <Text style={styles.renderLabel}>{renderTypeLabel(node)}</Text>
-          <Text style={styles.nodeTitle}>{node.title}</Text>
-        </View>
-        <View style={styles.pagePill}>
-          <Text style={styles.pagePillText}>{node.pageLabel}</Text>
-        </View>
-      </View>
+function buildSectionOutlineEntries(
+  catalogUnits: TextbookCatalogUnit[],
+  studyUnits: StudyUnit[],
+): CatalogOutlineEntry[] {
+  return catalogUnits.map((catalogUnit) => {
+    const subs = catalogUnit.subsections ?? []
+    if (subs.length >= 2) {
+      return {
+        catalogUnit,
+        kind: 'group' as const,
+        studyUnit: null,
+        subsections: subs.map((sub) => ({
+          title: sub.title,
+          studyUnit: resolveCatalogOutlineUnit(sub.title, studyUnits),
+        })),
+      }
+    }
+    const leafTitle = subs[0]?.title ?? catalogUnit.title
+    const studyUnit = resolveCatalogOutlineUnit(leafTitle, studyUnits)
+      ?? resolveCatalogOutlineUnit(catalogUnit.title, studyUnits)
+    return { catalogUnit, kind: 'leaf' as const, studyUnit, subsections: [] }
+  })
+}
 
-      {node.sourceHeading ? <Text style={styles.sourceHeading}>{node.sourceHeading}</Text> : null}
-
-      <View style={styles.badgeRow}>
-        {node.qualityBadges.map((badge) => (
-          <Text
-            key={badge}
-            style={[
-              styles.qualityBadge,
-              badge === 'conservative_fallback' && styles.fallbackBadge,
-              badge === 'grouped' && styles.groupedBadge,
-            ]}
-          >
-            {badgeLabel(badge)}
-          </Text>
-        ))}
-      </View>
-
-      {node.content ? (
-        <Text style={styles.nodeContent}>{node.content}</Text>
-      ) : isEvidenceOnly ? (
-        <Text style={styles.fallbackCopy}>本条未展示 AI 整理内容，直接呈现教材原文证据。</Text>
-      ) : null}
-
-      {node.listItems.length > 0 ? (
-        <View style={styles.itemList}>
-          {node.listItems.map((item, index) => (
-            <View key={`${node.id}-${index}`} style={styles.listItem}>
-              <Text style={styles.listIndex}>{index + 1}.</Text>
-              <View style={styles.listCopy}>
-                <View style={styles.listTitleRow}>
-                  <Text style={styles.listTitle}>{item.title}</Text>
-                  {item.pageLabel ? <Text style={styles.listPage}>{item.pageLabel}</Text> : null}
-                </View>
-                <Text style={styles.listBody}>{item.body}</Text>
+function UnitRow({
+  entry,
+  onPressUnit,
+}: {
+  entry: CatalogOutlineEntry
+  onPressUnit: (studyUnit: StudyUnit) => void
+}) {
+  if (entry.kind === 'group') {
+    return (
+      <View style={styles.unitBlock}>
+        <Text style={styles.unitGroupTitle}>{formatSectionUnitTitle(entry.catalogUnit.title)}</Text>
+        <View style={styles.subsectionList}>
+          {entry.subsections.map((subsection) => (
+            <TouchableOpacity
+              key={subsection.title}
+              style={styles.subsectionRow}
+              activeOpacity={0.68}
+              disabled={!subsection.studyUnit}
+              onPress={() => subsection.studyUnit && onPressUnit(subsection.studyUnit)}
+              accessibilityRole="button"
+              accessibilityLabel={`进入${subsection.title}`}
+            >
+              <View style={styles.subsectionDot} />
+              <View style={styles.subsectionCopy}>
+                <Text
+                  style={[styles.subsectionTitle, !subsection.studyUnit && styles.subsectionTitleMuted]}
+                >
+                  {subsection.title}
+                </Text>
+                {subsection.studyUnit ? (
+                  <Text style={styles.subsectionMeta}>
+                    {formatTextbookPageReference(subsection.studyUnit.pageLabel, 'source')} · {subsection.studyUnit.itemCount} 条
+                  </Text>
+                ) : null}
               </View>
-            </View>
+              {subsection.studyUnit ? (
+                <Ionicons name="chevron-forward" size={16} color={TextbookEditorial.inkFaint} />
+              ) : null}
+            </TouchableOpacity>
           ))}
         </View>
-      ) : null}
+      </View>
+    )
+  }
 
-      {evidenceText ? (
-        <TouchableOpacity
-          style={[
-            styles.evidenceBlock,
-            isEvidenceOnly && styles.evidenceOnlyBlock,
-            isGrouped && styles.groupedEvidenceBlock,
-          ]}
-          activeOpacity={0.72}
-          onPress={() => setExpanded((value) => !value)}
-        >
-          <View style={styles.evidenceHeader}>
-            <Text style={styles.evidenceLabel}>教材原文证据</Text>
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={Colors.textTertiary}
-            />
-          </View>
-          <Text style={styles.evidenceText}>{evidenceText}</Text>
-          {expanded && node.artifactIds.length > 0 ? (
-            <Text style={styles.artifactText}>Artifact: {node.artifactIds.join(', ')}</Text>
-          ) : null}
-          {expanded && node.sourceNodeIds.length > 1 ? (
-            <Text style={styles.artifactText}>Source nodes: {node.sourceNodeIds.length}</Text>
-          ) : null}
-        </TouchableOpacity>
-      ) : (
-        <Text style={styles.evidenceMissing}>教材证据暂不可用</Text>
-      )}
+  const { studyUnit } = entry
+  return (
+    <View style={styles.unitBlock}>
+      <TouchableOpacity
+        style={styles.unitRow}
+        activeOpacity={0.68}
+        disabled={!studyUnit}
+        onPress={() => studyUnit && onPressUnit(studyUnit)}
+        accessibilityRole="button"
+        accessibilityLabel={`进入${formatSectionUnitTitle(entry.catalogUnit.title)}`}
+      >
+        <View style={styles.unitCopy}>
+          <Text style={[styles.unitTitle, !studyUnit && styles.unitTitleMuted]}>
+            {formatSectionUnitTitle(entry.catalogUnit.title)}
+          </Text>
+          <Text style={styles.unitMeta}>
+            {studyUnit
+              ? `${formatTextbookPageReference(studyUnit.pageLabel, 'source')} · ${studyUnit.itemCount} 条`
+              : '内容尚未接入'}
+          </Text>
+        </View>
+        {studyUnit ? (
+          <Ionicons name="chevron-forward" size={18} color={TextbookEditorial.inkFaint} />
+        ) : null}
+      </TouchableOpacity>
     </View>
   )
 }
 
 export default function TextbookSectionScreen() {
   const router = useRouter()
-  const { sectionId = '' } = useLocalSearchParams<{ sectionId?: string }>()
+  const insets = useSafeAreaInsets()
+  const { sectionId = '', from = '' } = useLocalSearchParams<{ sectionId?: string; from?: string }>()
+  const fromMap = from === 'map'
   const sectionTitle = getRespiratorySectionTitle(sectionId)
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['textbookSection', sectionId, 'ev1-display-contract'],
+    queryKey: ['textbookSection', sectionId, 'study-units'],
     queryFn: () => getSectionDetail(sectionId),
     enabled: !!sectionId,
     staleTime: 300_000,
   })
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: sectionTitle ?? '章节详情' }} />
-      <TouchableOpacity style={styles.backRow} onPress={() => router.back()} activeOpacity={0.7}>
-        <Ionicons name="chevron-back" size={18} color={Colors.textSecondary} />
-        <Text style={styles.backText}>电子教材</Text>
-      </TouchableOpacity>
+  const catalogChapter = useMemo(
+    () => data ? findCatalogChapter(data.section.sectionTitle) : null,
+    [data],
+  )
+  const studyUnits = useMemo(() => data ? buildChapterCatalogStudyUnits(data) : [], [data])
+  const outlineEntries = useMemo<CatalogOutlineEntry[]>(() => {
+    const catalogUnits = catalogChapter?.units ?? []
+    return buildSectionOutlineEntries(catalogUnits, studyUnits)
+  }, [catalogChapter, studyUnits])
+  const hasFormalSectionOutline = outlineEntries.length > 0
+  const displayEntries = hasFormalSectionOutline
+    ? outlineEntries
+    : studyUnits.map((studyUnit) => ({
+      catalogUnit: { title: studyUnit.title },
+      kind: 'leaf' as const,
+      studyUnit,
+      subsections: [],
+    }))
+  const totalItems = studyUnits.reduce((sum, unit) => sum + unit.itemCount, 0)
+  const autoOpenedSingleUnit = useRef(false)
 
+  useEffect(() => {
+    if (!data || displayEntries.length !== 1 || autoOpenedSingleUnit.current) return
+    const singleEntry = displayEntries[0]
+    if (singleEntry.kind !== 'leaf' || !singleEntry.studyUnit) return
+    autoOpenedSingleUnit.current = true
+    router.replace(buildTextbookUnitRoute(sectionId, singleEntry.studyUnit.id, {
+      from: from || undefined,
+      via: 'catalog',
+    }))
+  }, [data, displayEntries, from, router, sectionId])
+
+  const openUnit = (unit: StudyUnit) => {
+    router.push(buildTextbookUnitRoute(sectionId, unit.id, {
+      from: from || undefined,
+      via: 'catalog',
+    }))
+  }
+
+  const openSubsectionUnit = (unit: StudyUnit) => {
+    router.push(buildTextbookUnitRoute(sectionId, unit.id, {
+      from: from || undefined,
+      via: 'section-subsection',
+    }))
+  }
+
+  const goBack = () => {
+    if (fromMap) {
+      if (router.canGoBack()) {
+        router.back()
+      } else {
+        router.replace(buildKnowledgeMapRoute())
+      }
+      return
+    }
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+    router.replace(buildKnowledgeMapRoute())
+  }
+
+  return (
+    <View style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.topBar, { paddingTop: insets.top + Spacing.xs }]}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={goBack}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="返回上一页"
+        >
+          <Ionicons name="arrow-back" size={22} color={TextbookEditorial.ink} />
+        </TouchableOpacity>
+        <View style={styles.topCopy}>
+          <Text style={styles.topEyebrow}>
+            {hasFormalSectionOutline ? '章节目录' : '章节内容'}
+          </Text>
+          <Text style={styles.topTitle} numberOfLines={1}>
+            {data?.section.sectionTitle || sectionTitle || '教材章节'}
+          </Text>
+          {data ? (
+            <Text style={styles.topMeta} numberOfLines={1}>
+              {data.partTitle} · {formatTextbookPageReference(data.section.pageRange, 'pdf')}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {isLoading ? (
         <View style={styles.stateBlock}>
           <ActivityIndicator color={Colors.primary[700]} />
-          <Text style={styles.stateText}>正在读取章节内容</Text>
+          <Text style={styles.stateText}>正在读取教材章节</Text>
         </View>
       ) : null}
 
@@ -158,7 +264,7 @@ export default function TextbookSectionScreen() {
         <View style={styles.stateBlock}>
           <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
           <Text style={styles.stateTitle}>章节暂时不可用</Text>
-          <Text style={styles.stateText}>请稍后重试，或检查本地 display contract fixture。</Text>
+          <Text style={styles.stateText}>请稍后重试，或检查本地教材视图。</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()} disabled={isFetching}>
             <Text style={styles.retryText}>{isFetching ? '重试中' : '重新读取'}</Text>
           </TouchableOpacity>
@@ -169,305 +275,191 @@ export default function TextbookSectionScreen() {
         <View style={styles.stateBlock}>
           <Ionicons name="document-text-outline" size={30} color={Colors.neutral[300]} />
           <Text style={styles.stateTitle}>没有找到这个章节</Text>
-          <Text style={styles.stateText}>当前本地预览只开放已导出的 EV1 display contract 章节。</Text>
+          <Text style={styles.stateText}>当前本地预览只开放已导出的教材章节。</Text>
         </View>
       ) : null}
 
-      {data ? (
+      {data && displayEntries.length === 1 ? (
+        <View style={styles.stateBlock}>
+          <ActivityIndicator color={TextbookEditorial.accent} />
+          <Text style={styles.stateText}>正在打开本章内容</Text>
+        </View>
+      ) : null}
+
+      {data && displayEntries.length !== 1 ? (
         <>
-          <View style={styles.headerBlock}>
-            <Text style={styles.sourceLine}>{data.textbookTitle} · {data.partTitle}</Text>
-            <Text style={styles.title}>{data.section.sectionTitle}</Text>
-            <View style={styles.metaGrid}>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>教材层级</Text>
-                <Text style={styles.metaValue}>{data.partTitle}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>页码范围</Text>
-                <Text style={styles.metaValue}>{data.section.pageRange} 页</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>视图节点</Text>
-                <Text style={styles.metaValue}>{data.section.nodeCount} 条</Text>
-              </View>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryBadge}>整理 {data.section.organizedCount}</Text>
-              <Text style={styles.summaryBadge}>原文 {data.section.evidenceOnlyCount}</Text>
-              <Text style={styles.summaryBadge}>聚合 {data.section.groupedCount}</Text>
-              <Text style={styles.summaryBadge}>合并 {data.section.mergedCount}</Text>
-            </View>
+          <View style={styles.chapterIntro}>
+            <Text style={styles.introMeta}>
+              {hasFormalSectionOutline
+                ? `${displayEntries.length} 节`
+                : '独立章节'} · {totalItems} 条内容
+            </Text>
           </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderTitle}>知识点</Text>
-            <Text style={styles.sectionHeaderMeta}>点击证据展开原文</Text>
-          </View>
-
-          <View style={styles.nodeList}>
-            {data.nodes.length > 0 ? data.nodes.map((node, index) => (
-              <KnowledgeNodeItem key={node.id} node={node} isLast={index === data.nodes.length - 1} />
+          <View style={styles.unitList}>
+            {displayEntries.length > 0 ? displayEntries.map((entry, index) => (
+              <View
+                key={entry.catalogUnit.title}
+                style={index < displayEntries.length - 1 && styles.unitDivider}
+              >
+                <UnitRow
+                  entry={entry}
+                  onPressUnit={entry.kind === 'leaf' ? openUnit : openSubsectionUnit}
+                />
+              </View>
             )) : (
-              <Text style={styles.emptyText}>本章暂时没有可展示的知识点。</Text>
+              <Text style={styles.emptyText}>本章暂时没有可展示的教材内容。</Text>
             )}
           </View>
         </>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: TextbookEditorial.paper,
   },
   content: {
-    paddingHorizontal: Layout.screenPaddingX,
+    paddingTop: Spacing.base,
     paddingBottom: Layout.screenPaddingBottom,
   },
-  backRow: {
-    minHeight: 44,
+  topBar: {
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  backText: {
-    ...Typography.labelMedium,
-    color: Colors.textSecondary,
-  },
-  headerBlock: {
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.lg,
-  },
-  sourceLine: {
-    ...Typography.labelMedium,
-    color: Colors.primary[700],
-  },
-  title: {
-    fontSize: 22,
-    lineHeight: 29,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    marginTop: Spacing.xs,
-  },
-  metaGrid: {
-    marginTop: Spacing.base,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Layout.cardRadius,
-    overflow: 'hidden',
-  },
-  metaItem: {
-    minHeight: 54,
-    paddingHorizontal: Layout.cardPadding,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingBottom: Spacing.xs,
+    backgroundColor: TextbookEditorial.paper,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
+    borderBottomColor: TextbookEditorial.rule,
   },
-  metaLabel: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
+  iconButton: {
+    width: 44,
+    minHeight: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
-  metaValue: {
-    ...Typography.bodyMedium,
-    color: Colors.textPrimary,
-    marginTop: 2,
+  topCopy: {
+    flex: 1,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
+  topEyebrow: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: TextbookEditorial.inkFaint,
+    fontFamily: TextbookEditorialFonts.ui,
   },
-  summaryBadge: {
+  topTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    color: TextbookEditorial.ink,
+    fontWeight: '600',
+    fontFamily: TextbookEditorialFonts.reading,
+  },
+  topMeta: {
     ...Typography.labelMedium,
-    color: Colors.primary[700],
-    backgroundColor: Colors.primary[50],
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
+    color: TextbookEditorial.inkMuted,
+    marginTop: 2,
+    fontFamily: TextbookEditorialFonts.ui,
   },
-  sectionHeader: {
+  chapterIntro: {
+    paddingHorizontal: Layout.screenPaddingX,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
+  },
+  introMeta: {
+    ...Typography.bodyMedium,
+    color: TextbookEditorial.inkMuted,
+    lineHeight: 21,
+    fontFamily: TextbookEditorialFonts.ui,
+  },
+  unitList: {
+    paddingHorizontal: Layout.screenPaddingX,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: TextbookEditorial.rule,
+  },
+  unitDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: TextbookEditorial.rule,
+  },
+  unitRow: {
+    minHeight: 72,
     flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
-  },
-  sectionHeaderTitle: {
-    ...Typography.titleMedium,
-    color: Colors.textPrimary,
-  },
-  sectionHeaderMeta: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
-  },
-  nodeList: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Layout.cardRadius,
-    overflow: 'hidden',
-  },
-  nodeItem: {
-    paddingHorizontal: Layout.cardPadding,
+    alignItems: 'center',
+    gap: Spacing.md,
     paddingVertical: Spacing.md,
   },
-  evidenceOnlyItem: {
-    backgroundColor: Colors.neutral[50],
-  },
-  groupedItem: {
-    backgroundColor: Colors.surface,
-  },
-  nodeDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
-  },
-  nodeHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  nodeTitleBlock: {
+  unitCopy: {
     flex: 1,
   },
-  renderLabel: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
-    marginBottom: 2,
-  },
-  nodeTitle: {
-    ...Typography.titleSmall,
-    color: Colors.textPrimary,
-  },
-  pagePill: {
-    minHeight: 24,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
-    borderRadius: 12,
-    backgroundColor: Colors.primary[50],
-  },
-  pagePillText: {
-    ...Typography.labelSmall,
-    color: Colors.primary[700],
-  },
-  sourceHeading: {
-    ...Typography.labelSmall,
-    color: Colors.textTertiary,
-    marginTop: Spacing.xs,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-  },
-  qualityBadge: {
-    ...Typography.labelSmall,
-    color: Colors.primary[700],
-    backgroundColor: Colors.primary[50],
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  fallbackBadge: {
-    color: Colors.warning,
-    backgroundColor: Colors.neutral[100],
-  },
-  groupedBadge: {
-    color: Colors.info,
-    backgroundColor: Colors.neutral[100],
-  },
-  nodeContent: {
-    ...Typography.bodyMedium,
-    color: Colors.textSecondary,
-    marginTop: Spacing.sm,
-  },
-  fallbackCopy: {
-    ...Typography.bodySmall,
-    color: Colors.textTertiary,
-    marginTop: Spacing.sm,
-  },
-  itemList: {
-    marginTop: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  listIndex: {
-    width: 24,
-    ...Typography.bodyMedium,
-    color: Colors.primary[700],
-    fontWeight: '700',
-  },
-  listCopy: {
-    flex: 1,
-  },
-  listTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing.sm,
-  },
-  listTitle: {
-    ...Typography.bodyMedium,
-    color: Colors.textPrimary,
+  unitTitle: {
+    fontSize: 18,
+    lineHeight: 25,
+    color: TextbookEditorial.ink,
     fontWeight: '600',
-    flex: 1,
+    fontFamily: TextbookEditorialFonts.reading,
   },
-  listPage: {
+  unitMeta: {
     ...Typography.labelSmall,
     color: Colors.textTertiary,
-  },
-  listBody: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
-  evidenceBlock: {
-    marginTop: Spacing.sm,
-    paddingLeft: Spacing.md,
-    borderLeftWidth: 2,
+  unitBlock: {
+    paddingLeft: Spacing.xs,
+  },
+  subsectionList: {
+    marginLeft: Spacing.md,
+    paddingLeft: Spacing.base,
+    paddingBottom: Spacing.md,
+    borderLeftWidth: 1,
     borderLeftColor: Colors.primary[200],
+    gap: Spacing.xs,
+  },
+  unitGroupTitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: TextbookEditorial.inkMuted,
+    fontWeight: '600',
+    fontFamily: TextbookEditorialFonts.reading,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  subsectionRow: {
     minHeight: 44,
-  },
-  evidenceOnlyBlock: {
-    borderLeftColor: Colors.warning,
-  },
-  groupedEvidenceBlock: {
-    borderLeftColor: Colors.info,
-  },
-  evidenceHeader: {
-    minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
-  evidenceLabel: {
+  subsectionDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: Colors.primary[500],
+  },
+  subsectionCopy: {
+    flex: 1,
+  },
+  subsectionTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.textSecondary,
+    fontFamily: TextbookEditorialFonts.reading,
+  },
+  subsectionTitleMuted: {
+    color: Colors.textTertiary,
+  },
+  subsectionMeta: {
     ...Typography.labelSmall,
     color: Colors.textTertiary,
+    marginTop: 2,
   },
-  evidenceText: {
-    ...Typography.bodySmall,
-    color: Colors.textPrimary,
-  },
-  artifactText: {
-    ...Typography.labelSmall,
+  unitTitleMuted: {
     color: Colors.textTertiary,
-    marginTop: Spacing.xs,
-  },
-  evidenceMissing: {
-    ...Typography.bodySmall,
-    color: Colors.textTertiary,
-    marginTop: Spacing.sm,
-    fontStyle: 'italic',
   },
   emptyText: {
     ...Typography.bodyMedium,
@@ -484,7 +476,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: Layout.cardRadius,
     padding: Spacing.xl,
-    marginTop: Spacing.md,
+    margin: Layout.screenPaddingX,
   },
   stateTitle: {
     ...Typography.titleSmall,
@@ -492,8 +484,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   stateText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textTertiary,
+    lineHeight: 21,
     textAlign: 'center',
     marginTop: Spacing.xs,
   },
@@ -509,6 +502,6 @@ const styles = StyleSheet.create({
   retryText: {
     ...Typography.labelLarge,
     color: Colors.surface,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 })

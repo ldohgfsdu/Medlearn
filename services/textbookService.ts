@@ -1,5 +1,4 @@
 import { EV1_DISPLAY_CONTRACT_SECTIONS } from '@/constants/ev1DisplayContracts'
-import { supabase } from '@/lib/supabase'
 
 export const TEXTBOOK_ID = 'internal-medicine-10'
 export const TEXTBOOK_TITLE = '内科学（第10版）'
@@ -13,6 +12,8 @@ export interface Ev1EvidenceItem {
   page_start: number | null
   page_end: number | null
   source_order: number | null
+  sourceLocatorIds?: string[]
+  pageLabel?: string
 }
 
 export interface Ev1DisplayItem {
@@ -20,6 +21,8 @@ export interface Ev1DisplayItem {
   body: string
   page_label: string
   publication_state: Ev1PublicationState
+  evidence_artifact_ids?: string[]
+  children?: Ev1DisplayItem[]
 }
 
 export interface Ev1DisplayNode {
@@ -98,7 +101,23 @@ export interface TextbookListItem {
   body: string
   pageLabel: string
   publicationState: Ev1PublicationState
+  evidenceArtifactIds?: string[]
+  children?: TextbookListItem[]
 }
+
+export interface TextbookEvidenceItem {
+  artifactId: string
+  text: string
+  pageStart: number | null
+  pageEnd: number | null
+  sourceOrder: number | null
+  pageLabel: string
+  sourceLocatorIds?: string[]
+  printedPageLabel?: string
+  pageReferenceKind: TextbookPageReferenceKind
+}
+
+export type TextbookPageReferenceKind = 'pdf' | 'printed' | 'source'
 
 export interface TextbookKnowledgeNode {
   id: string
@@ -108,10 +127,12 @@ export interface TextbookKnowledgeNode {
   publicationState: Ev1PublicationState
   qualityBadges: string[]
   listItems: TextbookListItem[]
+  evidenceItems: TextbookEvidenceItem[]
   evidenceExcerpt: string
   evidenceFull: string
   pageLabel: string
   sourceHeading: string
+  groupTopic?: string
   artifactIds: string[]
   sourceNodeIds: string[]
 }
@@ -122,33 +143,6 @@ export interface TextbookSectionDetail {
   systemTitle: string
   partTitle: string
   nodes: TextbookKnowledgeNode[]
-}
-
-interface KnowledgeSourceSpan {
-  artifact_id?: string | null
-  source_heading?: string | null
-  normalized_aspect?: string | null
-  evidence?: string | null
-  evidence_items?: string[] | null
-  page_start?: number | null
-  page_end?: number | null
-  provenance?: {
-    page_start?: number | null
-    page_end?: number | null
-    [key: string]: unknown
-  } | null
-  [key: string]: unknown
-}
-
-interface KnowledgeNodeRow {
-  id: string
-  title: string | null
-  content: string | null
-  key_points?: string[] | null
-  structured_sections?: { title?: string | null; content?: string | null }[] | null
-  sub_chapter: string | null
-  order_num: number | null
-  source_span?: KnowledgeSourceSpan | null
 }
 
 function cleanText(value: string | null | undefined): string {
@@ -164,6 +158,23 @@ function excerpt(value: string, maxLength: number): string {
 function pageRange(pageStart: number, pageEnd: number): string {
   if (!pageStart && !pageEnd) return '?'
   return pageStart === pageEnd ? String(pageStart) : `${pageStart}-${pageEnd}`
+}
+
+export function evidencePageLabel(item: Ev1EvidenceItem): string {
+  if (typeof item.page_start !== 'number') return 'p.?'
+  const end = typeof item.page_end === 'number' ? item.page_end : item.page_start
+  return item.page_start === end ? `p.${item.page_start}` : `p.${item.page_start}-${end}`
+}
+
+export function formatTextbookPageReference(
+  value: string | null | undefined,
+  kind: TextbookPageReferenceKind,
+): string {
+  const label = cleanText(value).replace(/^p\.?/iu, '')
+  if (!label || label === '?') return '页码待确认'
+  if (kind === 'printed') return `教材页 ${label}`
+  if (kind === 'pdf') return `PDF 页 ${label}`
+  return `来源页 ${label}`
 }
 
 function toSectionSummary(section: Ev1DisplayContractSection): TextbookSectionSummary {
@@ -187,6 +198,14 @@ function toSectionSummary(section: Ev1DisplayContractSection): TextbookSectionSu
 function toDisplayKnowledgeNode(node: Ev1DisplayNode): TextbookKnowledgeNode {
   const evidenceItems = node.evidence_items ?? []
   const evidenceFull = evidenceItems.map((item) => cleanText(item.text)).filter(Boolean).join('\n\n')
+  const toListItem = (item: Ev1DisplayItem): TextbookListItem => ({
+    title: cleanText(item.title),
+    body: cleanText(item.body),
+    pageLabel: cleanText(item.page_label),
+    publicationState: item.publication_state,
+    evidenceArtifactIds: (item.evidence_artifact_ids ?? []).map(cleanText).filter(Boolean),
+    children: (item.children ?? []).map(toListItem),
+  })
   return {
     id: node.id,
     title: cleanText(node.display.title) || '未命名知识点',
@@ -194,16 +213,23 @@ function toDisplayKnowledgeNode(node: Ev1DisplayNode): TextbookKnowledgeNode {
     renderType: node.render_type,
     publicationState: node.publication_state,
     qualityBadges: node.quality_badges ?? [],
-    listItems: (node.display.items ?? []).map((item) => ({
-      title: cleanText(item.title),
-      body: cleanText(item.body),
-      pageLabel: cleanText(item.page_label),
-      publicationState: item.publication_state,
+    listItems: (node.display.items ?? []).map(toListItem),
+    evidenceItems: evidenceItems.map((item) => ({
+      artifactId: item.artifact_id,
+      text: cleanText(item.text),
+      pageStart: item.page_start,
+      pageEnd: item.page_end,
+      sourceOrder: item.source_order,
+      pageLabel: cleanText(item.pageLabel) || evidencePageLabel(item),
+      printedPageLabel: cleanText(item.pageLabel) || undefined,
+      pageReferenceKind: cleanText(item.pageLabel) ? 'printed' : 'pdf',
+      sourceLocatorIds: item.sourceLocatorIds ?? [],
     })),
     evidenceExcerpt: excerpt(evidenceFull, 260),
     evidenceFull,
     pageLabel: cleanText(node.display.page_label),
     sourceHeading: cleanText(node.display.source_heading),
+    groupTopic: cleanText(node.group?.topic),
     artifactIds: evidenceItems.map((item) => item.artifact_id).filter(Boolean),
     sourceNodeIds: node.source_node_ids ?? [],
   }
@@ -218,147 +244,24 @@ export function getRespiratorySectionTitle(sectionId: string): string | null {
 }
 
 export async function getTextbookTree(): Promise<TextbookTree> {
-  if (EV1_DISPLAY_CONTRACT_SECTIONS.length > 0) {
-    return {
-      textbookId: TEXTBOOK_ID,
-      textbookTitle: TEXTBOOK_TITLE,
-      systemTitle: 'EV1 Display Contract',
-      partTitle: '已通过 release gate 的本地教材视图契约',
-      sections: EV1_DISPLAY_CONTRACT_SECTIONS.map(toSectionSummary),
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('knowledge_nodes')
-    .select('id, sub_chapter, chapter')
-    .eq('book_id', TEXTBOOK_ID)
-    .limit(1000)
-
-  if (error) throw error
-
-  const sections = new Map<string, TextbookSectionSummary>()
-  for (const row of data ?? []) {
-    const sectionTitle = String(row.sub_chapter ?? '').trim()
-    if (!sectionTitle) continue
-    const existing = sections.get(sectionTitle)
-    sections.set(sectionTitle, {
-      id: sectionTitle,
-      sectionTitle,
-      nodeCount: (existing?.nodeCount ?? 0) + 1,
-      organizedCount: existing?.organizedCount ?? 0,
-      evidenceOnlyCount: existing?.evidenceOnlyCount ?? 0,
-      mergedCount: existing?.mergedCount ?? 0,
-      groupedCount: existing?.groupedCount ?? 0,
-      pageRange: existing?.pageRange ?? '?',
-      pageStart: existing?.pageStart ?? 0,
-      pageEnd: existing?.pageEnd ?? 0,
-      partTitle: String(row.chapter ?? ''),
-      systemTitle: String(row.chapter ?? ''),
-    })
-  }
-
   return {
     textbookId: TEXTBOOK_ID,
     textbookTitle: TEXTBOOK_TITLE,
-    systemTitle: '远端知识库',
-    partTitle: 'knowledge_nodes',
-    sections: Array.from(sections.values()),
-  }
-}
-
-function contentFromNode(row: KnowledgeNodeRow): string {
-  const structured = row.structured_sections?.filter((item) => cleanText(item.content)) ?? []
-  if (structured.length > 0) {
-    return structured
-      .map((item) => {
-        const title = cleanText(item.title)
-        const content = cleanText(item.content)
-        return title ? `${title}: ${content}` : content
-      })
-      .join('\n')
-  }
-
-  if (cleanText(row.content)) return cleanText(row.content)
-  return row.key_points?.map(cleanText).filter(Boolean).join('；') ?? ''
-}
-
-function evidenceFromNode(row: KnowledgeNodeRow): string {
-  const items = row.source_span?.evidence_items?.map(cleanText).filter(Boolean) ?? []
-  if (items.length > 0) return items.join(' ')
-  return cleanText(row.source_span?.evidence)
-}
-
-function pageLabelFromSource(source: KnowledgeSourceSpan | null | undefined): string {
-  const pageStart = source?.page_start ?? source?.provenance?.page_start
-  const pageEnd = source?.page_end ?? source?.provenance?.page_end ?? pageStart
-  if (typeof pageStart !== 'number') return 'p.?'
-  return pageStart === pageEnd ? `p.${pageStart}` : `pp.${pageStart}-${pageEnd}`
-}
-
-function toLegacyKnowledgeNode(row: KnowledgeNodeRow): TextbookKnowledgeNode {
-  const evidence = evidenceFromNode(row)
-  return {
-    id: row.id,
-    title: cleanText(row.title) || '未命名知识点',
-    content: excerpt(contentFromNode(row), 320),
-    renderType: 'normal',
-    publicationState: 'organized',
-    qualityBadges: ['textbook_grounded', 'page_bound'],
-    listItems: [],
-    evidenceExcerpt: excerpt(evidence, 260),
-    evidenceFull: evidence,
-    pageLabel: pageLabelFromSource(row.source_span),
-    sourceHeading: cleanText(row.source_span?.source_heading) || cleanText(row.source_span?.normalized_aspect),
-    artifactIds: row.source_span?.artifact_id ? [row.source_span.artifact_id] : [],
-    sourceNodeIds: [row.id],
+    systemTitle: 'EV1 Display Contract',
+    partTitle: '已通过 release gate 的本地教材视图契约',
+    sections: EV1_DISPLAY_CONTRACT_SECTIONS.map(toSectionSummary),
   }
 }
 
 export async function getSectionDetail(sectionId: string): Promise<TextbookSectionDetail | null> {
   const displaySection = displaySectionById(sectionId)
-  if (displaySection) {
-    const summary = toSectionSummary(displaySection)
-    return {
-      section: summary,
-      textbookTitle: displaySection.textbookTitle,
-      systemTitle: displaySection.systemTitle,
-      partTitle: displaySection.partTitle,
-      nodes: displaySection.nodes.map(toDisplayKnowledgeNode),
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('knowledge_nodes')
-    .select('id, title, content, key_points, structured_sections, sub_chapter, order_num, source_span')
-    .eq('book_id', TEXTBOOK_ID)
-    .eq('sub_chapter', sectionId)
-    .order('order_num', { ascending: true })
-    .limit(500)
-
-  if (error) throw error
-  if (!data || data.length === 0) return null
-
-  const rows = data as KnowledgeNodeRow[]
-  const summary: TextbookSectionSummary = {
-    id: sectionId,
-    sectionTitle: sectionId,
-    nodeCount: rows.length,
-    organizedCount: rows.length,
-    evidenceOnlyCount: 0,
-    mergedCount: 0,
-    groupedCount: 0,
-    pageRange: '?',
-    pageStart: 0,
-    pageEnd: 0,
-    partTitle: '',
-    systemTitle: '',
-  }
+  if (!displaySection) return null
 
   return {
-    section: summary,
-    textbookTitle: TEXTBOOK_TITLE,
-    systemTitle: '',
-    partTitle: '',
-    nodes: rows.map(toLegacyKnowledgeNode),
+    section: toSectionSummary(displaySection),
+    textbookTitle: displaySection.textbookTitle,
+    systemTitle: displaySection.systemTitle,
+    partTitle: displaySection.partTitle,
+    nodes: displaySection.nodes.map(toDisplayKnowledgeNode),
   }
 }

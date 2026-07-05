@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...Typography.labelSmall,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.primary[700],
   },
   title: {
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   actionLabel: {
     ...Typography.labelSmall,
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 3,
   },
   action: {

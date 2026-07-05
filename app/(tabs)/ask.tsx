@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
 import { sendChatMessage } from '@/services/ai'
 import { MedicalDisclaimer } from '@/components/MedicalDisclaimer'
 
@@ -86,7 +86,7 @@ export default function AskScreen() {
         >
           <View style={styles.hero}>
             <View style={styles.heroTop}>
-              <Text style={styles.heroIndex}>ASK / 01</Text>
+              <Text style={styles.heroIndex}>学习问答 · 01</Text>
               <View style={styles.aiMark}>
                 <Ionicons name="sparkles-outline" size={22} color="#FFFDF9" />
               </View>
@@ -108,7 +108,7 @@ export default function AskScreen() {
             onPress={() => router.push('/ai-chat')}
           >
             <View>
-              <Text style={styles.immersiveEyebrow}>CONVERSATION MODE</Text>
+              <Text style={styles.immersiveEyebrow}>连续对话</Text>
               <Text style={styles.immersiveTitle}>进入沉浸式连续对话</Text>
             </View>
             <Ionicons name="arrow-forward" size={18} color="#FFFDF9" />
@@ -116,7 +116,7 @@ export default function AskScreen() {
 
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionEyebrow}>STARTING POINTS</Text>
+              <Text style={styles.sectionEyebrow}>提问示例</Text>
               <Text style={styles.sectionTitle}>可以这样问</Text>
             </View>
             <Text style={styles.sectionCount}>04</Text>
@@ -150,7 +150,7 @@ export default function AskScreen() {
         >
           <View style={styles.conversationHeader}>
             <View>
-              <Text style={styles.conversationEyebrow}>MEDICAL Q&A</Text>
+              <Text style={styles.conversationEyebrow}>学习问答</Text>
               <Text style={styles.conversationTitle}>学习问答</Text>
             </View>
             <TouchableOpacity style={styles.clearButton} onPress={clearChat}>
@@ -171,7 +171,7 @@ export default function AskScreen() {
                   styles.messageRole,
                   message.role === 'user' ? styles.userRole : styles.assistantRole,
                 ]}>
-                  {message.role === 'user' ? 'YOU' : 'MEDLEARN AI'}
+                  {message.role === 'user' ? '我' : 'MedLearn'}
                 </Text>
                 <Text style={[
                   styles.messageNumber,
@@ -192,7 +192,7 @@ export default function AskScreen() {
           {isLoading && (
             <View style={[styles.messageBlock, styles.assistantBlock]}>
               <View style={styles.messageMeta}>
-                <Text style={[styles.messageRole, styles.assistantRole]}>MEDLEARN AI</Text>
+                <Text style={[styles.messageRole, styles.assistantRole]}>MedLearn</Text>
                 <Ionicons name="ellipsis-horizontal" size={18} color={Colors.primary[700]} />
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -263,10 +263,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroIndex: {
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 1.4,
+    ...Typography.labelSmall,
+    fontWeight: '500',
     color: Colors.primary[700],
   },
   aiMark: {
@@ -280,8 +278,8 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 34,
     lineHeight: 42,
-    fontWeight: '800',
-    letterSpacing: -1,
+    fontWeight: '600',
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
     marginTop: Spacing.lg,
   },
@@ -316,10 +314,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.ink,
   },
   immersiveEyebrow: {
-    fontSize: 8,
-    lineHeight: 12,
-    fontWeight: '800',
-    letterSpacing: 1.3,
+    ...Typography.labelSmall,
+    fontWeight: '500',
     color: '#9DC8B9',
     marginBottom: 2,
   },
@@ -334,15 +330,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 1.4,
+    ...Typography.labelSmall,
+    fontWeight: '500',
     color: Colors.textTertiary,
     marginBottom: 3,
   },
   sectionTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   sectionCount: {
@@ -367,8 +362,10 @@ const styles = StyleSheet.create({
   },
   quickIndex: {
     width: 30,
-    fontSize: 10,
-    fontWeight: '700',
+    ...Typography.labelSmall,
+    fontWeight: '400',
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: Colors.textTertiary,
   },
   quickCopy: {
@@ -376,10 +373,8 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.md,
   },
   quickTag: {
-    fontSize: 9,
-    lineHeight: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
+    ...Typography.labelSmall,
+    fontWeight: '500',
     color: Colors.primary[700],
     marginBottom: 3,
   },
@@ -402,14 +397,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   conversationEyebrow: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1.4,
+    ...Typography.labelSmall,
+    fontWeight: '500',
     color: Colors.textTertiary,
     marginBottom: 3,
   },
   conversationTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   clearButton: {
@@ -445,13 +440,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   messageRole: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    ...Typography.labelSmall,
+    fontWeight: '500',
   },
   messageNumber: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...Typography.labelSmall,
+    fontWeight: '400',
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
   },
   userRole: {
     color: '#9DC8B9',
@@ -485,7 +481,6 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.base,
     paddingRight: Spacing.sm,
     paddingVertical: Spacing.sm,
-    ...Shadows.level1,
   },
   textInput: {
     flex: 1,

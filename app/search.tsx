@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useSearchNodes } from '@/hooks/useKnowledge'
 import { displayNodeTitle } from '@/utils/knowledgeCatalog'
-import { BorderRadius, Colors, Spacing, Typography } from '@/constants/theme'
+import { BorderRadius, Colors, FontFamily, Spacing, Typography } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
 import { resolveCatalogTarget, type KnowledgeNavigationNode } from '@/utils/routeBuilders'
 
@@ -242,6 +242,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: Colors.textPrimary,
     fontWeight: '600',
+    fontFamily: FontFamily.serif,
   },
   resultMeta: {
     ...Typography.bodySmall,

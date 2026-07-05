@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal } from 'react-native'
+import { appAlert } from '@/lib/app-dialog'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useQuery } from '@tanstack/react-query'
@@ -12,26 +13,39 @@ import {
   recommendStretchDifficulty,
   type CaseDifficulty,
 } from '@/utils/learningChallenge'
-import { Colors, Typography, Spacing, BorderRadius, Shadows, getMasteryColor } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily, getMasteryColor } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
+import { FLOATING_TAB_BAR_BASE_HEIGHT } from './_layout'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CHIEF_COMPLAINTS } from '@/constants/vindicate'
 import { getTotalScore, parseScoreReport } from '@/utils/scoreReport'
+
+type CaseMode = 'clinical' | 'exam'
 
 const COMPLAINT_META: Record<string, {
   icon: keyof typeof Ionicons.glyphMap
   cue: string
-  tint: string
 }> = {
-  chest_pain: { icon: 'heart-outline', cue: '心血管 · 呼吸 · 消化', tint: '#F4E3DE' },
-  dyspnea: { icon: 'cloud-outline', cue: '气道 · 肺循环', tint: '#E2EFF0' },
-  abdominal_pain: { icon: 'body-outline', cue: '定位 · 性质 · 伴随症状', tint: '#EFE8D7' },
-  fever: { icon: 'thermometer-outline', cue: '感染 · 炎症 · 肿瘤', tint: '#F2E3D7' },
-  ams: { icon: 'flash-outline', cue: '神经 · 代谢 · 中毒', tint: '#E7E4EF' },
+  chest_pain: { icon: 'heart-outline', cue: '心血管 · 呼吸 · 消化' },
+  dyspnea: { icon: 'cloud-outline', cue: '气道 · 肺循环' },
+  abdominal_pain: { icon: 'body-outline', cue: '定位 · 性质 · 伴随症状' },
+  fever: { icon: 'thermometer-outline', cue: '感染 · 炎症 · 肿瘤' },
+  ams: { icon: 'flash-outline', cue: '神经 · 代谢 · 中毒' },
+}
+
+const CHIEF_COMPLAINT_LABELS: Record<string, string> = Object.fromEntries(
+  CHIEF_COMPLAINTS.map((complaint) => [complaint.id, complaint.label]),
+)
+
+function buildLearnerSafeCaseTitle(chiefComplaint?: string | null): string {
+  const label = chiefComplaint ? CHIEF_COMPLAINT_LABELS[chiefComplaint] ?? chiefComplaint : ''
+  return label ? `${label}病例复盘` : '病例复盘'
 }
 
 export default function CasesScreen() {
   const router = useRouter()
   const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
   const { section } = useLocalSearchParams<{ section?: string }>()
   const showHistoryFirst = section === 'history'
   const { user } = useAuth()
@@ -43,6 +57,7 @@ export default function CasesScreen() {
   }, [navigation, showHistoryFirst])
   const [loading, setLoading] = useState<string | null>(null)
   const [pendingChiefComplaint, setPendingChiefComplaint] = useState<string | null>(null)
+  const [caseMode, setCaseMode] = useState<CaseMode>('clinical')
   const { data: completedSessions = [] } = useQuery({
     queryKey: ['completedCaseSessions', user?.id],
     enabled: Boolean(user),
@@ -75,7 +90,7 @@ export default function CasesScreen() {
 
   const handleStartCase = async (chiefComplaint: string) => {
     if (!user) {
-      Alert.alert('提示', '请先登录')
+      appAlert('提示', '请先登录')
       return
     }
 
@@ -95,7 +110,7 @@ export default function CasesScreen() {
       })
     } catch (e: any) {
       console.warn('[disclaimer] save failed:', e?.message)
-      Alert.alert('提示', '免责声明记录保存失败，下次进入时可能再次提示。')
+      appAlert('提示', '免责声明记录保存失败，下次进入时可能再次提示。')
     }
     const chiefComplaint = pendingChiefComplaint
     setPendingChiefComplaint(null)
@@ -118,7 +133,7 @@ export default function CasesScreen() {
         .limit(5)
 
       if (!cases || cases.length === 0) {
-        Alert.alert('提示', '该主诉下暂无可用病例')
+        appAlert('提示', '该主诉下暂无可用病例')
         return
       }
 
@@ -126,57 +141,111 @@ export default function CasesScreen() {
       const { sessionId } = await caseEngine.startCase(selected.id, userId)
       router.push(`/case/${sessionId}/chat`)
     } catch (e: any) {
-      Alert.alert('错误', e.message || '启动病例失败')
+      appAlert('错误', e.message || '启动病例失败')
     } finally {
       setLoading(null)
     }
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       {!showHistoryFirst && (
         <>
           <View style={styles.pageIntro}>
             <Text style={styles.pageIntroTitle}>从一个主诉开始</Text>
             <Text style={styles.pageIntroText}>
-              系统随机生成病例。你负责收集线索、提出诊断，并解释每一步判断。
+              临床模式训练问诊、查体、检查、诊断与治疗；应试模式等待真实题源接入后开放。
             </Text>
           </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>选择主诉</Text>
-            <Text style={styles.sectionMeta}>随机病例</Text>
+          <View style={styles.modeSwitch}>
+            <TouchableOpacity
+              style={[styles.modeButton, caseMode === 'clinical' && styles.modeButtonActive]}
+              activeOpacity={0.72}
+              onPress={() => setCaseMode('clinical')}
+              testID="case-mode-clinical"
+            >
+              <Text style={[styles.modeButtonText, caseMode === 'clinical' && styles.modeButtonTextActive]}>
+                临床模式
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeButton, caseMode === 'exam' && styles.modeButtonActive]}
+              activeOpacity={0.72}
+              onPress={() => setCaseMode('exam')}
+              testID="case-mode-exam"
+            >
+              <Text style={[styles.modeButtonText, caseMode === 'exam' && styles.modeButtonTextActive]}>
+                应试模式
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.cardGrid}>
-        {CHIEF_COMPLAINTS.map((complaint) => {
-          const meta = COMPLAINT_META[complaint.id]
-          const recommendedDifficulty = getRecommendedDifficulty(complaint.id)
-          return (
-            <TouchableOpacity
-              key={complaint.id}
-              style={styles.caseCard}
-              onPress={() => handleStartCase(complaint.id)}
-              disabled={loading !== null}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.caseIconWrap, { backgroundColor: meta.tint }]}>
-                <Ionicons name={meta.icon} size={20} color={Colors.ink} />
+          {caseMode === 'clinical' ? (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>选择主诉</Text>
+                <Text style={styles.sectionMeta}>随机病例</Text>
               </View>
-              <Text style={styles.caseTitle}>{complaint.label}</Text>
-              <Text style={styles.caseSubtitle} numberOfLines={1}>{meta.cue}</Text>
-              <Text style={styles.difficultyHint}>
-                建议 · {getDifficultyLabel(recommendedDifficulty)}
-              </Text>
-              {loading === complaint.id && (
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="small" color={Colors.primary[700]} />
-                </View>
-              )}
-            </TouchableOpacity>
-          )
-        })}
-          </View>
+
+              <View style={styles.cardGrid}>
+                {CHIEF_COMPLAINTS.map((complaint) => {
+                  const meta = COMPLAINT_META[complaint.id]
+                  const recommendedDifficulty = getRecommendedDifficulty(complaint.id)
+                  return (
+                    <TouchableOpacity
+                      key={complaint.id}
+                      style={styles.caseCard}
+                      onPress={() => handleStartCase(complaint.id)}
+                      disabled={loading !== null}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.caseIconWrap}>
+                        <Ionicons name={meta.icon} size={20} color={Colors.ink} />
+                      </View>
+                      <Text style={styles.caseTitle}>{complaint.label}</Text>
+                      <Text style={styles.caseSubtitle} numberOfLines={1}>{meta.cue}</Text>
+                      <Text style={styles.difficultyHint}>
+                        建议 · {getDifficultyLabel(recommendedDifficulty)}
+                      </Text>
+                      {loading === complaint.id && (
+                        <View style={styles.loadingOverlay}>
+                          <ActivityIndicator size="small" color={Colors.primary[700]} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </>
+          ) : (
+            <View style={styles.examModeCard} testID="case-exam-mode-placeholder">
+              <View style={styles.examModeIcon}>
+                <Ionicons name="school-outline" size={22} color={Colors.primary[700]} />
+              </View>
+              <View style={styles.examModeCopy}>
+                <Text style={styles.examModeTitle}>应试模式待题源接入</Text>
+                <Text style={styles.examModeText}>
+                  这里会承接真实题干、选项、答案与解析。未接入前不生成模拟真题，避免把未经审核的题目当成练习材料。
+                </Text>
+                <TouchableOpacity
+                  style={styles.examModeAction}
+                  activeOpacity={0.74}
+                  onPress={() => router.push('/wrong-questions' as const)}
+                >
+                  <Text style={styles.examModeActionText}>先查看错题弱点</Text>
+                  <Ionicons name="arrow-forward" size={15} color={Colors.surface} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </>
       )}
 
@@ -198,12 +267,8 @@ export default function CasesScreen() {
 
       {completedSessions.length === 0 ? (
         <View style={styles.emptyCard}>
-          <View style={styles.emptyTop}>
-            <Text style={styles.emptyNumber}>00</Text>
-            <Ionicons name="clipboard-outline" size={26} color={Colors.primary[700]} />
-          </View>
-          <Text style={styles.emptyTitle}>还没有病例记录</Text>
-          <Text style={styles.emptySubtitle}>完成第一次模拟后，这里会保存得分与结构化复盘。</Text>
+          <Text style={styles.emptyTitle}>暂无病例记录</Text>
+          <Text style={styles.emptySubtitle}>完成一次病例训练后，这里会显示评分与复盘记录。</Text>
         </View>
       ) : (
         <View style={styles.completedList}>
@@ -221,7 +286,9 @@ export default function CasesScreen() {
               >
                 <Text style={styles.completedIndex}>{String(index + 1).padStart(2, '0')}</Text>
                 <View style={styles.completedContent}>
-                  <Text style={styles.completedTitle} numberOfLines={1}>{template?.title || session.case_id}</Text>
+                  <Text style={styles.completedTitle} numberOfLines={1}>
+                    {buildLearnerSafeCaseTitle(template?.chief_complaint)}
+                  </Text>
                   <Text style={styles.completedTime}>
                     {session.completed_at ? new Date(session.completed_at).toLocaleDateString('zh-CN') : ''}
                   </Text>
@@ -250,7 +317,7 @@ export default function CasesScreen() {
             </View>
             <Text style={styles.disclaimerTitle}>学习用途声明</Text>
             <Text style={styles.disclaimerText}>
-              Medlearn 是医学教育训练工具，不提供医疗建议。AI 生成内容可能不准确，不能用于真实患者诊断或治疗。
+              MedLearn 是医学教育训练工具，不提供医疗建议。AI 生成内容可能不准确，不能用于真实患者诊断或治疗。
             </Text>
             <Text style={styles.disclaimerText}>
               请不要输入真实患者姓名、联系方式、病历号或其他可识别信息。
@@ -280,7 +347,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Layout.screenPaddingX,
-    paddingBottom: Layout.screenPaddingBottom,
+    // paddingBottom 由 inline（FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg）提供。
   },
   pageIntro: {
     paddingTop: Spacing.xs,
@@ -288,6 +355,7 @@ const styles = StyleSheet.create({
   },
   pageIntroTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   pageIntroText: {
@@ -305,16 +373,90 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   sectionMeta: {
     ...Typography.labelSmall,
     color: Colors.textTertiary,
   },
+  modeSwitch: {
+    minHeight: 46,
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceVariant,
+    marginBottom: Spacing.md,
+  },
+  modeButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.full,
+  },
+  modeButtonActive: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modeButtonText: {
+    ...Typography.labelLarge,
+    color: Colors.textTertiary,
+    fontWeight: '600',
+  },
+  modeButtonTextActive: {
+    color: Colors.primary[700],
+  },
   cardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
+  },
+  examModeCard: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    padding: Layout.cardPadding,
+    borderRadius: Layout.cardRadius,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  examModeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary[50],
+  },
+  examModeCopy: {
+    flex: 1,
+  },
+  examModeTitle: {
+    ...Typography.titleSmall,
+    color: Colors.textPrimary,
+  },
+  examModeText: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+    lineHeight: 19,
+  },
+  examModeAction: {
+    alignSelf: 'flex-start',
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primary[700],
+    marginTop: Spacing.md,
+  },
+  examModeActionText: {
+    ...Typography.labelMedium,
+    color: Colors.surface,
+    fontWeight: '600',
   },
   caseCard: {
     width: '48.5%' as any,
@@ -332,6 +474,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
+    // 收敛：统一使用 primarySoft，不再每个症状一种彩色，避免变成彩色 dashboard。
+    backgroundColor: Colors.primary[50],
   },
   caseTitle: {
     ...Typography.titleSmall,
@@ -345,7 +489,7 @@ const styles = StyleSheet.create({
   difficultyHint: {
     ...Typography.labelSmall,
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: Spacing.xs,
   },
   loadingOverlay: {
@@ -369,27 +513,16 @@ const styles = StyleSheet.create({
   historyBackText: {
     ...Typography.labelLarge,
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
   },
   emptyCard: {
-    minHeight: 168,
+    minHeight: 120,
     backgroundColor: Colors.surface,
     padding: Spacing.lg,
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: Colors.border,
-  },
-  emptyTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.xl,
-  },
-  emptyNumber: {
-    fontSize: 42,
-    lineHeight: 46,
-    fontWeight: '300',
-    color: Colors.neutral[200],
+    alignItems: 'flex-start',
   },
   emptyTitle: {
     ...Typography.titleMedium,
@@ -421,9 +554,12 @@ const styles = StyleSheet.create({
   },
   completedIndex: {
     width: 22,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
     color: Colors.textTertiary,
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
   },
   completedContent: {
     flex: 1,
@@ -432,6 +568,7 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     color: Colors.textPrimary,
     fontWeight: '600',
+    fontFamily: FontFamily.sans,
   },
   completedTime: {
     ...Typography.labelSmall,
@@ -439,8 +576,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   scoreText: {
-    ...Typography.titleSmall,
-    fontWeight: '800',
+    ...Typography.numberMedium,
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
   },
   modalBackdrop: {
     flex: 1,
@@ -452,7 +590,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius['2xl'],
     padding: Spacing.xl,
-    ...Shadows.level3,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   disclaimerTop: {
     flexDirection: 'row',
@@ -464,7 +603,7 @@ const styles = StyleSheet.create({
     fontSize: 44,
     lineHeight: 48,
     fontWeight: '300',
-    color: Colors.neutral[200],
+    color: Colors.neutral[300],
   },
   disclaimerIconWrap: {
     width: 48,
@@ -476,6 +615,7 @@ const styles = StyleSheet.create({
   },
   disclaimerTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     fontSize: 24,
     color: Colors.textPrimary,
     marginBottom: Spacing.md,
@@ -508,12 +648,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 48,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.ink,
+    backgroundColor: Colors.primary[700],
     alignItems: 'center',
     justifyContent: 'center',
   },
   disclaimerPrimaryText: {
     ...Typography.labelMedium,
-    color: '#FFFDF9',
+    color: Colors.surface,
+    fontWeight: '600',
   },
 })

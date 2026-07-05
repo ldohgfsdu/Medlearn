@@ -6,16 +6,17 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native'
+import { appAlert } from '@/lib/app-dialog'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { trackCaseEvent } from '@/services/analytics'
 import type { ConfidenceLevel } from '@/utils/learningChallenge'
-import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
+import { VINDICATE_CATEGORIES } from '@/constants/vindicate'
 
 export default function DiagnoseScreen() {
   const router = useRouter()
@@ -61,7 +62,7 @@ export default function DiagnoseScreen() {
 
   const handleSubmit = async () => {
     if (!primaryDiagnosis.trim()) {
-      Alert.alert('提示', '请输入主要诊断')
+      appAlert('提示', '请输入主要诊断')
       return
     }
     if (!user || !sessionId) return
@@ -107,7 +108,7 @@ export default function DiagnoseScreen() {
 
       router.push(`/case/${sessionId}/treat`)
     } catch {
-      Alert.alert('错误', '提交失败，请重试')
+      appAlert('错误', '提交失败，请重试')
     } finally {
       setLoading(false)
     }
@@ -116,7 +117,7 @@ export default function DiagnoseScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <Text style={styles.heroEyebrow}>CLINICAL DECISION / 03</Text>
+        <Text style={styles.heroEyebrow}>临床判断 · 03</Text>
         <Text style={styles.heroTitle}>提交你的诊断判断</Text>
         <Text style={styles.heroText}>先给出最可能诊断，再说明鉴别对象与支持证据。系统会分别评分。</Text>
       </View>
@@ -137,6 +138,20 @@ export default function DiagnoseScreen() {
 
       {/* 鉴别诊断 */}
       <SectionHeading index="02" title="鉴别诊断" />
+      <View style={styles.vindicateCard} testID="diagnosis-vindicate-guide">
+        <View style={styles.vindicateHeader}>
+          <Text style={styles.vindicateTitle}>VINDICATE 快速扫查</Text>
+          <Text style={styles.vindicateMeta}>先展开思路，再写最需要排除的诊断</Text>
+        </View>
+        <View style={styles.vindicateGrid}>
+          {VINDICATE_CATEGORIES.map((category, index) => (
+            <View key={`${category.letter}-${category.name}-${index}`} style={styles.vindicateChip}>
+              <Text style={styles.vindicateLetter}>{category.letter}</Text>
+              <Text style={styles.vindicateName}>{category.name}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
       {differentials.map((diff, i) => (
         <View key={i} style={styles.diffCard}>
           <View style={styles.diffHeader}>
@@ -272,17 +287,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   heroEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    ...Typography.labelSmall,
+    fontWeight: '500',
     color: '#9DC8B9',
   },
   heroTitle: {
     fontSize: 28,
     lineHeight: 35,
-    fontWeight: '800',
-    letterSpacing: -0.7,
+    fontWeight: '600',
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: '#FFFDF9',
     marginTop: Spacing.lg,
   },
@@ -301,8 +315,10 @@ const styles = StyleSheet.create({
   },
   sectionIndex: {
     width: 30,
-    fontSize: 10,
-    fontWeight: '700',
+    ...Typography.labelSmall,
+    fontWeight: '400',
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: Colors.textTertiary,
   },
   sectionTitle: {
@@ -332,8 +348,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   hintText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textTertiary,
+    lineHeight: 21,
   },
   diffCard: {
     backgroundColor: Colors.surface,
@@ -342,6 +359,53 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  vindicateCard: {
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary[100],
+  },
+  vindicateHeader: {
+    gap: 2,
+  },
+  vindicateTitle: {
+    ...Typography.titleSmall,
+    color: Colors.textPrimary,
+  },
+  vindicateMeta: {
+    ...Typography.bodyMedium,
+    color: Colors.textTertiary,
+    lineHeight: 21,
+  },
+  vindicateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  vindicateChip: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.primary[50],
+  },
+  vindicateLetter: {
+    ...Typography.labelMedium,
+    color: Colors.primary[700],
+    fontWeight: '600',
+  },
+  vindicateName: {
+    ...Typography.labelSmall,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   diffHeader: {
     flexDirection: 'row',
@@ -375,7 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[50],
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textPrimary,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -437,7 +501,7 @@ const styles = StyleSheet.create({
   },
   confidenceChip: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 44,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     borderColor: Colors.primary[200],
@@ -455,7 +519,7 @@ const styles = StyleSheet.create({
   },
   confidenceTextActive: {
     color: '#FFFDF9',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   uncertaintyInput: {
     minHeight: 72,
@@ -490,6 +554,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...Typography.labelLarge,
     color: '#FFFDF9',
-    fontWeight: '700',
+    fontWeight: '600',
   },
 })

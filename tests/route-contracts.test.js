@@ -1,9 +1,21 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import test from 'node:test'
 
+const require = createRequire(import.meta.url)
+const { loadTypeScriptModule } = require('./loadTsModule')
+
 const root = process.cwd()
+const {
+  buildKnowledgeMapRoute,
+  buildTextbookSectionRoute,
+  buildTextbookUnitRoute,
+  chapterHasCatalogOutlineUnits,
+  isAllowedMapUnitEntry,
+  shouldOpenChapterCatalog,
+} = loadTypeScriptModule(path.join(root, 'utils', 'routeBuilders.ts'))
 
 test('legacy detail route files are removed', () => {
   for (const relative of [
@@ -20,11 +32,88 @@ test('route builders are the only business route constructors', () => {
   const source = fs.readFileSync(path.join(root, 'utils/routeBuilders.ts'), 'utf8')
   assert.match(source, /pathname: '\/disease\/\[id\]'/)
   assert.match(source, /pathname: '\/chapter\/\[id\]'/)
+  assert.match(source, /pathname: '\/textbook\/\[sectionId\]'/)
+  assert.match(source, /pathname: '\/textbook\/\[sectionId\]\/unit\/\[unitId\]'/)
+  assert.match(source, /buildKnowledgeMapRoute/)
   assert.match(source, /content_class === 'confirmed_disease'/)
   assert.match(source, /node\.node_type === 'disease'/)
   assert.match(source, /node\.content_status === 'available'/)
   assert.match(source, /content_class === 'non_disease_knowledge'/)
   assert.match(source, /return null/)
+})
+
+test('chapter outline detection keeps 绪论 on chapter catalog instead of first unit', () => {
+  assert.equal(chapterHasCatalogOutlineUnits({ units: [{ title: '第一节 | 示例' }] }), true)
+  assert.equal(chapterHasCatalogOutlineUnits({ title: '绪论' }), false)
+  assert.equal(chapterHasCatalogOutlineUnits({}), false)
+})
+
+test('single-section chapters skip chapter catalog and open content directly', () => {
+  assert.equal(shouldOpenChapterCatalog(1), false)
+  assert.equal(shouldOpenChapterCatalog(16), true)
+  assert.equal(shouldOpenChapterCatalog(0), false)
+})
+
+test('map unit entry requires explicit via when coming from knowledge map', () => {
+  assert.equal(isAllowedMapUnitEntry('map', undefined), false)
+  assert.equal(isAllowedMapUnitEntry('map', 'catalog'), true)
+  assert.equal(isAllowedMapUnitEntry('map', 'map-inline'), true)
+  assert.equal(isAllowedMapUnitEntry('wrong-question', undefined), true)
+})
+
+test('textbook route builders carry map origin and target item identity', () => {
+  assert.equal(buildKnowledgeMapRoute(), '/(tabs)/learn')
+
+  const sectionRoute = buildTextbookSectionRoute('resp-intro', 'map')
+  assert.equal(sectionRoute.pathname, '/textbook/[sectionId]')
+  assert.equal(sectionRoute.params.sectionId, 'resp-intro')
+  assert.equal(sectionRoute.params.from, 'map')
+
+  const unitRoute = buildTextbookUnitRoute('resp-intro', 'unit-1', { from: 'map' })
+  assert.equal(unitRoute.pathname, '/textbook/[sectionId]/unit/[unitId]')
+  assert.equal(unitRoute.params.sectionId, 'resp-intro')
+  assert.equal(unitRoute.params.unitId, 'unit-1')
+  assert.equal(unitRoute.params.from, 'map')
+
+  const wrongQuestionRoute = buildTextbookUnitRoute('resp-intro', 'unit-1', {
+    from: 'wrong-question',
+    targetItemId: 'item-9',
+  })
+  assert.equal(wrongQuestionRoute.pathname, '/textbook/[sectionId]/unit/[unitId]')
+  assert.equal(wrongQuestionRoute.params.sectionId, 'resp-intro')
+  assert.equal(wrongQuestionRoute.params.unitId, 'unit-1')
+  assert.equal(wrongQuestionRoute.params.from, 'wrong-question')
+  assert.equal(wrongQuestionRoute.params.targetItemId, 'item-9')
+})
+
+test('textbook map entry preserves origin through section and unit routes', () => {
+  const sectionSource = fs.readFileSync(path.join(root, 'app/textbook/[sectionId].tsx'), 'utf8')
+  const unitSource = fs.readFileSync(
+    path.join(root, 'app/textbook/[sectionId]/unit/[unitId].tsx'),
+    'utf8',
+  )
+  const mapSource = fs.readFileSync(path.join(root, 'app/map.tsx'), 'utf8')
+
+  assert.match(sectionSource, /buildKnowledgeMapRoute/)
+  assert.match(sectionSource, /buildTextbookUnitRoute/)
+  assert.match(sectionSource, /fromMap/)
+  assert.match(unitSource, /buildTextbookSectionRoute/)
+  assert.match(unitSource, /isAllowedMapUnitEntry/)
+  assert.match(sectionSource, /via: 'catalog'/)
+  assert.match(mapSource, /via: 'map-inline'/)
+  assert.match(mapSource, /buildTextbookSectionRoute/)
+  assert.match(mapSource, /buildTextbookUnitRoute/)
+  assert.match(mapSource, /chapterHasCatalogOutlineUnits/)
+  assert.match(mapSource, /openChapterFromMap/)
+  assert.match(mapSource, /shouldOpenChapterCatalog/)
+  assert.match(mapSource, /router\.push\(buildTextbookSectionRoute/)
+  assert.match(mapSource, /router\.push\(buildTextbookUnitRoute/)
+  assert.doesNotMatch(mapSource, /router\.replace\(buildTextbookSectionRoute/)
+  assert.doesNotMatch(mapSource, /router\.replace\(buildTextbookUnitRoute/)
+  assert.match(unitSource, /buildKnowledgeMapRoute/)
+  assert.match(unitSource, /from === 'map'/)
+  assert.doesNotMatch(mapSource, /进入\$\{catalog\.title\}章节目录/)
+  assert.doesNotMatch(mapSource, /enterActionText.*查看目录/s)
 })
 
 test('MVP status migration separates node type from content status', () => {

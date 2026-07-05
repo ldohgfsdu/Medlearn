@@ -11,7 +11,7 @@ from textbook_pipeline.evidence_release_gate import (
     summarize_gate_results,
     validate_ev1_normalized_payload,
 )
-from tests.test_evidence_to_knowledge import _payload
+from test_evidence_to_knowledge import _payload
 
 
 class EvidenceReleaseGateTests(unittest.TestCase):

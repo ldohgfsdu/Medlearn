@@ -1,6 +1,4 @@
 import React, { useMemo } from 'react'
-
-export const options = { headerTitle: '学习路径' }
 import {
   View,
   Text,
@@ -13,9 +11,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
 import { useLearningPath, useNextRecommended } from '@/hooks/useLearningPath'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
 import type { LearningPathNode } from '@/services/learning-path'
 import { resolveTarget } from '@/utils/routeBuilders'
+
+export const options = { headerTitle: '学习路径' }
 
 const STATUS_CONFIG: Record<LearningPathNode['status'], { icon: keyof typeof Ionicons.glyphMap; label: string; color: string; bg: string }> = {
   mastered: { icon: 'checkmark-circle', label: '已掌握', color: Colors.success, bg: '#ECFDF5' },
@@ -305,10 +305,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
     alignItems: 'center',
-    ...Shadows.level1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
   },
   statValue: {
-    ...Typography.titleMedium,
+    ...Typography.numberMedium,
     color: Colors.textPrimary,
     marginTop: 2,
   },
@@ -327,7 +328,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
     overflow: 'hidden',
-    ...Shadows.level1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
   },
   chapterHeader: {
     flexDirection: 'row',
@@ -395,6 +397,7 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     color: Colors.textPrimary,
     flex: 1,
+    fontFamily: FontFamily.serif,
   },
   nodeTitleLocked: {
     color: Colors.textTertiary,
@@ -425,7 +428,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.primary[200],
-    ...Shadows.level2,
   },
   recommendHeader: {
     flexDirection: 'row',
@@ -437,6 +439,7 @@ const styles = StyleSheet.create({
   },
   recommendTitle: {
     ...Typography.titleSmall,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   recommendNode: {
@@ -467,6 +470,7 @@ const styles = StyleSheet.create({
     ...Typography.bodyLarge,
     color: Colors.textPrimary,
     fontWeight: '600',
+    fontFamily: FontFamily.serif,
   },
   recommendNodeMeta: {
     ...Typography.bodySmall,
@@ -482,7 +486,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.primary[200],
-    ...Shadows.level2,
   },
   completeTitle: {
     ...Typography.titleMedium,

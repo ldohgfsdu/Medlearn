@@ -142,6 +142,12 @@ def extract_line_bboxes(
 
     Each returned bbox covers one visual PDF line (fragments on the same row
     are merged). Single-line artifacts return [bbox] unchanged.
+
+    Multi-line artifacts use y-range extraction from the page dict: every dict
+    line whose vertical center falls within the bbox y-span is collected. This
+    reliably covers all visual lines, including short trailing lines (e.g.
+    ``ICS 使用``) that ``page.search_for`` misses due to mixed CJK/Latin
+    encoding or subscript characters.
     """
     bbox_height = bbox[3] - bbox[1]
     has_newlines = "\n" in raw_text
@@ -150,52 +156,24 @@ def extract_line_bboxes(
     if not has_newlines and bbox_height < 15:
         return [bbox]
 
+    # Multi-line: collect every dict line whose vertical center is within the
+    # bbox y-range. Same-row fragments are merged by merge_same_line_bboxes.
+    page_dict = page.get_text("dict")
     raw_bboxes: list[list[float]] = []
-
-    # Case 1: multi-line text with newlines — search each line segment
-    if has_newlines:
-        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
-        for line_text in lines:
-            rects = page.search_for(line_text)
-            if rects:
-                best = min(rects, key=lambda r: abs(r.y0 - bbox[1]))
-                raw_bboxes.append([best.x0, best.y0, best.x1, best.y1])
-            else:
-                # search_for failed — try dict-based line matching
-                page_dict = page.get_text("dict")
-                for block in page_dict.get("blocks", []):
-                    if block.get("type") != 0:
-                        continue
-                    for line in block.get("lines", []):
-                        line_bbox = line.get("bbox")
-                        if not line_bbox:
-                            continue
-                        line_text_found = "".join(
-                            s.get("text", "") for s in line.get("spans", [])
-                        ).strip()
-                        if line_text_found and line_text in line_text_found:
-                            raw_bboxes.append(list(line_bbox))
-                            break
-        if raw_bboxes:
-            return merge_same_line_bboxes(raw_bboxes)
-
-    # Case 2: tall bbox (multi-line) — find all text lines within y-range
-    if bbox_height >= 15:
-        page_dict = page.get_text("dict")
-        for block in page_dict.get("blocks", []):
-            if block.get("type") != 0:
+    for block in page_dict.get("blocks", []):
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", []):
+            line_bbox = line.get("bbox")
+            if not line_bbox:
                 continue
-            for line in block.get("lines", []):
-                line_bbox = line.get("bbox")
-                if not line_bbox:
-                    continue
-                line_y_center = (line_bbox[1] + line_bbox[3]) / 2
-                if (bbox[1] - 2) <= line_y_center <= (bbox[3] + 2):
-                    raw_bboxes.append(list(line_bbox))
-        if raw_bboxes:
-            return merge_same_line_bboxes(
-                sorted(raw_bboxes, key=lambda b: b[1])
-            )
+            line_y_center = (line_bbox[1] + line_bbox[3]) / 2
+            if (bbox[1] - 2) <= line_y_center <= (bbox[3] + 2):
+                raw_bboxes.append(list(line_bbox))
+    if raw_bboxes:
+        return merge_same_line_bboxes(
+            sorted(raw_bboxes, key=lambda b: b[1])
+        )
 
     # Fallback: original single bbox
     return [bbox]

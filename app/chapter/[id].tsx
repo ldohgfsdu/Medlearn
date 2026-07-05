@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useChapterKnowledge } from '@/hooks/useDiseaseDetail'
-import { Colors, Spacing, Typography } from '@/constants/theme'
+import { Colors, FontFamily, Spacing, Typography } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
 
 function nodeText(node: {
@@ -84,15 +84,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, backgroundColor: Colors.background },
   header: { paddingHorizontal: Layout.screenPaddingX, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
-  back: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
+  back: { flexDirection: 'row', alignItems: 'center', minHeight: 44, marginBottom: Spacing.sm },
   backText: { ...Typography.labelMedium, color: Colors.textSecondary },
   path: { ...Typography.labelSmall, color: Colors.textTertiary },
-  title: { ...Typography.titleLarge, color: Colors.textPrimary, marginTop: Spacing.xs },
-  subtitle: { ...Typography.bodySmall, color: Colors.textSecondary, marginTop: Spacing.xs },
+  title: { ...Typography.titleLarge, fontFamily: FontFamily.serif, color: Colors.textPrimary, marginTop: Spacing.xs },
+  subtitle: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 21, marginTop: Spacing.xs },
   content: { padding: Layout.screenPaddingX, paddingBottom: Layout.screenPaddingBottom },
   card: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Layout.cardRadius, padding: Layout.cardPadding, marginBottom: Spacing.sm },
-  cardHeader: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { ...Typography.titleSmall, color: Colors.textPrimary, flex: 1 },
+  cardHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { ...Typography.titleSmall, fontFamily: FontFamily.serif, color: Colors.textPrimary, flex: 1 },
   body: { ...Typography.bodyMedium, color: Colors.textPrimary, lineHeight: 24, marginTop: Spacing.sm },
   empty: { ...Typography.bodyMedium, color: Colors.textTertiary, textAlign: 'center', marginTop: Spacing.xl },
   link: { ...Typography.labelLarge, color: Colors.primary[700], marginTop: Spacing.md },

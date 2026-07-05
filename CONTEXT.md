@@ -38,6 +38,10 @@ relevant Knowledge after feedback, but must not create a forced funnel.
   publication or review state.
 - **Active Object**: the single project-level execution priority recorded in
   `state/active_object.yaml`.
+- **Document Tree**: the textbook-faithful hierarchical structure for one textbook
+  version—catalog/section nesting, source order, and content blocks anchored to
+  evidence. Maps to **Catalog Node** positions plus nested children and display
+  contracts; not the semantic concept graph. Gate: `docs/architecture/phase1_phase2_gate.md`.
 - **Pipeline Operational State**: subsystem progress such as
   `state/knowledge_ingestion.yaml`; it does not create a second project-level
   Active Object.
@@ -69,6 +73,22 @@ query -> correct catalog object -> correct source aspect -> evidence -> page
 ```
 
 Search must not become open-ended medical answer generation.
+
+## Knowledge Line Status Layers
+
+Do not treat “EV1 quality passed” as “knowledge product shipped.” Track separately:
+
+| Layer | Meaning |
+| ----- | ------- |
+| Data quality | Local EV1 strict gates (candidate, release, display, source QA) |
+| Data deployment | Remote Supabase sync vs local normalized cache |
+| App query | Client can read knowledge via configured path (`db_query_ready`) |
+| App visible UX | Learner-facing detail/list quality (`ui_visible`) |
+| Textbook reading experience | Structured Document Tree reading, not card soup |
+| Page-image return path | Tap evidence → textbook page image + locator (ADR-009, Phase 1 visual) |
+
+Current execution priority: `docs/CURRENT_STATE.md` (Active Object:
+`phase1_document_tree_golden_path_validation`).
 
 ## Current Technology
 

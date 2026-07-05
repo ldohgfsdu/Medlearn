@@ -1,10 +1,21 @@
 import type {
+  TextbookPageReferenceKind,
   TextbookKnowledgeNode,
   TextbookListItem,
   TextbookSectionDetail,
   TextbookSectionSummary,
   TextbookTree,
 } from '@/services/textbookService'
+import {
+  diseaseNamesMatch,
+  type TextbookCatalogChapter,
+  type TextbookCatalogPart,
+  type TextbookCatalogUnit,
+} from '@/utils/knowledgeTree'
+
+const INTERNAL_MEDICINE_CATALOG_PARTS = (require('../constants/catalog.internal-medicine.json') as {
+  chapters: TextbookCatalogPart[]
+}).chapters
 
 export interface TextbookMapChapter {
   id: string
@@ -38,6 +49,7 @@ export interface StudyEvidence {
   pageLabel: string
   sourceOrder: number | null
   sourceLocatorIds?: string[]
+  pageReferenceKind: TextbookPageReferenceKind
 }
 
 export interface StudyGroupItem {
@@ -61,6 +73,7 @@ export interface StudyGroup {
 export interface StudyUnit {
   id: string
   title: string
+  catalogTitle?: string
   pageLabel: string
   itemCount: number
   evidenceOnlyCount: number
@@ -81,6 +94,7 @@ const TEXTBOOK_CHAPTER_TITLE_RE = /^\u7b2c[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\
 
 interface CatalogStudyUnit {
   title: string
+  catalogTitle?: string
   match: (node: TextbookKnowledgeNode) => boolean
 }
 
@@ -176,8 +190,78 @@ function cleanText(value: string | null | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * Normalize textbook display text for frontend rendering.
+ *
+ * Mirrors Python `scripts/textbook_pipeline/paragraph_reconstruction.py::normalize_display_text`.
+ * Rules:
+ * - NFC normalization (NOT NFKC — NFKC decomposes full-width CJK punctuation like ，→, which
+ *   would modify medical text appearance; NFC preserves full-width punctuation)
+ * - Strip zero-width chars (U+200B-U+200D, U+FEFF)
+ * - Preserve paragraph boundaries (\n\n) while merging PDF line-wrap breaks
+ * - Remove spaces between CJK chars (PDF line-break artifacts)
+ * - Remove spaces between CJK and digits (both directions)
+ * - Remove spaces before and after Chinese punctuation
+ * - Remove spaces after opening brackets / before and after closing brackets
+ * - Preserve English word spacing and unit spacing (e.g., "10 mg", "bronchial asthma")
+ *
+ * Does NOT modify medical text. Does NOT reconstruct truncated sentences.
+ */
+export function normalizeTextbookDisplayText(value: string | null | undefined): string {
+  if (!value) return ''
+  let text = (value ?? '').normalize('NFC')
+  text = text.replace(/[\u200B-\u200D\uFEFF]/g, '')
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const segments = text.split(/\n{2,}/)
+  const normalized: string[] = []
+  for (let segment of segments) {
+    segment = segment.replace(/[ \t\u3000]+/g, ' ')
+    segment = segment.replace(/(?<=[\u4e00-\u9fff])[ \t\u3000\n]+(?=[\u4e00-\u9fff])/g, '')
+    segment = segment.replace(/\n/g, ' ')
+    segment = segment.replace(/[ \t]+/g, ' ')
+    segment = segment.replace(/(?<=\d)[ \t]+(?=[\u4e00-\u9fff])/g, '')
+    segment = segment.replace(/(?<=[\u4e00-\u9fff])[ \t]+(?=\d)/g, '')
+    segment = segment.replace(/[ \t]+([，。；：！？、])/g, '$1')
+    segment = segment.replace(/([，。；：！？、])[ \t]+/g, '$1')
+    segment = segment.replace(/([（【「『])[ \t]+/g, '$1')
+    segment = segment.replace(/[ \t]+([）】」』])/g, '$1')
+    segment = segment.replace(/([）】」』])[ \t]+/g, '$1')
+    const trimmed = segment.trim()
+    if (trimmed) normalized.push(trimmed)
+  }
+  return normalized.join('\n\n')
+}
+
+/**
+ * Detect truncated textbook text (port of Python is_truncated_sentence).
+ *
+ * Used by the App to mark body/evidence fields that end mid-clause, so the
+ * learner is directed to the PageViewer page image for the complete original.
+ * Mirrors scripts/textbook_pipeline/paragraph_reconstruction.py:98-108.
+ */
+const TRUNCATED_TAIL_RE =
+  /(?:或|和|及|以及|包括|如|为|是|有|伴|并|但|而|且|与|在|对|从|向|把|被|将|要|可|应|需|待|的|了|着|过|发|距|射|照|物)\s*$/
+
+function endsSentence(text: string): boolean {
+  const value = (text ?? '').trim()
+  if (!value) return false
+  const last = value[value.length - 1]
+  if ('。！？；.!?;」』""%％）)'.includes(last)) return true
+  if (last === '.' && !(value.length >= 2 && /\d/.test(value[value.length - 2]))) return true
+  return false
+}
+
+export function isTruncatedText(text: string | null | undefined): boolean {
+  const value = (text ?? '').trim()
+  if (!value) return false
+  if (endsSentence(value)) return false
+  if (TRUNCATED_TAIL_RE.test(value)) return true
+  if ('，,:：、'.includes(value[value.length - 1])) return false
+  return false
+}
+
 function stripSourceAspectPrefix(value: string): string {
-  return cleanText(value)
+  return normalizeTextbookDisplayText(value)
     .replace(/^【[^】]{1,48}】\s*/u, '')
     .replace(/^（[一二三四五六七八九十百零〇\d]+）\s*/u, '')
 }
@@ -538,12 +622,97 @@ function containsAny(value: string, needles: string[]): boolean {
   return needles.some((needle) => value.includes(needle))
 }
 
-function getCatalogStudyUnits(detail: TextbookSectionDetail): CatalogStudyUnit[] {
+function findCatalogChapterBySectionTitle(sectionTitle: string): TextbookCatalogChapter | null {
+  const normalized = normalizeCatalogTitle(sectionTitle)
+  for (const part of INTERNAL_MEDICINE_CATALOG_PARTS) {
+    const chapter = part.sections.find(
+      (candidate) => normalizeCatalogTitle(candidate.title) === normalized,
+    )
+    if (chapter) return chapter
+  }
+  return null
+}
+
+function catalogUnitEntities(unit: TextbookCatalogUnit): string[] {
+  const subsections = unit.subsections ?? []
+  if (subsections.length > 0) {
+    return subsections.map((item) => item.title.trim()).filter(Boolean)
+  }
+  return [catalogUnitEntity(unit.title)]
+}
+
+function nodeMatchesCatalogEntities(
+  node: TextbookKnowledgeNode,
+  entities: string[],
+  sectionTitle: string,
+): boolean {
+  const topic = inferTopicTitle(node, sectionTitle)
+  const title = stripTextbookOrdinal(node.title)
+  const haystack = normalizeCatalogTitle(nodeHaystack(node))
+
+  return entities.some((entity) => {
+    const normalizedEntity = normalizeCatalogTitle(entity)
+    if (!normalizedEntity) return false
+    if (diseaseNamesMatch(topic, entity) || diseaseNamesMatch(title, entity)) return true
+    return haystack.includes(normalizedEntity)
+      && (/病|炎|感染|综合征/u.test(entity) || looksLikeStandaloneTopic(entity))
+  })
+}
+
+function getJsonCatalogStudyUnits(detail: TextbookSectionDetail): CatalogStudyUnit[] {
+  const catalogChapter = findCatalogChapterBySectionTitle(detail.section.sectionTitle)
+  if (!catalogChapter?.units?.length) return []
+
+  const sectionTitle = detail.section.sectionTitle
+  return catalogChapter.units.flatMap((unit) => {
+    const subsections = unit.subsections ?? []
+    if (subsections.length >= 2) {
+      return subsections.map((subsection) => ({
+        title: subsection.title,
+        catalogTitle: unit.title.replace(/\s*[|｜]\s*/u, ' '),
+        match: (node) => nodeMatchesCatalogEntities(node, [subsection.title], sectionTitle),
+      }))
+    }
+    return [{
+      title: unit.title,
+      catalogTitle: unit.title.replace(/\s*[|｜]\s*/u, ' '),
+      match: (node) => nodeMatchesCatalogEntities(node, catalogUnitEntities(unit), sectionTitle),
+    }]
+  })
+}
+
+function pulmonaryInfectionCatalogTitle(unitTitle: string): string {
+  if (unitTitle === '\u80ba\u708e') return '\u7b2c\u4e00\u8282 \u80ba\u708e\u6982\u8ff0'
+  if (
+    unitTitle === '\u80ba\u708e\u94fe\u7403\u83cc\u80ba\u708e'
+    || unitTitle === '\u8461\u8404\u7403\u83cc\u80ba\u708e'
+  ) {
+    return '\u7b2c\u4e8c\u8282 \u7ec6\u83cc\u6027\u80ba\u708e'
+  }
+  if (
+    unitTitle === '\u75c5\u6bd2\u6027\u80ba\u708e'
+    || unitTitle === '\u4e25\u91cd\u6025\u6027\u547c\u5438\u7efc\u5408\u5f81'
+    || unitTitle === '\u9ad8\u81f4\u75c5\u6027\u4eba\u79bd\u6d41\u611f\u75c5\u6bd2\u6027\u80ba\u708e'
+    || unitTitle === '2019 \u51a0\u72b6\u75c5\u6bd2\u75c5'
+  ) {
+    return '\u7b2c\u4e09\u8282 \u75c5\u6bd2\u6027\u80ba\u708e'
+  }
+  if (
+    unitTitle === '\u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e'
+    || unitTitle === '\u8863\u539f\u4f53\u80ba\u708e'
+    || unitTitle === '\u80ba\u519b\u56e2\u75c5'
+  ) {
+    return '\u7b2c\u56db\u8282 \u80ba\u708e\u652f\u539f\u4f53\u80ba\u708e\u3001\u8863\u539f\u4f53\u80ba\u708e\u4e0e\u80ba\u519b\u56e2\u75c5'
+  }
+  return '\u7b2c\u4e94\u8282 \u80ba\u771f\u83cc\u75c5'
+}
+
+function getPulmonaryInfectionCatalogStudyUnits(detail: TextbookSectionDetail): CatalogStudyUnit[] {
   if (!detail.section.sectionTitle.includes('肺部感染性疾病')) return []
 
-  return [
+  const units: CatalogStudyUnit[] = [
     {
-      title: '第一节 肺炎概述',
+      title: '肺炎',
       match: (node) => {
         const page = nodeFirstPage(node)
         const order = nodeOrder(node)
@@ -551,46 +720,95 @@ function getCatalogStudyUnits(detail: TextbookSectionDetail): CatalogStudyUnit[]
       },
     },
     {
-      title: '第二节 细菌性肺炎',
+      title: '肺炎链球菌肺炎',
       match: (node) => {
-        const page = nodeFirstPage(node)
-        const order = nodeOrder(node)
         const text = nodeHaystack(node)
-        if (page < 81 || (page === 81 && order < 119)) return false
-        return page < 84
-          || containsAny(text, ['肺炎链球菌肺炎', '肺炎球菌', '葡萄球菌肺炎', '葡萄球菌', '肺炎克雷伯杆菌', '肺炎克雷伯菌'])
+        return containsAny(text, ['肺炎链球菌', '肺炎球菌'])
+          || /(?:^|[^A-Za-z])SP(?:[^A-Za-z]|$)/u.test(text)
       },
     },
     {
-      title: '第三节 病毒性肺炎',
-      match: (node) => {
-        const page = nodeFirstPage(node)
-        const order = nodeOrder(node)
-        const text = nodeHaystack(node)
-        if (page < 84 || (page === 84 && order < 199)) return false
-        return page < 91 || containsAny(text, ['病毒性肺炎', '冠状病毒', '流感病毒', '腺病毒', '呼吸道合胞病毒'])
-      },
+      title: '葡萄球菌肺炎',
+      match: (node) => containsAny(nodeHaystack(node), ['葡萄球菌']),
     },
     {
-      title: '第四节 肺炎支原体肺炎、衣原体肺炎与肺军团病',
-      match: (node) => {
-        const page = nodeFirstPage(node)
-        const order = nodeOrder(node)
-        const text = nodeHaystack(node)
-        if (page < 91 || (page === 91 && order < 351)) return false
-        return page < 94
-          || containsAny(text, ['肺炎支原体', '支原体肺炎', '衣原体肺炎', '肺炎衣原体', '肺军团病', '军团菌', '军团病'])
-      },
+      title: '病毒性肺炎',
+      match: (node) => containsAny(nodeHaystack(node), ['病毒性肺炎', '腺病毒', '呼吸道合胞病毒']),
     },
     {
-      title: '第五节 肺真菌病',
-      match: (node) => {
-        const page = nodeFirstPage(node)
-        const text = nodeHaystack(node)
-        return page >= 94 || containsAny(text, ['肺真菌病', '真菌', '念珠菌', '曲霉', '隐球菌', '肺孢子菌'])
-      },
+      title: '严重急性呼吸综合征',
+      match: (node) => containsAny(nodeHaystack(node), ['严重急性呼吸综合征', 'SARS']),
+    },
+    {
+      title: '高致病性人禽流感病毒性肺炎',
+      match: (node) => containsAny(nodeHaystack(node), ['人禽流感', '禽流感']),
+    },
+    {
+      title: '2019 冠状病毒病',
+      match: (node) => containsAny(nodeHaystack(node), ['2019 冠状病毒病', 'COVID', '冠状病毒病']),
+    },
+    {
+      title: '肺炎支原体肺炎',
+      match: (node) => containsAny(nodeHaystack(node), ['肺炎支原体', '支原体肺炎']),
+    },
+    {
+      title: '衣原体肺炎',
+      match: (node) => containsAny(nodeHaystack(node), ['衣原体肺炎', '肺炎衣原体']),
+    },
+    {
+      title: '肺军团病',
+      match: (node) => containsAny(nodeHaystack(node), ['肺军团病', '军团菌', '军团病']),
+    },
+    {
+      title: '肺念珠菌病',
+      match: (node) => containsAny(nodeHaystack(node), ['肺念珠菌', '念珠菌']),
+    },
+    {
+      title: '肺曲霉病',
+      match: (node) => containsAny(nodeHaystack(node), ['肺曲霉', '曲霉']),
+    },
+    {
+      title: '肺隐球菌病',
+      match: (node) => containsAny(nodeHaystack(node), ['肺隐球菌', '隐球菌']),
+    },
+    {
+      title: '肺孢子菌肺炎',
+      match: (node) => containsAny(nodeHaystack(node), ['肺孢子菌', '肺孢子虫']),
+    },
+    {
+      title: '肺真菌病',
+      match: (node) => nodeFirstPage(node) >= 94,
     },
   ]
+  return units.map((unit) => ({
+    ...unit,
+    catalogTitle: pulmonaryInfectionCatalogTitle(unit.title),
+  }))
+}
+
+function getCatalogStudyUnits(detail: TextbookSectionDetail): CatalogStudyUnit[] {
+  const pulmonaryUnits = getPulmonaryInfectionCatalogStudyUnits(detail)
+  if (pulmonaryUnits.length > 0) return pulmonaryUnits
+  return getJsonCatalogStudyUnits(detail)
+}
+
+export function resolveCatalogOutlineUnit(
+  catalogUnitTitle: string,
+  studyUnits: StudyUnit[],
+): StudyUnit | null {
+  const entity = normalizeCatalogTitle(catalogUnitEntity(catalogUnitTitle))
+  const directTitle = normalizeCatalogTitle(catalogUnitTitle)
+  const matchKey = entity || directTitle
+  if (!matchKey) return null
+
+  return studyUnits.find((unit) => {
+    const unitEntity = normalizeCatalogTitle(catalogUnitEntity(unit.title))
+    const unitTitle = normalizeCatalogTitle(unit.title)
+    return unitEntity === matchKey
+      || unitTitle === matchKey
+      || unitTitle.startsWith(`${matchKey}·`)
+      || diseaseNamesMatch(unit.title, catalogUnitEntity(catalogUnitTitle))
+  }) ?? null
 }
 
 function studyUnitFromCatalogGroups(catalogUnit: CatalogStudyUnit, index: number, groups: StudyGroup[]): StudyUnit {
@@ -598,6 +816,7 @@ function studyUnitFromCatalogGroups(catalogUnit: CatalogStudyUnit, index: number
   return {
     id: `unit-${index + 1}-${hashString(catalogUnit.title)}`,
     title: catalogUnit.title,
+    catalogTitle: catalogUnit.catalogTitle,
     pageLabel: combinedPageLabel(items),
     itemCount: items.length,
     evidenceOnlyCount: items.filter((item) => item.evidenceOnly).length,
@@ -624,6 +843,7 @@ function studyUnitFromCatalogGroup(
   return {
     id: `unit-${catalogIndex + 1}-${groupIndex + 1}${chunkSuffix}-${hashString(`${catalogUnit.title}-${group.title}-${group.pageLabel}-${chunkIndex}`)}`,
     title: catalogSubunitTitle(catalogUnit.title, group.title),
+    catalogTitle: catalogUnit.catalogTitle,
     pageLabel: group.pageLabel,
     itemCount: group.items.length,
     evidenceOnlyCount,
@@ -709,10 +929,11 @@ function evidenceForNode(node: TextbookKnowledgeNode): StudyEvidence[] {
     .filter((item) => cleanText(item.text))
     .map((item) => ({
       id: item.artifactId,
-      text: cleanText(item.text),
+      text: normalizeTextbookDisplayText(item.text),
       pageLabel: normalizeStudyPageLabel(item.pageLabel),
       sourceOrder: item.sourceOrder,
       sourceLocatorIds: item.sourceLocatorIds?.length ? item.sourceLocatorIds : undefined,
+      pageReferenceKind: item.pageReferenceKind,
     }))
 }
 
@@ -746,7 +967,7 @@ function displayItemsForNode(
   return [{
     id: node.id,
     title: node.title,
-    body: originalText || (evidenceOnly ? node.evidenceFull || node.content : node.content),
+    body: originalText || normalizeTextbookDisplayText(evidenceOnly ? node.evidenceFull || node.content : node.content),
     pageLabel: node.pageLabel,
     evidence,
     evidenceOnly,
@@ -1151,11 +1372,14 @@ function appendToStudyItem(target: StudyGroupItem, addition: StudyGroupItem): vo
 }
 
 function mergeStudyBody(base: string, extra: string): string {
-  const cleanBase = cleanText(base)
-  const cleanExtra = cleanText(extra)
-  if (!cleanBase) return cleanExtra
-  if (!cleanExtra || cleanBase.includes(cleanExtra)) return cleanBase
-  return `${cleanBase} ${cleanExtra}`
+  const normBase = normalizeTextbookDisplayText(base)
+  const normExtra = normalizeTextbookDisplayText(extra)
+  // Use cleanText for structural comparison only (flattens for includes-check)
+  const cleanBase = cleanText(normBase)
+  const cleanExtra = cleanText(normExtra)
+  if (!cleanBase) return normExtra
+  if (!cleanExtra || cleanBase.includes(cleanExtra)) return normBase
+  return `${normBase} ${normExtra}`
 }
 
 function mergeStudyEvidence(base: StudyEvidence[], extra: StudyEvidence[]): StudyEvidence[] {
@@ -1533,7 +1757,11 @@ function appendEvidenceToSourceItem(item: StudyGroupItem, evidence: StudyEvidenc
   const text = stripSourceAspectPrefix(body)
   const previousPageLabel = item.pageLabel
   if (text && !item.body.includes(text)) {
-    item.body = item.body ? `${item.body} ${text}` : text
+    // Join evidence fragments with paragraph boundary and normalize the result
+    // so CJK-CJK spaces at fragment boundaries are cleaned up
+    item.body = item.body
+      ? normalizeTextbookDisplayText(`${item.body}\n\n${text}`)
+      : text
   }
   item.evidence = mergeStudyEvidence(item.evidence, [evidence])
   item.pageLabel = combinedPageLabel([
@@ -1965,6 +2193,11 @@ export function buildChapterStudyUnits(detail: TextbookSectionDetail): StudyUnit
   ).flatMap((group, index) => (
     splitOversizedFallbackGroup(group, index)
   ))
+}
+
+export function buildChapterCatalogStudyUnits(detail: TextbookSectionDetail): StudyUnit[] {
+  const catalogUnits = buildCatalogStudyUnits(detail, { splitOversized: false })
+  return catalogUnits.length > 0 ? catalogUnits : buildChapterStudyUnits(detail)
 }
 
 export function findChapterStudyUnit(detail: TextbookSectionDetail, unitId: string): StudyUnit | null {

@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
+import { StatusBar } from 'react-native'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/hooks/useAuth'
-import { Colors } from '@/constants/theme'
+import { Colors, FontFamily } from '@/constants/theme'
+import { AppDialogProvider } from '@/components/AppDialogProvider'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import '../global.css'
 
@@ -24,8 +26,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return
 
-    const inAuthGroup = segments[0] === '(auth)'
-    const isPublicRoute = segments[0] === 'map' || segments[0] === 'textbook'
+    const currentSegment = segments[0] as string | undefined
+    const inAuthGroup = currentSegment === '(auth)'
+    const isPublicRoute = currentSegment === 'map' || currentSegment === 'textbook' || currentSegment === 'wrong-questions'
 
     if (!user && !inAuthGroup && !isPublicRoute) {
       // 未登录，跳转登录页
@@ -44,12 +47,14 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AuthGuard>
+          <AppDialogProvider>
           <ErrorBoundary>
+          <StatusBar barStyle="dark-content" backgroundColor={Colors.background} translucent={false} />
           <Stack
             screenOptions={{
               headerStyle: { backgroundColor: Colors.background },
               headerTintColor: Colors.ink,
-              headerTitleStyle: { fontWeight: '800', fontSize: 17 },
+              headerTitleStyle: { fontWeight: '600', fontSize: 17, fontFamily: FontFamily.sans },
               headerShadowVisible: false,
               headerBackButtonDisplayMode: 'minimal',
             }}
@@ -106,6 +111,20 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="wrong-questions"
+              options={{
+                headerTitle: '错题弱点',
+                headerBackTitle: '返回',
+              }}
+            />
+            <Stack.Screen
+              name="settings/ai"
+              options={{
+                headerTitle: 'AI 设置',
+                headerBackTitle: '返回',
+              }}
+            />
+            <Stack.Screen
               name="knowledge/[id]"
               options={{ headerShown: false }}
             />
@@ -150,6 +169,7 @@ export default function RootLayout() {
             />
           </Stack>
           </ErrorBoundary>
+          </AppDialogProvider>
         </AuthGuard>
       </AuthProvider>
     </QueryClientProvider>

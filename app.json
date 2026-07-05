@@ -15,14 +15,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.medlearn.app"
+      "bundleIdentifier": "com.medlearn.app",
+      "buildNumber": "20260622"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#17332C"
       },
-      "package": "com.medlearn.app"
+      "package": "com.medlearn.app",
+      "versionCode": 2026062604
     },
     "plugins": [
       "expo-router",

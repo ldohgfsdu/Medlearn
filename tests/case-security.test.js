@@ -9,25 +9,36 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
 }
 
-test('client case queries never request answer keys or scoring rules', () => {
+test('client case queries never request protected template fields', () => {
   const clientFiles = [
     'services/case-engine.ts',
     'hooks/useCaseSession.ts',
+    'app/case/[sessionId]/chat.tsx',
     'app/case/[sessionId]/diagnose.tsx',
     'app/case/[sessionId]/treat.tsx',
   ]
 
   for (const file of clientFiles) {
     const source = read(file)
-    assert.doesNotMatch(source, /ground_truth|scoring_rubric|case_templates\(\*\)/)
+    assert.doesNotMatch(source, /ground_truth|scoring_rubric|patient_world|case_templates\(\*\)/)
   }
+})
+
+test('case chat header does not reveal diagnosis-shaped template titles', () => {
+  const chat = read('app/case/[sessionId]/chat.tsx')
+
+  assert.match(chat, /buildLearnerSafeCaseTitle/)
+  assert.doesNotMatch(chat, /caseTemplate\?\.title/)
 })
 
 test('database migration revokes broad template reads and protects final scores', () => {
   const migration = read('supabase/migrations/016_secure_case_scoring.sql')
   assert.match(migration, /REVOKE SELECT ON TABLE public\.case_templates FROM authenticated/)
+  assert.doesNotMatch(migration, /patient_world/)
   assert.match(migration, /NEW\.score IS DISTINCT FROM OLD\.score/)
   assert.match(migration, /NEW\.case_id IS DISTINCT FROM OLD\.case_id/)
+  assert.doesNotMatch(read('supabase/migrations/020_restore_postgrest_grants.sql'), /patient_world/)
+  assert.doesNotMatch(read('supabase/migrations/023_protect_case_patient_world.sql'), /patient_world/)
 })
 
 test('usage count RPC can mark usage_counted_at once without weakening score guards', () => {
@@ -51,6 +62,7 @@ test('case patient AI has injection, leakage, usage, and budget guardrails', () 
   assert.match(patientFunction, /record_case_llm_usage/)
   assert.match(patientFunction, /CASE_MAX_TOKENS/)
   assert.match(patientFunction, /CASE_MAX_COST_USD/)
+  assert.match(patientFunction, /canUseStructuredIntent/)
   assert.doesNotMatch(read('services/case-engine.ts'), /invokeAI|ai-proxy/)
 })
 
@@ -76,6 +88,13 @@ test('ai proxy enforces per-user quota and records usage', () => {
   assert.match(read('supabase/migrations/019_ai_proxy_cost_controls.sql'), /ai_proxy_usage/)
 })
 
+test('generic medical chat is disabled unless explicitly flagged experimental', () => {
+  const source = read('services/ai.ts')
+  assert.match(source, /EXPO_PUBLIC_ENABLE_GENERIC_AI_CHAT/)
+  assert.match(source, /GENERIC_AI_CHAT_DISABLED_MESSAGE/)
+  assert.match(source, /if \(!isGenericAIChatEnabled\(\)\)/)
+})
+
 test('knowledge access layer uses knowledge_nodes schema', () => {
   const source = read('hooks/useKnowledge.ts')
   assert.match(source, /knowledge_nodes/)
@@ -88,9 +107,8 @@ test('intro phase allows greeting and open history questions before exam workflo
   assert.match(engine, /unknown: \[CasePhase\.INTRO, CasePhase\.HISTORY, CasePhase\.EXAM, CasePhase\.TESTS\]/)
   assert.match(engine, /ensureHistoryPhase/)
   assert.match(engine, /resolveHistoryOrAi/)
-  assert.match(engine, /tryHistoryPreset/)
-  assert.match(engine, /GENERIC_PRESET_VOICES/)
-  assert.match(engine, /HISTORY_TARGET_ALIASES/)
+  assert.match(read('services/case-patient.ts'), /requestCasePatientTurn/)
+  assert.match(read('supabase/functions/case-patient/index.ts'), /resolveStructuredIntent/)
 
   const parser = read('services/intent-parser.ts')
   assert.match(parser, /name: 'hpi_open'/)

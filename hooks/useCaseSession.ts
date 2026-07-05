@@ -12,7 +12,6 @@ export type CaseTemplateSummary = {
   difficulty: string
   estimated_minutes: number
   demographics: Record<string, unknown> | null
-  patient_world: Record<string, unknown> | null
   is_active: boolean
   review_status: string
 }
@@ -57,7 +56,7 @@ export function useCaseSession(sessionId: string | undefined) {
       const { data, error } = await supabase
         .from('case_sessions')
         .select(
-          'id,user_id,case_id,status,current_phase,revealed,submitted,hints_used,max_hints,started_at,completed_at,duration_seconds,turn_count,score,total_tokens,total_cost,created_at,updated_at,case_templates(id,case_code,title,chief_complaint,specialty,difficulty,estimated_minutes,demographics,patient_world,is_active,review_status)',
+          'id,user_id,case_id,status,current_phase,revealed,submitted,hints_used,max_hints,started_at,completed_at,duration_seconds,turn_count,score,total_tokens,total_cost,created_at,updated_at,case_templates(id,case_code,title,chief_complaint,specialty,difficulty,estimated_minutes,demographics,is_active,review_status)',
         )
         .eq('id', sessionId!)
         .single()

@@ -16,6 +16,8 @@ import hashlib
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .text_layers import build_text_layers
+
 
 ARTIFACT_TYPES = frozenset({"text_block", "table", "figure", "caption"})
 VERIFICATION_STATES = frozenset({"source_verified", "source_uncertain"})
@@ -63,6 +65,16 @@ class EvidenceArtifact:
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def canonical_text(self) -> str:
+        """Normalized source text without mutating the evidence payload."""
+        return build_text_layers(self.raw_text).canonical_text
+
+    @property
+    def display_text(self) -> str:
+        """Presentation text derived deterministically from ``raw_text``."""
+        return build_text_layers(self.raw_text).display_text
+
     def __post_init__(self) -> None:
         if not self.checksum and self.raw_text:
             # Can't modify frozen dataclass after init, so this is set by factory
@@ -76,9 +88,10 @@ class EvidenceArtifact:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EvidenceArtifact:
-        loc_data = data.pop("locator", None)
+        payload = dict(data)
+        loc_data = payload.pop("locator", None)
         locator = EvidenceLocator(**loc_data) if loc_data else None
-        return cls(locator=locator, **data)
+        return cls(locator=locator, **payload)
 
 
 def stable_artifact_id(

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   drawerTitle: {
     ...Typography.titleLarge,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   newChatBtn: {
     width: 44,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...Typography.titleLarge,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontWeight: '600',
     flex: 1,
     marginLeft: Spacing.md,
   },

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 
-export type AIProviderPreset = 'server' | 'deepseek' | 'openai' | 'custom'
+export type AIProviderPreset = 'server' | 'openai' | 'anthropic' | 'custom'
 export type EmbeddingProvider = 'ollama' | 'proxy'
 
 export interface AISettings {
@@ -33,21 +33,21 @@ export const AI_PROVIDER_PRESETS: Record<
   Exclude<AIProviderPreset, 'server' | 'custom'>,
   Pick<AISettings, 'chatBaseUrl' | 'chatModel'>
 > = {
-  deepseek: {
-    chatBaseUrl: 'https://api.deepseek.com/v1',
-    chatModel: 'deepseek-chat',
-  },
   openai: {
     chatBaseUrl: 'https://api.openai.com/v1',
     chatModel: 'gpt-4o-mini',
+  },
+  anthropic: {
+    chatBaseUrl: 'https://api.anthropic.com/v1',
+    chatModel: 'claude-3-5-haiku-latest',
   },
 }
 
 export const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'server',
   chatApiKey: '',
-  chatBaseUrl: AI_PROVIDER_PRESETS.deepseek.chatBaseUrl,
-  chatModel: AI_PROVIDER_PRESETS.deepseek.chatModel,
+  chatBaseUrl: 'https://api.deepseek.com/v1',
+  chatModel: 'deepseek-chat',
   embeddingProvider: DEFAULT_EMBED_PROVIDER,
   ollamaUrl: DEFAULT_OLLAMA_URL,
   ollamaEmbedModel: DEFAULT_OLLAMA_MODEL,
@@ -60,9 +60,16 @@ function normalizeUrl(url: string, fallback: string): string {
 }
 
 export function normalizeAISettings(raw: Partial<AISettings> | null | undefined): AISettings {
-  const provider = raw?.provider ?? DEFAULT_AI_SETTINGS.provider
+  const rawProvider: string = (raw as (Partial<AISettings> & { provider?: string }) | null | undefined)?.provider
+    ?? DEFAULT_AI_SETTINGS.provider
+  const provider: AIProviderPreset =
+    rawProvider === 'deepseek'
+      ? 'custom'
+      : rawProvider === 'openai' || rawProvider === 'anthropic' || rawProvider === 'custom' || rawProvider === 'server'
+        ? rawProvider
+        : DEFAULT_AI_SETTINGS.provider
   const preset =
-    provider === 'deepseek' || provider === 'openai' ? AI_PROVIDER_PRESETS[provider] : null
+    provider === 'openai' || provider === 'anthropic' ? AI_PROVIDER_PRESETS[provider] : null
 
   return {
     provider,
@@ -98,6 +105,7 @@ export function isCustomChatReady(settings: AISettings): boolean {
 
 export function buildAIOverride(settings: AISettings): AIOverride | null {
   if (!usesCustomChatProvider(settings) || !isCustomChatReady(settings)) return null
+  if (settings.provider === 'anthropic') return null
   return {
     api_key: settings.chatApiKey,
     base_url: settings.chatBaseUrl,

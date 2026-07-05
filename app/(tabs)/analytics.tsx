@@ -3,11 +3,14 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useAnalyticsStats } from '@/hooks/useAnalyticsStats'
-import { BorderRadius, Colors, Spacing, Typography, getMasteryColor } from '@/constants/theme'
+import { BorderRadius, Colors, Spacing, Typography, FontFamily, getMasteryColor } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
+import { FLOATING_TAB_BAR_BASE_HEIGHT } from './_layout'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function AnalyticsScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const { data, isLoading } = useAnalyticsStats(user?.id)
 
@@ -28,7 +31,10 @@ export default function AnalyticsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.summaryCard}>
@@ -144,7 +150,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Layout.screenPaddingX,
-    paddingBottom: Layout.screenPaddingBottom,
+    // paddingBottom 由 inline（FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg）提供。
   },
   loadingContainer: {
     flex: 1,
@@ -193,9 +199,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   summaryValue: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '800',
+    ...Typography.numberLarge,
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: Colors.textPrimary,
   },
   summaryLabel: {
@@ -214,15 +220,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionEyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 1.4,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
     color: Colors.textTertiary,
     marginBottom: 3,
+    fontFamily: FontFamily.sans,
   },
   sectionTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   sectionCount: {
@@ -247,9 +254,12 @@ const styles = StyleSheet.create({
   },
   rowIndex: {
     width: 30,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
     color: Colors.textTertiary,
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
   },
   subjectCopy: {
     flex: 1,
@@ -262,11 +272,13 @@ const styles = StyleSheet.create({
   },
   subjectName: {
     ...Typography.titleSmall,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   subjectScore: {
-    ...Typography.labelMedium,
-    fontWeight: '800',
+    ...Typography.numberMedium,
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
   },
   progressTrack: {
     height: 4,
@@ -297,9 +309,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   metricValue: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '800',
+    ...Typography.numberLarge,
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: Colors.primary[700],
   },
   emptyPanel: {

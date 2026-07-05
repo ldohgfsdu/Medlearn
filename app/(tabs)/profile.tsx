@@ -1,11 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { appAlert } from '@/lib/app-dialog'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import Constants from 'expo-constants'
 import { useAuth } from '@/hooks/useAuth'
 import { useProfileStats } from '@/hooks/useProfileStats'
-import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
+import { FLOATING_TAB_BAR_BASE_HEIGHT } from './_layout'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const MENU_ITEMS: {
   icon: keyof typeof Ionicons.glyphMap
@@ -18,11 +21,12 @@ const MENU_ITEMS: {
   { icon: 'ribbon-outline', label: '学习成就', note: '里程碑与真实学习记录', route: '/(tabs)/analytics' },
   { icon: 'sparkles-outline', label: 'AI 设置', note: '配置对话模型、API Key 与 Embedding', route: '/settings/ai' },
   { icon: 'chatbox-outline', label: '反馈建议', note: '描述 App 问题、页面与操作步骤', action: 'feedback' },
-  { icon: 'information-circle-outline', label: '关于 Medlearn', note: '版本、隐私与使用说明', action: 'about' },
+  { icon: 'information-circle-outline', label: '关于 MedLearn', note: '版本、隐私与使用说明', action: 'about' },
 ]
 
 export default function ProfileScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { user, signOut } = useAuth()
   const nickname = user?.user_metadata?.nickname || '同学'
   const email = user?.email || ''
@@ -37,21 +41,21 @@ export default function ProfileScreen() {
     }
 
     if (item.action === 'feedback') {
-      Alert.alert(
+      appAlert(
         '反馈建议',
         '请描述你遇到的问题、所在页面和操作步骤，便于我们复现。\n\n本入口仅用于产品反馈，不提供医学问答或诊疗咨询。',
       )
       return
     }
 
-    Alert.alert(
-      '关于 Medlearn',
-      `Medlearn ${appVersion}\n医学教育训练工具，不提供医疗建议。AI 生成内容可能不准确，不能用于真实患者诊断或治疗。`,
+    appAlert(
+      '关于 MedLearn',
+      `MedLearn ${appVersion}\n医学教育训练工具，不提供医疗建议。AI 生成内容可能不准确，不能用于真实患者诊断或治疗。`,
     )
   }
 
   const handleSignOut = async () => {
-    Alert.alert('退出登录', '确定要退出吗？', [
+    appAlert('退出登录', '确定要退出吗？', [
       { text: '取消', style: 'cancel' },
       {
         text: '退出',
@@ -65,7 +69,14 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.profileCard}>
         <View style={styles.profileTop}>
           <View style={styles.avatar}>
@@ -100,7 +111,7 @@ export default function ProfileScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>我的学习</Text>
-        <Text style={styles.sectionCount}>{String(MENU_ITEMS.length).padStart(2, '0')}</Text>
+        <Text style={styles.sectionCount}>{MENU_ITEMS.length} 项</Text>
       </View>
 
       <View style={styles.menuGroup}>
@@ -128,7 +139,7 @@ export default function ProfileScreen() {
         <Text style={styles.signOutText}>退出登录</Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>MEDLEARN / VERSION {appVersion}</Text>
+      <Text style={styles.version}>MedLearn · v{appVersion}</Text>
     </ScrollView>
   )
 }
@@ -140,7 +151,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Layout.screenPaddingX,
-    paddingBottom: Layout.screenPaddingBottom,
+    // paddingBottom 由 inline（FLOATING_TAB_BAR_BASE_HEIGHT + insets.bottom + Spacing.lg）提供。
   },
   profileCard: {
     backgroundColor: Colors.surface,
@@ -165,8 +176,9 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '600',
     color: Colors.primary[700],
+    fontFamily: FontFamily.sans,
   },
   profileCopy: {
     flex: 1,
@@ -174,6 +186,7 @@ const styles = StyleSheet.create({
   nickname: {
     ...Typography.titleLarge,
     color: Colors.textPrimary,
+    fontFamily: FontFamily.sans,
   },
   email: {
     fontSize: 13,
@@ -200,9 +213,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '800',
+    ...Typography.numberLarge,
+    // 统计数字改 sans + tabular-nums，避免 serif 字体下 0 被误读为 O。
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: Colors.textPrimary,
   },
   statLabel: {
@@ -224,6 +238,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...Typography.titleLarge,
+    fontFamily: FontFamily.sans,
     color: Colors.textPrimary,
   },
   sectionCount: {
@@ -276,19 +291,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: '#E5C7C2',
-    backgroundColor: '#FAF0ED',
+    borderColor: Colors.errorBorder,
+    backgroundColor: Colors.errorBg,
   },
   signOutText: {
     ...Typography.labelLarge,
     color: Colors.error,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   version: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
     color: Colors.textTertiary,
     textAlign: 'center',
     marginTop: Spacing.lg,

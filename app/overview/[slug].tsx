@@ -4,7 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { buildDiseaseRoute } from '@/utils/routeBuilders'
-import { Colors, Spacing, Typography } from '@/constants/theme'
+import { Colors, FontFamily, Spacing, Typography } from '@/constants/theme'
 import { Layout } from '@/constants/layout'
 
 const OVERVIEWS = {
@@ -93,16 +93,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, backgroundColor: Colors.background },
   header: { paddingHorizontal: Layout.screenPaddingX, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
-  back: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
+  back: { flexDirection: 'row', alignItems: 'center', minHeight: 44, marginBottom: Spacing.sm },
   backText: { ...Typography.labelMedium, color: Colors.textSecondary },
   path: { ...Typography.labelSmall, color: Colors.textTertiary },
-  title: { ...Typography.titleLarge, color: Colors.textPrimary, marginTop: Spacing.xs },
-  subtitle: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 20, marginTop: Spacing.xs },
+  title: { ...Typography.titleLarge, fontFamily: FontFamily.serif, color: Colors.textPrimary, marginTop: Spacing.xs },
+  subtitle: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 21, marginTop: Spacing.xs },
   content: { padding: Layout.screenPaddingX, paddingBottom: Layout.screenPaddingBottom },
-  sectionTitle: { ...Typography.titleMedium, color: Colors.textPrimary, marginBottom: Spacing.md },
+  sectionTitle: { ...Typography.titleMedium, fontFamily: FontFamily.serif, color: Colors.textPrimary, marginBottom: Spacing.md },
   row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
   rowCopy: { flex: 1 },
-  rowTitle: { ...Typography.titleSmall, color: Colors.textPrimary },
-  rowMeta: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: 2 },
+  rowTitle: { ...Typography.titleSmall, fontFamily: FontFamily.serif, color: Colors.textPrimary },
+  rowMeta: { ...Typography.bodyMedium, color: Colors.textTertiary, lineHeight: 21, marginTop: 2 },
   link: { ...Typography.labelLarge, color: Colors.primary[700], marginTop: Spacing.md },
 })

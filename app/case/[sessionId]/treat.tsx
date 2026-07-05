@@ -1,6 +1,4 @@
 import { useState } from 'react'
-
-export const options = { headerTitle: '治疗方案' }
 import {
   View,
   Text,
@@ -8,15 +6,17 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native'
+import { appAlert } from '@/lib/app-dialog'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { submitCaseForScoring } from '@/services/case-submission'
-import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, FontFamily } from '@/constants/theme'
+
+export const options = { headerTitle: '治疗方案' }
 
 export default function TreatScreen() {
   const router = useRouter()
@@ -46,7 +46,7 @@ export default function TreatScreen() {
   const handleSubmit = async () => {
     const validTreatments = treatments.filter((t) => t.trim())
     if (validTreatments.length === 0) {
-      Alert.alert('提示', '请至少输入一项治疗措施')
+      appAlert('提示', '请至少输入一项治疗措施')
       return
     }
     if (!user || !sessionId) return
@@ -68,7 +68,7 @@ export default function TreatScreen() {
 
       router.push(`/case/${sessionId}/score`)
     } catch {
-      Alert.alert('错误', '提交失败，请重试')
+      appAlert('错误', '提交失败，请重试')
     } finally {
       setLoading(false)
     }
@@ -173,8 +173,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   treatmentNumber: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...Typography.labelSmall,
+    fontWeight: '400',
+    fontFamily: FontFamily.sans,
+    fontVariant: ['tabular-nums'],
     color: Colors.textTertiary,
     width: 24,
   },
@@ -230,6 +232,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...Typography.labelLarge,
     color: '#FFFDF9',
-    fontWeight: '700',
+    fontWeight: '600',
   },
 })

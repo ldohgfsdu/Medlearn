@@ -31,20 +31,20 @@ export const Colors = {
   error: '#C6534A',
   info: '#347C91',
   accent: '#E27A57',
-  ink: '#17332C',
+  ink: '#17332C', // MedLearn 深墨绿，用于品牌锚点与高强调表面
 
   // 中性色
   neutral: {
-    50: '#F7F6F2',
-    100: '#EFEEE8',
-    200: '#E1DFD7',
-    300: '#CAC7BD',
-    400: '#A09D93',
-    500: '#77766F',
-    600: '#5C5D57',
-    700: '#444943',
-    800: '#2D3531',
-    900: '#18211E',
+    50: '#FAF9F5',
+    100: '#F0EEE6',
+    200: '#E8E6DC',
+    300: '#D6D3BE',
+    400: '#B0AEA5',
+    500: '#87867F',
+    600: '#6B6A64',
+    700: '#4A4945',
+    800: '#3D3D3A',
+    900: '#141413',
   },
 
   // 掌握度色（PRD 23.4）
@@ -57,34 +57,61 @@ export const Colors = {
   },
 
   // 语义 token
-  background: '#F4F3EE',
+  background: '#FAF9F5',
   surface: '#FFFDF9',
-  surfaceVariant: '#ECEBE5',
-  border: '#E0DED5',
-  inputBg: '#EEEDE7',
-  textPrimary: '#18211E',
-  textSecondary: '#5C625D',
-  textTertiary: '#8D918B',
+  surfaceVariant: '#F0EEE6',
+  border: '#E8E6DC',
+  inputBg: '#F0EEE6',
+  textPrimary: '#141413', // 统一到 neutral.900，告别双色近黑
+  textSecondary: '#4A4945',
+  textTertiary: '#6B6A64',
   primaryLight: '#EAF5F1',
+  // 暖色错误态 — 基于 error 色低透明度，与象牙纸背景协调（替代冷粉红）
+  errorBg: 'rgba(198, 83, 74, 0.08)',
+  errorBorder: 'rgba(198, 83, 74, 0.24)',
 } as const
 
 // ============================================
-// 字体系统（PRD 24）
+// 字体系统（PRD 24）— 编辑式排版
+// 标题使用紧凑行高（~1.1x），正文使用宽松行高（1.4x）
 // ============================================
 
+export const FontFamily = {
+  /** 无衬线 — 导航、按钮、标签、表单、仪表盘与功能界面 */
+  sans: Platform.select<string>({
+    web: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    ios: 'System',
+    android: 'sans-serif',
+    default: 'sans-serif',
+  }) ?? 'sans-serif',
+  /** 衬线 — 教材章节、知识内容标题与阅读正文 */
+  serif: Platform.select<string>({
+    web: 'Georgia, "Noto Serif SC", "Source Han Serif SC", SimSun, serif',
+    ios: 'Georgia',
+    android: 'serif',
+    default: 'serif',
+  }) ?? 'serif',
+} as const
+
 export const Typography = {
-  // 字号体系
-  displayLarge: { fontSize: 48, lineHeight: 53, fontWeight: '800' as const },
-  displayMedium: { fontSize: 36, lineHeight: 43, fontWeight: '800' as const },
-  titleLarge: { fontSize: 20, lineHeight: 26, fontWeight: '700' as const },
-  titleMedium: { fontSize: 16, lineHeight: 22, fontWeight: '700' as const },
-  titleSmall: { fontSize: 14, lineHeight: 20, fontWeight: '600' as const },
-  bodyLarge: { fontSize: 16, lineHeight: 24, fontWeight: '400' as const },
-  bodyMedium: { fontSize: 15, lineHeight: 25, fontWeight: '400' as const },
-  bodySmall: { fontSize: 13, lineHeight: 20, fontWeight: '400' as const },
-  labelLarge: { fontSize: 14, lineHeight: 20, fontWeight: '500' as const },
-  labelMedium: { fontSize: 13, lineHeight: 18, fontWeight: '500' as const },
-  labelSmall: { fontSize: 11, lineHeight: 15, fontWeight: '500' as const },
+  // 标题层级 — 紧凑行高 (~1.1x)；fontFamily 由调用方按内容层/操作层显式组合
+  displayLarge: { fontSize: 48, lineHeight: 53, fontWeight: '600' as const },
+  displayMedium: { fontSize: 36, lineHeight: 40, fontWeight: '600' as const },
+  titleLarge:  { fontSize: 20, lineHeight: 24, fontWeight: '600' as const },
+  titleMedium: { fontSize: 16, lineHeight: 20, fontWeight: '600' as const },
+  titleSmall:  { fontSize: 14, lineHeight: 18, fontWeight: '500' as const },
+  // 正文层级 — 宽松行高（1.5-1.6x），适合中文医学知识点密度阅读
+  bodyLarge:  { fontSize: 16, lineHeight: 24, fontWeight: '400' as const },
+  bodyMedium: { fontSize: 15, lineHeight: 24, fontWeight: '400' as const },
+  bodySmall:  { fontSize: 13, lineHeight: 18, fontWeight: '400' as const },
+  // 标签层级 — 中等行高
+  labelLarge:  { fontSize: 14, lineHeight: 20, fontWeight: '400' as const },
+  labelMedium: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const },
+  labelSmall:  { fontSize: 11, lineHeight: 15, fontWeight: '500' as const },
+  // 数字 — 仅字号/行高/字重；医学内容数字用 serif，仪表盘数字用 sans + tabular-nums
+  numberXL:     { fontSize: 24, lineHeight: 30, fontWeight: '600' as const },
+  numberLarge:  { fontSize: 20, lineHeight: 24, fontWeight: '600' as const },
+  numberMedium: { fontSize: 16, lineHeight: 20, fontWeight: '600' as const },
 } as const
 
 // ============================================

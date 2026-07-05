@@ -9,8 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native'
+import { appAlert } from '@/lib/app-dialog'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
@@ -44,6 +44,11 @@ const CHIEF_COMPLAINT_LABELS: Record<string, string> = {
   headache: '头痛',
   fever: '发热',
   dyspnea: '呼吸困难',
+}
+
+function buildLearnerSafeCaseTitle(chiefComplaint?: string | null): string {
+  const complaintLabel = chiefComplaint ? CHIEF_COMPLAINT_LABELS[chiefComplaint] ?? chiefComplaint : ''
+  return complaintLabel ? `${complaintLabel}病例训练` : '病例模拟'
 }
 
 function getPhaseHint(phase: CasePhase): string {
@@ -87,7 +92,7 @@ export default function CaseChatScreen() {
   const initializedSessionRef = useRef<string | null>(null)
 
   function mapDbMessages(
-    rows: Array<{
+    rows: {
       id: string
       role: string
       content: string
@@ -95,7 +100,7 @@ export default function CaseChatScreen() {
       intent_type?: string | null
       intent_target?: string | null
       created_at: string
-    }>,
+    }[],
   ): CaseMessage[] {
     return rows.map((m) => ({
       id: m.id,
@@ -203,7 +208,7 @@ export default function CaseChatScreen() {
       }
       setMessages((prev) => [...prev, assistantMsg])
     } catch {
-      Alert.alert('错误', '发送失败，请重试')
+      appAlert('错误', '发送失败，请重试')
       // 移除临时消息
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id))
     } finally {
@@ -256,7 +261,7 @@ export default function CaseChatScreen() {
       }
       setMessages((prev) => [...prev, assistantMsg])
     } catch {
-      Alert.alert('错误', '操作失败')
+      appAlert('错误', '操作失败')
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id))
     } finally {
       setLoading(false)
@@ -287,7 +292,7 @@ export default function CaseChatScreen() {
         },
       ])
     } catch (error) {
-      Alert.alert(
+      appAlert(
         '暂时无法获取提示',
         error instanceof Error ? error.message : '请稍后重试',
       )
@@ -298,7 +303,7 @@ export default function CaseChatScreen() {
 
   const confirmAbandon = () => {
     if (!sessionId || ending) return
-    Alert.alert(
+    appAlert(
       '结束本次病例？',
       '本次进度会标记为已放弃，不会计入完成病例。',
       [
@@ -312,7 +317,7 @@ export default function CaseChatScreen() {
               await abandonCase(sessionId)
               router.replace('/(tabs)/cases')
             } catch {
-              Alert.alert('结束失败', '病例状态未改变，请稍后重试。')
+              appAlert('结束失败', '病例状态未改变，请稍后重试。')
               setEnding(false)
             }
           },
@@ -352,8 +357,8 @@ export default function CaseChatScreen() {
 
   const currentPhaseIndex = state ? WORKFLOW_PHASES.indexOf(state.currentPhase as (typeof WORKFLOW_PHASES)[number]) : 0
   const caseTemplate = resolveCaseTemplate(sessionData?.case_templates)
-  const caseTitle = caseTemplate?.title
   const chiefComplaint = caseTemplate?.chief_complaint
+  const caseTitle = buildLearnerSafeCaseTitle(chiefComplaint)
 
   return (
     <KeyboardAvoidingView
@@ -694,7 +699,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
-    ...Shadows.level1,
   },
   caseHeaderMain: {
     flexDirection: 'row',
@@ -705,7 +709,7 @@ const styles = StyleSheet.create({
   caseTitle: {
     ...Typography.titleSmall,
     color: Colors.textPrimary,
-    fontWeight: '700',
+    fontWeight: '600',
     flex: 1,
   },
   turnBadge: {
@@ -756,10 +760,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary[100],
   },
   phaseHintText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.primary[800],
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 21,
   },
   focusBanner: {
     marginHorizontal: Spacing.base,
@@ -773,13 +777,13 @@ const styles = StyleSheet.create({
   focusEyebrow: {
     ...Typography.labelSmall,
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 3,
   },
   focusText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textPrimary,
-    lineHeight: 19,
+    lineHeight: 22,
   },
   // Phase 指示器
   phaseBar: {
@@ -866,20 +870,19 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadows.level1,
   },
   systemEyebrow: {
     ...Typography.labelSmall,
     color: Colors.primary[700],
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   systemText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   messageRow: {
     flexDirection: 'row',
@@ -932,10 +935,10 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xs,
   },
   hintText: {
-    ...Typography.bodySmall,
+    ...Typography.bodyMedium,
     color: Colors.textPrimary,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   userBubbleContainer: {
     alignItems: 'flex-end',
@@ -949,7 +952,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderBottomRightRadius: 4,
     maxWidth: '100%',
-    ...Shadows.level1,
   },
   userText: {
     ...Typography.bodyMedium,
@@ -969,7 +971,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
     maxWidth: '100%',
-    ...Shadows.level1,
   },
   assistantText: {
     ...Typography.bodyMedium,
@@ -1068,7 +1069,7 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   // Bottom Sheet
   backdrop: {
@@ -1110,8 +1111,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   sheetTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...Typography.titleSmall,
     color: Colors.textPrimary,
   },
   sheetClose: {

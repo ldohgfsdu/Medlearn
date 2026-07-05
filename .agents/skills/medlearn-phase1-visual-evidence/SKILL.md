@@ -26,11 +26,14 @@ AI QA, Feynman, Supabase upload, full-book export, unrelated App features.
 
 **Orient first (read-only):**
 
+- `AGENTS.md` and its startup sources
+- `context/TASK_ROUTER.yaml` — selects this skill and applicable checks
+- `state/active_object.yaml` — current active object; confirm it matches the
+  active object named below before running
 - `docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md` — engineering spec (iron laws, shapes)
 - `docs/PIPELINE_INDEX.md` — app knowledge bundle path
 - `docs/adr/ADR-009-multimodal-evidence-artifacts.md` — anchors / artifacts
 - `docs/PDF_PARSER_ARCHITECTURE.md` — `source-artifacts.json`, bbox
-- Hermes umbrella (if available): `medlearn-knowledge-evidence`
 - Ingestion changes to `originArtifactIds`: `.agents/skills/medlearn-review-ingestion/SKILL.md`
 
 ## Locator source priority (Phase 1 asthma)
@@ -105,7 +108,7 @@ delivery.
 | Page images | `generated/textbooks/internal-medicine-10/pages/{pageLabel}.webp` |
 | Page manifest | `generated/textbooks/internal-medicine-10/page_assets.json` |
 | Locators (section) | `generated/phase1_visual_evidence/source_locators/internal-medicine-10/{sectionId}.source_locators_v0.json` |
-| App page require map (Phase 1) | e.g. `constants/textbookPageAssets.ts` or generated manifest for Expo `require()` |
+| App page require map (Phase 1) | e.g. `constants/phase1PageImageAssets.ts` or generated manifest for Expo `require()` |
 | Display contract / bundle | evidence items with `sourceLocatorIds`, `pageLabel`, and the declared explicit lineage ID |
 | PageViewer route | accepts `pageAssetId` + `sourceLocatorIds` |
 
@@ -185,69 +188,41 @@ App rendering: prefer **`bboxNorm`** on rendered image size. Phase 6A confirmed
 asthma-scope bbox is **top-left origin, no Y-flip**: `bboxNorm = [x0/w, y0/h, x1/w, y1/h]`
 (PyMuPDF bbox already uses top-left origin). Do not apply a bottom-left → top-left flip.
 
-## Implementation steps
+## Process
 
-### Step 0 — Prerequisite gate
+Detailed step-by-step implementation (Step 0 through Step 7, including lineage
+export, page asset export, locator building, display contract merge,
+PageViewer wiring, Expo asset bundling, and verification) lives in
+`docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md`. That document is the
+authoritative implementation tutorial; this skill does not duplicate it.
 
-Run lineage audit / export (`audit_phase1_visual_evidence_origin.py`,
-`export_phase1_evidence_lineage.py`). For **支气管哮喘**, locators may come from
-`knowledge_nodes/*.evidence.json` when `originArtifactIds` are absent — see
-**Locator source priority** above.
+High-level flow:
 
-If neither explicit id join nor `originArtifactIds` can supply bbox: **stop**.
-Do not proceed with LLM or text matching.
+1. **Prerequisite gate** — run lineage audit/export; if neither explicit id
+   join nor `originArtifactIds` can supply bbox, **stop**. No LLM/text matching.
+2. **Lineage export** — build `pageLabel` ↔ `pdfPageIndex` map (never assume
+   `pdfPageIndex = int(pageLabel) - 1`); produce `SourceLocator` v0 JSON;
+   freeze `bboxNorm` as top-left/no-flip.
+3. **Page assets** — export `.webp` + `page_assets.json` for the target
+   section's pages only.
+4. **Source locators** — join through the declared locator source (asthma
+   `artifact_id` → `knowledge_nodes/*.evidence.json`, or `originArtifactIds` →
+   `source-artifacts` → PageAsset).
+5. **Display contract merge** — attach `sourceLocatorIds`, `pageLabel`,
+   preserved `rawText` to evidence items. App must **not** read parser
+   artifacts at runtime.
+6. **PageViewer** — render page image + `bboxNorm` highlights using
+   `TextbookEditorial.highlightFill` / `highlightBorder` tokens; never bake
+   highlights into webp; never hardcode RGBA in components.
+7. **Evidence UI** — add「**教材原文 P{pageLabel}**」on evidence toggle;
+   navigate to PageViewer.
+8. **Expo assets** — static `require()` map keyed by `localAssetKey`, not
+   runtime string paths.
+9. **Verify** — automated checks then APK manual pass.
 
-### Step 0.5 — Lineage export (before page assets)
-
-- `pageLabel` ↔ `pdfPageIndex` map (asthma pilot: `pdfPageNumber1Based` 62–70,
-  `pdfPageIndex` 0-based 61–69, printed `pageLabel` "31"–"39", `page_delta=31`;
-  verified p.64 BDT = printed p.33). Never assume `pdfPageIndex = int(pageLabel) - 1`.
-- `SourceLocator` v0 JSON (currently 276 unique locators covering 281 asthma
-  display evidence references; 5 are deduplicated repeats).
-- Coordinate calibration (`phase1_visual_evidence_coordinate_check/`); **bboxNorm**
-  frozen as top-left/no-flip (Phase 6A confirmed).
-
-### Step 1 — Export page assets
-
-- Scope: **支气管哮喘 section pages only** (from section page range + label map).
-- Produce `.webp` + `page_assets.json` with `imageWidth` / `imageHeight` per page.
-
-### Step 2 — Build source locators
-
-- Join through the declared locator source: asthma `artifact_id` →
-  `knowledge_nodes/*.evidence.json`, or `originArtifactIds` →
-  `source-artifacts` → PageAsset.
-- Output `source_locators.json` with all required fields (see contract above).
-
-### Step 3 — Merge into display contract / app bundle
-
-- Each evidence item: `sourceLocatorIds`, `pageLabel`, preserved `rawText` / text.
-- App must **not** read parser artifacts at runtime.
-
-### Step 4 — PageViewer
-
-- Input: `pageAssetId`, `sourceLocatorIds`.
-- Render page image; overlay highlights from `bboxNorm` using **marker-style fill**
-  (`backgroundColor: rgba(255, 230, 80, 0.45)`, optional `borderColor: rgba(230, 180, 0, 0.35)`,
-  `borderWidth: 1`) — not outline-only boxes. **Never bake highlights into webp.**
-- Show textbook title + `pageLabel`.
-- Fallback: page-only if bbox unavailable.
-
-**Calibration PNGs:** outline-only overlays are for engineering sign-off only;
-product UI must use semi-transparent highlighter fill.
-
-### Step 5 — Evidence UI
-
-- Add「**教材原文 P{pageLabel}**」on evidence toggle; navigate to PageViewer.
-
-### Step 6 — Expo / RN assets (Phase 1)
-
-- Local bundled pages: static `require()` map keyed by `localAssetKey` — **not**
-  runtime string paths like `uri: 'assets/...'`.
-
-### Step 7 — Verify
-
-Run automated checks (script or test) where possible; then APK manual pass.
+Current counts, page ranges, and Step completion status live in
+`docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md` and `generated/phase1_visual_evidence/`;
+do not copy them into this skill.
 
 ## Acceptance criteria
 
@@ -298,23 +273,21 @@ Do **not** implement in this active object:
 | Missing page image dimensions | Stop; re-export with width/height |
 | Expo dynamic asset path only | Stop; generate `require()` manifest |
 
-## Suggested Codex prompt (copy)
-
-```text
-Use `.agents/skills/medlearn-phase1-visual-evidence/SKILL.md`.
-
-Active object: phase1_document_tree_golden_path_validation
-
-Goal: Minimum visual evidence back-jump for Internal Medicine v10「第四章 支气管哮喘」.
-
-Scope: page assets, source locators, display contract locator IDs, PageViewer only.
-
-Acceptance: APK — tap「教材原文」on 支气管舒张试验 → correct page image + bbox on source paragraph.
-```
-
 ## Relation to other docs
 
 ```text
 docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md  → why + what (spec)
 this SKILL.md                                 → how + forbid + accept
 ```
+
+### Cross-skill coordination
+
+- Ingestion changes to `originArtifactIds` / `artifact_id` / `pageLabel` /
+  `bbox` on published sections must coordinate with
+  `.agents/skills/medlearn-review-ingestion/SKILL.md` (it declares this
+  dependency in its `## Cross-Reference` → `### Phase 1 visual evidence`).
+- UI changes to `EvidenceToggle` / `PageViewer` routes must coordinate with
+  `.agents/skills/medlearn-review-ui/SKILL.md` (it declares this dependency in
+  its `## Phase 1 Cross-Reference`).
+- This skill must not change Document Tree / catalog semantics; route catalog
+  changes through `medlearn-review-ingestion`.

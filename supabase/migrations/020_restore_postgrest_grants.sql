@@ -12,7 +12,6 @@ GRANT SELECT (
     difficulty,
     estimated_minutes,
     demographics,
-    patient_world,
     is_active,
     review_status,
     usage_count,

@@ -1,0 +1,54 @@
+# Deploy VitePress doc site to GitHub Pages
+# Triggered on pushes to main that touch site/ or this workflow.
+# After first deploy, enable Pages in repo Settings:
+#   Settings → Pages → Source → "GitHub Actions"
+#
+# The site lives at https://ldohgfsdu.github.io/Medlearn/
+
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate project version
+        run: npm run check:version
+
+      - name: Build VitePress site
+        run: npm run docs:build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/.vitepress/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

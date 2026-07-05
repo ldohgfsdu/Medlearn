@@ -1,0 +1,55 @@
+# Auto-create GitHub Release when a version tag is pushed.
+# Tags follow v<semver>, e.g. v2.0.0, v2.1.0
+# The release notes are auto-generated from commits since the last tag.
+
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate tag and repository
+        run: |
+          npm run check
+          test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Use git log to build structured notes
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            LOG_RANGE="HEAD"
+          else
+            LOG_RANGE="$PREV_TAG..HEAD"
+          fi
+          echo "## What's Changed" > release-notes.md
+          git log $LOG_RANGE --pretty=format:"- %s (%h)" --no-merges >> release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

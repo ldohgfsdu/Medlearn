@@ -123,7 +123,9 @@ def validate_ev1_normalized_payload(
         if converted != len(nodes):
             result.errors.append("conversion_summary.converted does not match nodes length")
         if int(summary.get("skipped_needs_review") or 0) > 0:
-            result.warnings.append("needs_review candidates were skipped and require editorial review")
+            result.warnings.append(
+                "needs_review organized conclusions were skipped; original source evidence can be displayed evidence-only after source QA"
+            )
         if int(summary.get("skipped_rejected") or 0) > 0:
             result.warnings.append("rejected candidates were skipped")
 

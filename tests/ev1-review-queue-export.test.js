@@ -219,6 +219,81 @@ test('EV1 source QA queue matches display evidence after control-character clean
   assert.equal(queue.items[0].appDisplay.presence, 'evidence_only')
 })
 
+test('EV1 source QA treats node-level evidence as an attachment, not organized copy', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'medlearn-source-qa-attachment-'))
+  const sourceRoot = path.join(tmp, 'knowledge_nodes', 'internal-medicine-10')
+  const displayRoot = path.join(tmp, 'display_contracts', 'internal-medicine-10')
+  const sectionId = 'fixture-attachment'
+
+  writeJson(path.join(sourceRoot, `${sectionId}.evidence.synthesis.json`), {
+    items: [{
+      artifact_id: 'artifact-attachment',
+      item_index: 0,
+      title: 'Needs-review source fragment',
+      content: 'Source fragment.',
+      evidence: 'Source fragment.',
+      risk_class: 'needs_review',
+      source_heading: 'Source heading',
+      page_start: 1,
+      page_end: 1,
+      verification_state: 'needs_review',
+      verification_notes: [],
+    }],
+  })
+  writeJson(path.join(sourceRoot, `${sectionId}.evidence.json`), {
+    artifacts: [{
+      id: 'artifact-attachment',
+      page_start: 1,
+      page_end: 1,
+      source_order: 1,
+      source_heading: 'Source heading',
+      raw_text: 'Source fragment.',
+    }],
+  })
+  writeJson(path.join(sourceRoot, `${sectionId}.normalized.json`), { nodes: [] })
+  writeJson(path.join(displayRoot, `${sectionId}.display_contract.json`), {
+    nodes: [{
+      id: 'view-organized-with-source',
+      render_type: 'grouped',
+      publication_state: 'organized',
+      display: {
+        title: 'Verified organized item',
+        body: 'Separately verified display copy.',
+        page_label: 'p.1',
+        items: [{
+          title: 'Verified organized item',
+          body: 'Separately verified display copy.',
+          publication_state: 'organized',
+          evidence_artifact_ids: ['different-artifact'],
+        }],
+      },
+      evidence_items: [{
+        artifact_id: 'artifact-attachment',
+        text: 'Source fragment.',
+        page_start: 1,
+        page_end: 1,
+      }],
+    }],
+  })
+
+  const queue = runQueueExport([
+    '--section-id',
+    sectionId,
+    '--source-root',
+    sourceRoot,
+    '--display-contract-root',
+    displayRoot,
+  ])
+
+  assert.equal(queue.summary.sourceEvidenceVisibleCount, 1)
+  assert.equal(queue.summary.missingFromDisplayContractCount, 0)
+  assert.equal(queue.summary.issueTypeCounts.none, 1)
+  assert.equal(queue.items[0].organizedConclusionVisible, false)
+  assert.equal(queue.items[0].appDisplay.presence, 'attached_evidence')
+  assert.equal(queue.items[0].displayMode, 'evidence_attachment')
+  assert.equal(queue.items[0].publicationAction, 'show_as_expandable_source_evidence_only')
+})
+
 test('EV1 source QA queue includes rejected standard-risk source extraction', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'medlearn-source-qa-'))
   const sourceRoot = path.join(tmp, 'knowledge_nodes', 'internal-medicine-10')

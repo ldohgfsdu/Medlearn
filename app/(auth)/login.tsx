@@ -12,7 +12,7 @@ import {
 import { useRouter, Link } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/theme'
+import { Colors, Typography, Spacing, BorderRadius, Shadows, FontFamily } from '@/constants/theme'
 
 export default function LoginScreen() {
   const router = useRouter()
@@ -47,7 +47,7 @@ export default function LoginScreen() {
       } else {
         router.replace('/(tabs)')
       }
-    } catch (e) {
+    } catch {
       setError('网络错误，请检查连接后重试')
     } finally {
       setLoading(false)
@@ -66,9 +66,9 @@ export default function LoginScreen() {
               <Text style={styles.logoLetter}>M</Text>
             </View>
           </View>
-          <Text style={styles.eyebrow}>CLINICAL LEARNING STUDIO</Text>
-          <Text style={styles.title}>Medlearn</Text>
-          <Text style={styles.subtitle}>AI 临床推理训练平台</Text>
+          <Text style={styles.eyebrow}>Clinical Learning Studio</Text>
+          <Text style={styles.title}>MedLearn</Text>
+          <Text style={styles.subtitle}>结构化医学知识与临床思维训练</Text>
         </View>
 
         <View style={styles.form}>
@@ -122,7 +122,7 @@ export default function LoginScreen() {
             activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={Colors.surface} />
             ) : (
               <Text style={styles.buttonText}>登录</Text>
             )}
@@ -149,6 +149,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     padding: Spacing['2xl'],
   },
   header: {
@@ -177,21 +180,21 @@ const styles = StyleSheet.create({
   logoLetter: {
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#E7DCC9',
+    fontFamily: FontFamily.sans,
   },
   eyebrow: {
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
     color: Colors.textTertiary,
     marginBottom: Spacing.xs,
   },
   title: {
     ...Typography.displayMedium,
     color: Colors.textPrimary,
-    letterSpacing: -1,
+    fontFamily: FontFamily.sans,
   },
   subtitle: {
     ...Typography.bodyMedium,
@@ -227,11 +230,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Colors.errorBg,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: Colors.errorBorder,
   },
   errorText: {
     ...Typography.bodySmall,
@@ -239,7 +242,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    backgroundColor: Colors.ink,
+    backgroundColor: Colors.primary[700],
     borderRadius: BorderRadius.full,
     padding: Spacing.base,
     alignItems: 'center',
@@ -253,8 +256,9 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     ...Typography.labelLarge,
-    color: '#fff',
+    color: Colors.surface,
     fontSize: 16,
+    fontWeight: '500',
   },
   linkButton: {
     alignItems: 'center',

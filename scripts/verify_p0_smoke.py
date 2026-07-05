@@ -116,139 +116,169 @@ def check_remote_db() -> dict[str, Any]:
     if not url or not key:
         return {"skipped": True, "reason": "missing SUPABASE credentials"}
 
-    from supabase import create_client
+    try:
+        from supabase import create_client
 
-    client = create_client(url, key)
-    issues: list[str] = []
+        client = create_client(url, key)
+        issues: list[str] = []
 
-    nodes: list[dict[str, Any]] = []
-    page_size = 1000
-    offset = 0
-    while True:
-        nodes_resp = (
-            client.table("knowledge_nodes")
-            .select("id, related_nodes, causal_links")
-            .eq("book_id", TEXTBOOK_ID)
-            .range(offset, offset + page_size - 1)
-            .execute()
-        )
-        batch = nodes_resp.data or []
-        nodes.extend(batch)
-        if len(batch) < page_size:
-            break
-        offset += page_size
-    node_ids = {row["id"] for row in nodes}
+        nodes: list[dict[str, Any]] = []
+        page_size = 1000
+        offset = 0
+        while True:
+            nodes_resp = (
+                client.table("knowledge_nodes")
+                .select("id, related_nodes, causal_links")
+                .eq("book_id", TEXTBOOK_ID)
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            batch = nodes_resp.data or []
+            nodes.extend(batch)
+            if len(batch) < page_size:
+                break
+            offset += page_size
+        node_ids = {row["id"] for row in nodes}
 
-    v3_in_nodes = [row["id"] for row in nodes if str(row.get("id", "")).startswith("v3-")]
-    if v3_in_nodes:
-        issues.append(f"knowledge_nodes contains {len(v3_in_nodes)} v3-* primary ids")
+        v3_in_nodes = [
+            row["id"] for row in nodes if str(row.get("id", "")).startswith("v3-")
+        ]
+        if v3_in_nodes:
+            issues.append(f"knowledge_nodes contains {len(v3_in_nodes)} v3-* primary ids")
 
-    orphan_related = 0
-    orphan_targets = 0
-    for row in nodes:
-        for ref in row.get("related_nodes") or []:
-            ref_s = str(ref)
-            if ref_s.startswith("v3-"):
-                orphan_related += 1
-            elif ref_s not in node_ids:
-                orphan_related += 1
-        for link in row.get("causal_links") or []:
-            if not isinstance(link, dict):
-                continue
-            target_id = str(link.get("target_id") or "")
-            if target_id.startswith("v3-") or (target_id and target_id not in node_ids):
-                orphan_targets += 1
+        orphan_related = 0
+        orphan_targets = 0
+        for row in nodes:
+            for ref in row.get("related_nodes") or []:
+                ref_s = str(ref)
+                if ref_s.startswith("v3-"):
+                    orphan_related += 1
+                elif ref_s not in node_ids:
+                    orphan_related += 1
+            for link in row.get("causal_links") or []:
+                if not isinstance(link, dict):
+                    continue
+                target_id = str(link.get("target_id") or "")
+                if target_id.startswith("v3-") or (
+                    target_id and target_id not in node_ids
+                ):
+                    orphan_targets += 1
 
-    chunks_resp = (
-        client.table("document_chunks")
-        .select("id", count="exact")
-        .eq("document_name", TEXTBOOK_ID)
-        .execute()
-    )
-    chunk_count = chunks_resp.count or 0
-    if chunk_count == 0:
-        issues.append("document_chunks is empty for internal-medicine-10")
-
-    chains_resp = (
-        client.table("causal_chains")
-        .select("id", count="exact")
-        .eq("source", "pipeline_v3")
-        .execute()
-    )
-    chain_count = chains_resp.count or 0
-    if chain_count == 0:
-        issues.append("causal_chains has no pipeline_v3 rows")
-
-    manifest = load_yaml(MANIFEST_PATH)
-    verified = iter_verified_sections(manifest)
-    sections_without_chunks = 0
-    for part_title, section_title in verified[:5]:
-        probe = (
-            client.table("knowledge_nodes")
-            .select("id")
-            .eq("book_id", TEXTBOOK_ID)
-            .eq("chapter", part_title)
-            .eq("sub_chapter", section_title)
-            .limit(1)
-            .execute()
-        )
-        if not probe.data:
-            continue
-        node_id = probe.data[0]["id"]
-        chunk_probe = (
+        chunks_resp = (
             client.table("document_chunks")
             .select("id", count="exact")
-            .eq("related_node_id", node_id)
+            .eq("document_name", TEXTBOOK_ID)
             .execute()
         )
-        if (chunk_probe.count or 0) == 0:
-            sections_without_chunks += 1
+        chunk_count = chunks_resp.count or 0
+        if chunk_count == 0:
+            issues.append("document_chunks is empty for internal-medicine-10")
 
-    if sections_without_chunks:
-        issues.append(
-            f"sampled verified sections missing chunks: {sections_without_chunks}/5"
+        chains_resp = (
+            client.table("causal_chains")
+            .select("id", count="exact")
+            .eq("source", "pipeline_v3")
+            .execute()
         )
-    if orphan_related:
-        issues.append(f"orphan related_nodes references: {orphan_related}")
-    if orphan_targets:
-        issues.append(f"orphan causal_links.target_id references: {orphan_targets}")
+        chain_count = chains_resp.count or 0
+        if chain_count == 0:
+            issues.append("causal_chains has no pipeline_v3 rows")
 
-    return {
-        "skipped": False,
-        "node_count": len(nodes),
-        "v3_primary_ids": len(v3_in_nodes),
-        "orphan_related_refs": orphan_related,
-        "orphan_causal_targets": orphan_targets,
-        "document_chunks": chunk_count,
-        "causal_chains_v3": chain_count,
-        "issues": issues,
-    }
+        manifest = load_yaml(MANIFEST_PATH)
+        verified = iter_verified_sections(manifest)
+        sections_without_chunks = 0
+        for part_title, section_title in verified[:5]:
+            probe = (
+                client.table("knowledge_nodes")
+                .select("id")
+                .eq("book_id", TEXTBOOK_ID)
+                .eq("chapter", part_title)
+                .eq("sub_chapter", section_title)
+                .limit(1)
+                .execute()
+            )
+            if not probe.data:
+                continue
+            node_id = probe.data[0]["id"]
+            chunk_probe = (
+                client.table("document_chunks")
+                .select("id", count="exact")
+                .eq("related_node_id", node_id)
+                .execute()
+            )
+            if (chunk_probe.count or 0) == 0:
+                sections_without_chunks += 1
+
+        if sections_without_chunks:
+            issues.append(
+                f"sampled verified sections missing chunks: {sections_without_chunks}/5"
+            )
+        if orphan_related:
+            issues.append(f"orphan related_nodes references: {orphan_related}")
+        if orphan_targets:
+            issues.append(f"orphan causal_links.target_id references: {orphan_targets}")
+
+        return {
+            "skipped": False,
+            "node_count": len(nodes),
+            "v3_primary_ids": len(v3_in_nodes),
+            "orphan_related_refs": orphan_related,
+            "orphan_causal_targets": orphan_targets,
+            "document_chunks": chunk_count,
+            "causal_chains_v3": chain_count,
+            "issues": issues,
+        }
+    except Exception as exc:
+        return {
+            "skipped": False,
+            "issues": [f"remote DB verification failed: {type(exc).__name__}: {exc}"],
+        }
 
 
-def main() -> int:
-    try:
-        from dotenv import load_dotenv
+def build_report(*, include_remote: bool = False) -> dict[str, Any]:
+    remote_db: dict[str, Any]
+    if include_remote:
+        remote_db = check_remote_db()
+    else:
+        remote_db = {
+            "skipped": True,
+            "reason": "remote verification not requested; pass --remote to enable",
+        }
 
-        load_dotenv(PROJECT_ROOT / ".env")
-    except ImportError:
-        pass
-
-    parser = argparse.ArgumentParser(description="P0 smoke verification")
-    parser.add_argument("--json", action="store_true", help="Print JSON report")
-    args = parser.parse_args()
-
-    report = {
+    report: dict[str, Any] = {
         "local_caches": check_local_normalized_caches(),
         "state_manifest": check_state_manifest_consistency(),
-        "remote_db": check_remote_db(),
+        "remote_db": remote_db,
     }
-    all_issues = []
+    all_issues: list[str] = []
     for section in report.values():
         if isinstance(section, dict):
             all_issues.extend(section.get("issues") or [])
 
     report["passed"] = len(all_issues) == 0
     report["issue_count"] = len(all_issues)
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="P0 smoke verification")
+    parser.add_argument("--json", action="store_true", help="Print JSON report")
+    parser.add_argument(
+        "--remote",
+        action="store_true",
+        help="Load .env and verify Supabase state (network access required)",
+    )
+    args = parser.parse_args()
+
+    if args.remote:
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(PROJECT_ROOT / ".env")
+        except ImportError:
+            pass
+
+    report = build_report(include_remote=args.remote)
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -263,7 +293,10 @@ def main() -> int:
                     print(f"  {key}: {value}")
             for issue in section.get("issues") or []:
                 print(f"  ISSUE: {issue}")
-        print(f"\nResult: {'PASS' if report['passed'] else 'FAIL'} ({len(all_issues)} issues)")
+        print(
+            f"\nResult: {'PASS' if report['passed'] else 'FAIL'} "
+            f"({report['issue_count']} issues)"
+        )
 
     return 0 if report["passed"] else 1
 

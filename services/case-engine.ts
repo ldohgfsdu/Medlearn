@@ -5,9 +5,9 @@
 
 import { supabase } from '@/lib/supabase'
 import { intentParser, type Intent, type IntentType } from './intent-parser'
-import { CasePhase, PHASE_ORDER } from '@/constants/vindicate'
+import { CasePhase } from '@/constants/vindicate'
 import { trackCaseEvent } from './analytics'
-import { requestCasePatientResponse } from './case-patient'
+import { requestCasePatientResponse, requestCasePatientTurn } from './case-patient'
 
 // ============================================
 // 类型定义
@@ -22,7 +22,6 @@ export interface CaseTemplate {
   difficulty: string
   estimated_minutes?: number
   demographics: Demographics
-  patient_world: PatientWorld
   is_active: boolean
   review_status: 'draft' | 'reviewed' | 'approved'
 }
@@ -34,45 +33,6 @@ export interface Demographics {
   education: string
   emotion: string
   presentationContext: string
-}
-
-export interface PatientWorld {
-  chiefComplaint: string
-  history: {
-    presentIllness: HistoryField[]
-    pastMedical: HistoryField[]
-    medications: HistoryField[]
-    allergies: HistoryField[]
-    social: HistoryField[]
-    family: HistoryField[]
-  }
-  physicalExam: Record<string, { findings: ExamFinding[] }>
-  investigations: Record<string, InvestigationResult>
-}
-
-export interface HistoryField {
-  id: string
-  field: string
-  answer: string
-  patientVoice: string
-  importance: 'critical' | 'important' | 'optional'
-  category: string
-}
-
-export interface ExamFinding {
-  name: string
-  value: string
-  isAbnormal: boolean
-  significance?: string
-}
-
-export interface InvestigationResult {
-  testName: string
-  result: string
-  unit?: string
-  reference?: string
-  interpretation?: string
-  flag: 'normal' | 'abnormal' | 'high' | 'low' | 'critical_high' | 'critical_low'
 }
 
 export interface RevealedState {
@@ -133,33 +93,6 @@ const PHASE_PERMISSIONS: Record<IntentType, CasePhase[]> = {
 
 const VALID_PHASES = new Set<string>(Object.values(CasePhase))
 
-/** Maps intent-parser targets to case_templates history field ids. */
-const HISTORY_TARGET_ALIASES: Record<string, string> = {
-  hpi_onset: 'onset',
-  hpi_duration: 'duration',
-  hpi_location: 'site',
-  hpi_character: 'character',
-  hpi_radiation: 'radiation',
-  hpi_severity: 'severity',
-  hpi_aggravating: 'aggravating',
-  hpi_relieving: 'relieving',
-  hpi_associated: 'associated',
-  hpi_previous: 'previous',
-  pmh_diseases: 'past_medical',
-  medications: 'medications',
-  allergies: 'allergies',
-  social_smoking: 'smoking',
-  social_alcohol: 'alcohol',
-  family_history: 'family',
-}
-
-/** Alpha seed placeholders — not case-specific enough; prefer AI patient voice. */
-const GENERIC_PRESET_VOICES = new Set([
-  '突然就开始不舒服了',
-  '就是现在说的这个地方',
-  '已经好几个小时了',
-])
-
 export function isValidPhase(phase: string): phase is CasePhase {
   return VALID_PHASES.has(phase)
 }
@@ -180,7 +113,7 @@ export class CaseEngine {
   async startCase(caseId: string, userId: string): Promise<{ sessionId: string; template: CaseTemplate; state: CaseState }> {
     const { data: template, error } = await supabase
       .from('case_templates')
-      .select('id,case_code,title,chief_complaint,specialty,difficulty,estimated_minutes,demographics,patient_world,is_active,review_status')
+      .select('id,case_code,title,chief_complaint,specialty,difficulty,estimated_minutes,demographics,is_active,review_status')
       .eq('id', caseId)
       .eq('is_active', true)
       .eq('review_status', 'approved')
@@ -321,10 +254,10 @@ export class CaseEngine {
         break
       }
       case 'physical_exam':
-        response = this.handleExamRequest(state, template, intent)
+        response = await this.handleExamRequest(sessionId, state, intent)
         break
       case 'order_test':
-        response = this.handleTestOrder(state, template, intent)
+        response = await this.handleTestOrder(sessionId, state, intent)
         break
       case 'mention_diagnosis':
         response = this.handleDiagnosisMention(state, template, intent)
@@ -381,23 +314,8 @@ export class CaseEngine {
       hintsUsed: loadedState.hintsUsed + 1,
       turnCount: loadedState.turnCount + 1,
     }
-    const allHistory = [
-      ...template.patient_world.history.presentIllness,
-      ...template.patient_world.history.pastMedical,
-      ...template.patient_world.history.medications,
-      ...template.patient_world.history.allergies,
-      ...template.patient_world.history.social,
-      ...template.patient_world.history.family,
-    ]
-    const nextField = allHistory.find(
-      (field) =>
-        !state.revealed.historyFields.includes(field.id) &&
-        (field.importance === 'critical' || field.importance === 'important'),
-    )
-    const hint = nextField
-      ? `提示：可以进一步询问“${nextField.field}”，但仍需要你自己判断它的意义。`
-      : '提示：回看已经获得的病史、查体和检查结果，找出能够同时解释最多异常的线索。'
-
+    const hintTurn = await requestCasePatientTurn(sessionId, 'hint', { intentType: 'hint' })
+    const hint = hintTurn.response
     await this.saveState(sessionId, state)
     const { error: messageError } = await supabase.from('case_messages').insert({
       session_id: sessionId,
@@ -419,7 +337,7 @@ export class CaseEngine {
       properties: {
         hintsUsed: state.hintsUsed,
         maxHints: state.maxHints,
-        suggestedField: nextField?.id ?? null,
+        suggestedField: hintTurn.revealed?.hintFieldId ?? null,
       },
     })
 
@@ -436,91 +354,60 @@ export class CaseEngine {
     sessionId: string,
     userMessage: string,
     state: CaseState,
-    template: CaseTemplate,
+    _template: CaseTemplate,
     intent: Intent,
   ): Promise<{ response: string; source: 'preset' | 'ai' }> {
-    const preset = this.tryHistoryPreset(state, template, intent)
-    if (preset) {
-      return { response: preset, source: 'preset' }
+    const turn = await requestCasePatientTurn(sessionId, userMessage, {
+      intentType: 'ask_history',
+      target: intent.target,
+    })
+    const historyFieldId = turn.revealed?.historyFieldId
+    if (historyFieldId && !state.revealed.historyFields.includes(historyFieldId)) {
+      state.revealed.historyFields.push(historyFieldId)
     }
     this.ensureHistoryPhase(state)
-    return {
-      response: await this.handleUnknownInput(sessionId, userMessage),
-      source: 'ai',
-    }
+    return { response: turn.response, source: turn.source === 'preset' ? 'preset' : 'ai' }
   }
 
-  private tryHistoryPreset(
-    state: CaseState,
-    template: CaseTemplate,
-    intent: Intent,
-  ): string | null {
-    const target = intent.target
-    if (!target) return null
-
-    const field = this.findHistoryField(target, template.patient_world)
-    if (!field || this.isGenericPresetVoice(field.patientVoice)) return null
-
-    if (!state.revealed.historyFields.includes(field.id)) {
-      state.revealed.historyFields.push(field.id)
-    }
-    this.ensureHistoryPhase(state)
-    return field.patientVoice
-  }
-
-  private isGenericPresetVoice(voice: string): boolean {
-    const trimmed = voice.trim()
-    return !trimmed || GENERIC_PRESET_VOICES.has(trimmed)
-  }
-
-  private handleExamRequest(state: CaseState, template: CaseTemplate, intent: Intent): string {
+  private async handleExamRequest(sessionId: string, state: CaseState, intent: Intent): Promise<string> {
     const region = intent.target
     if (!region) return '医生，您想检查什么？'
 
-    const examData = template.patient_world.physicalExam[region]
-    if (!examData) return '这个部位我没有异常发现。'
-
-    if (!state.revealed.examPerformed.includes(region)) {
-      state.revealed.examPerformed.push(region)
+    const turn = await requestCasePatientTurn(sessionId, region, {
+      intentType: 'physical_exam',
+      target: region,
+    })
+    const examId = turn.revealed?.examId ?? region
+    if (!state.revealed.examPerformed.includes(examId)) {
+      state.revealed.examPerformed.push(examId)
     }
     if (state.currentPhase === CasePhase.HISTORY) {
       state.currentPhase = CasePhase.EXAM
     }
 
-    const findings = examData.findings
-      .map((f) => {
-        const abnormal = f.isAbnormal ? ' ⚠️' : ''
-        const significance = f.significance ? ` (${f.significance})` : ''
-        return `${f.name}: ${f.value}${abnormal}${significance}`
-      })
-      .join('\n')
-
-    return `【查体结果】\n${findings}`
+    return turn.response
   }
 
-  private handleTestOrder(state: CaseState, template: CaseTemplate, intent: Intent): string {
+  private async handleTestOrder(sessionId: string, state: CaseState, intent: Intent): Promise<string> {
     const testId = intent.target
     if (!testId) return '医生，您想开什么检查？'
 
-    const testData = template.patient_world.investigations[testId]
-    if (!testData) return '这个检查我们医院暂时做不了。'
-
-    if (!state.revealed.testsOrdered.includes(testId)) {
-      state.revealed.testsOrdered.push(testId)
+    const turn = await requestCasePatientTurn(sessionId, testId, {
+      intentType: 'order_test',
+      target: testId,
+    })
+    const revealedTestId = turn.revealed?.testId ?? testId
+    if (!state.revealed.testsOrdered.includes(revealedTestId)) {
+      state.revealed.testsOrdered.push(revealedTestId)
     }
-    if (!state.revealed.testsResultsReleased.includes(testId)) {
-      state.revealed.testsResultsReleased.push(testId)
+    if (!state.revealed.testsResultsReleased.includes(revealedTestId)) {
+      state.revealed.testsResultsReleased.push(revealedTestId)
     }
     if (state.currentPhase === CasePhase.EXAM || state.currentPhase === CasePhase.HISTORY) {
       state.currentPhase = CasePhase.TESTS
     }
 
-    let result = `【${testData.testName}】\n`
-    result += testData.result
-    if (testData.unit) result += ` ${testData.unit}`
-    if (testData.reference) result += ` (参考值: ${testData.reference})`
-    if (testData.interpretation) result += `\n解读: ${testData.interpretation}`
-    return result
+    return turn.response
   }
 
   private handleDiagnosisMention(state: CaseState, _template: CaseTemplate, _intent: Intent): string {
@@ -564,29 +451,6 @@ export class CaseEngine {
     }
   }
 
-  private findHistoryField(target: string, patientWorld: PatientWorld): HistoryField | null {
-    const allFields = [
-      ...patientWorld.history.presentIllness,
-      ...patientWorld.history.pastMedical,
-      ...patientWorld.history.medications,
-      ...patientWorld.history.allergies,
-      ...patientWorld.history.social,
-      ...patientWorld.history.family,
-    ]
-    const resolvedTarget = HISTORY_TARGET_ALIASES[target] ?? target
-    const targetLower = resolvedTarget.toLowerCase()
-    return (
-      allFields.find((f) => f.id === resolvedTarget)
-      || allFields.find((f) => f.field.toLowerCase() === targetLower)
-      || allFields.find(
-        (f) =>
-          f.field.toLowerCase().includes(targetLower)
-          || targetLower.includes(f.field.toLowerCase()),
-      )
-      || null
-    )
-  }
-
   private async loadContext(sessionId: string, userId: string): Promise<{ state: CaseState; template: CaseTemplate }> {
     const { data: session, error } = await supabase
       .from('case_sessions')
@@ -601,7 +465,7 @@ export class CaseEngine {
 
     const { data: template } = await supabase
       .from('case_templates')
-      .select('id,case_code,title,chief_complaint,specialty,difficulty,estimated_minutes,demographics,patient_world,is_active,review_status')
+      .select('id,case_code,title,chief_complaint,specialty,difficulty,estimated_minutes,demographics,is_active,review_status')
       .eq('id', session.case_id)
       .eq('is_active', true)
       .eq('review_status', 'approved')
