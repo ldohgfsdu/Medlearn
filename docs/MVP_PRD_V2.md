@@ -26,22 +26,31 @@ MedLearn 不面向：
 - 医院 credentialing 或正式能力评估；
 - 机构管理者或团队管理场景。
 
-## 3. Core User Journey
+## 3. Core Capabilities And Journeys
 
-用户每天的核心使用路径是：
+Knowledge 与 Case Simulator 是平级、完全独立的核心能力，不构成强制漏斗。
 
-1. 进入 MedLearn。
-2. 通过 Search 进入结构化医学 Knowledge。
-3. 阅读或复习与当前学习目标相关的知识。
-4. 进入 Case Simulator，围绕一个临床场景进行推理训练。
-5. 在病例中完成患者信息收集、查体/检查、诊断与处理决策。
-6. 获得 Scoring / Feedback。
-7. 根据反馈修正一个明确的薄弱点。
+### Knowledge Journey
 
-MVP 的学习目标不是让用户“看过内容”，而是让用户完成：
+1. 用户通过 Search 或 Catalog 进入结构化医学 Knowledge。
+2. 用户阅读教材依据、结构化要点和概念关系。
+3. 用户完成理论知识的查找、理解或复习。
+
+### Case Simulator Journey
+
+1. 用户可以不经过 Knowledge，直接从主诉开始病例。
+2. 用户完成患者信息收集、查体/检查、诊断与处理决策。
+3. 用户获得 Scoring / Feedback。
+4. 用户根据反馈修正一个明确的薄弱点。
+
+Case Simulator 的作用是训练 **Knowledge Application**：把学习者已经掌握的理论知识迁移到临床情境。病例反馈可以提供相关 Knowledge 的可选链接，但不得建立前置学习、解锁关系、强制跳转或完成依赖。
+
+MVP 支持两条独立路径，并允许用户自主跨越：
 
 ```text
-知识输入 → 框架组织 → 病例推理 → 反馈修正
+Knowledge：查找 → 理解 → 复习
+
+Case Simulator：临床应用 → 评分反馈 → 修正
 ```
 
 ## 4. Product Layers
@@ -93,6 +102,8 @@ MVP V2 使用以下优先级原则：
 - **Knowledge**：结构化医学知识是基础。
 - **Case Simulator**：临床推理病例训练是终点。
 - **Scoring / Feedback**：没有反馈，训练不会形成闭环。
+
+Knowledge 与 Case Simulator 均可独立进入和完成。这里的“基础”和“终点”描述产品能力层级，不规定单次使用顺序。
 
 ### Core Access
 
