@@ -69,6 +69,10 @@ export const Colors = {
 // 字体系统（PRD 24）
 // ============================================
 
+export const FontFamily = {
+  sans: 'sans-serif',
+  serif: 'serif',
+} as const
 export const Typography = {
   // 字号体系
   displayLarge: { fontSize: 48, lineHeight: 53, fontWeight: '800' as const },
@@ -82,7 +86,9 @@ export const Typography = {
   labelLarge: { fontSize: 14, lineHeight: 20, fontWeight: '500' as const },
   labelMedium: { fontSize: 13, lineHeight: 18, fontWeight: '500' as const },
   labelSmall: { fontSize: 11, lineHeight: 15, fontWeight: '500' as const },
-} as const
+  numberXL: { fontSize: 24, lineHeight: 30, fontWeight: '600' as const },
+  numberLarge: { fontSize: 20, lineHeight: 24, fontWeight: '600' as const },
+  numberMedium: { fontSize: 16, lineHeight: 20, fontWeight: '600' as const },} as const
 
 // ============================================
 // 间距系统（PRD 25）- 基于 4px 网格

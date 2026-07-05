@@ -30,10 +30,7 @@ export default function SearchPage() {
   const { data: results, isFetching } = useSearchNodes(query)
 
   const handleNodePress = (node: { id: string; title: string }) => {
-    router.push({
-      pathname: '/node/[id]',
-      params: { id: node.id, title: node.title },
-    })
+    router.push('/map')
   }
 
   return (

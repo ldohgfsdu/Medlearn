@@ -82,10 +82,7 @@ export default function LearningPathScreen() {
 
   const handleNodePress = (node: LearningPathNode) => {
     if (node.status === 'locked') return
-    router.push({
-      pathname: '/node/[id]',
-      params: { id: node.id, title: node.title },
-    })
+    router.push('/map')
   }
 
   return (

@@ -74,7 +74,7 @@ medlearn-*-review.png
 
 # Generated textbook artifacts and local source PDFs
 generated/
-textbook/
+/textbook/
 
 # Large binary files (unrelated to project)
 *.zip
