@@ -6,41 +6,45 @@
 ## Project
 
 - Name: `MedLearn`
-- Phase: `mvp_alpha_readiness`
+- Phase: `pdf_textbook_rebuild`
 
 ## Active Object
 
-### `local_demo_recovery`: Restore a locally runnable demo
+### `pdf_textbook_rebuild_pilot`: Rebuild PDF textbook pipeline from source assets
 
-Restore a locally runnable demo proving the project can deliver one complete Knowledge flow and one complete Case flow.
+Rebuild one usable chapter (支气管哮喘) from PDF source assets through the App textbook experience, proving structure tree, evidence, page image, and bbox highlight without consuming legacy bulk data. Pulmonary tuberculosis is preserved as a regression target, not an active deliverable in this object.
 
 
 **Scope**
 
-- `app/knowledge`
-- `app/search.tsx`
-- `app/lib/knowledge.ts`
-- `app/case`
-- `services/case-engine.ts`
-- `supabase/functions`
-- `npm run check`
+- `app/textbook/`
+- `services/textbookService.ts`
+- `services/phase1VisualEvidenceService.ts`
+- `components/textbook/`
+- `constants/phase1PageImageAssets.ts`
+- `docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md`
+- `docs/PIPELINE_INDEX.md`
+- `docs/adr/ADR-009-multimodal-evidence-artifacts.md`
 
 **Acceptance Criteria**
 
-- npm run check passes on Node 22.13.1
-- Knowledge search and detail pages load against knowledge_nodes
-- One approved case can complete end to end locally
-- validate_project_state.py passes
+- 支气管哮喘 (第二篇 呼吸系统疾病 / 第四章 支气管哮喘) renders as structured textbook content with a stable hierarchy in the App, not a flat knowledge card list.
+- The App does not consume legacy respiratory bulk extraction, old generated/knowledge_nodes, old document_chunks, or any unreviewed full-upload artifacts for this section.
+- Each user-visible node in the asthma section has traceable textbook evidence (page label and/or artifact linkage per ADR-009).
+- Sampled evidence in the asthma section can return to a page image or equivalent original textbook context with bbox highlight aligned to the source; bbox must come from PDF text-layer coordinates, never LLM-invented.
+- 肺结核 (第八章 肺结核) is preserved as a regression target and is not re-ingested as an active deliverable in this object.
 
 ## Blocked
 
 | ID | Title | Status | Blocked Reason |
 |---|---|---|---|
-| remote_supabase_validation | Validate the deployed Supabase environment | blocked | Deployment credentials, an initialized remote schema, and device validation are still required. |
+| remote_supabase_validation | Validate the deployed Supabase environment | blocked | Remote API E2E passed (npm run e2e:remote); iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md. |
 
 ## Paused
 
-No paused objects.
+| ID | Title | Status | Pause Reason |
+|---|---|---|---|
+| phase1_document_tree_golden_path_validation | Validate Document Tree golden-path reading experience in App | paused | Superseded by pdf_textbook_rebuild_pilot for clean-baseline rebuild; asthma remains the primary pilot, pulmonary tuberculosis is preserved as a regression target, not dropped. |
 
 ## Completed
 
@@ -59,7 +63,10 @@ No archived objects.
 
 ## Applicable Accepted ADRs
 
-No accepted ADR is indexed for the current Active Object.
+- [ADR-005: Textbook Versions Own Their Catalog And Evidence](../docs/adr/ADR-005-textbook-version-boundaries.md)
+- [ADR-007: Separate Catalog Position, Content Identity, And Detail Page](../docs/adr/ADR-007-separate-catalog-content-and-detail.md)
+- [ADR-008: Reuse Medical Concepts, Isolate Knowledge Detail Instances](../docs/adr/ADR-008-concept-reuse-detail-isolation.md)
+- [ADR-009: Preserve Text, Tables, Figures, And Captions As Evidence Artifacts](../docs/adr/ADR-009-multimodal-evidence-artifacts.md)
 
 ## State Sources
 

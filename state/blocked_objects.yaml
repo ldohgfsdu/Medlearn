@@ -33,3 +33,31 @@ objects:
     blocked_reason: Remote API E2E passed (npm run e2e:remote); iOS/Android device walkthrough still required per docs/E2E_ACCEPTANCE_CHECKLIST.md.
     reactivated_at: null
     reactivation_reason: null
+
+  - id: phase1_document_tree_golden_path_validation
+    title: Validate Document Tree golden-path reading experience in App
+    status: paused
+    objective: >
+      Earlier golden-path validation object covering asthma and pulmonary
+      tuberculosis structured textbook consumption. Superseded by
+      pdf_textbook_rebuild_pilot for the clean-baseline rebuild.
+    scope:
+      - app/textbook/
+      - services/textbookService.ts
+      - docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md
+    acceptance_criteria:
+      - Asthma and pulmonary tuberculosis sections can render as structured textbook content when revisited as regression targets.
+      - Evidence linkage and page-image return path remain available for regression checks.
+    dependencies: []
+    adr_tags:
+      - catalog_node
+      - evidence_artifact
+      - textbook_version
+    evidence:
+      - docs/PHASE1_VISUAL_EVIDENCE_SOURCE_LOOP.md
+    frozen: false
+    activated_at: "2026-06-26"
+    completed_at: null
+    blocked_reason: Superseded by pdf_textbook_rebuild_pilot for clean-baseline rebuild; asthma remains the primary pilot, pulmonary tuberculosis is preserved as a regression target, not dropped.
+    reactivated_at: null
+    reactivation_reason: null
